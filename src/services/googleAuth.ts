@@ -196,10 +196,16 @@ export async function fetchGoogleUserProfile(accessToken: string): Promise<{ ema
 }
 
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth as firebaseAuth } from './firebaseService';export async function requestGoogleSignIn(
-  sheetId: string,
-  workspace: CompanyWorkspace = TRISHARTH_WORKSPACE
-): Promise<{ user: AuthUser; sheetResult: VerifySheetAccessResult }> {
+import { auth as firebaseAuth } from './firebaseService';
+
+export interface GoogleAuthProfile {
+  uid: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+export async function authenticateWithGoogle(): Promise<GoogleAuthProfile> {
   try {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
@@ -210,40 +216,16 @@ import { auth as firebaseAuth } from './firebaseService';export async function r
       const email = fbUser.email || '';
       const name = fbUser.displayName || email.split('@')[0];
       const picture = fbUser.photoURL || undefined;
-
-      const isKnownOwner = email.toLowerCase().includes('atharvabalar') || 
-                           email.toLowerCase().includes('atharva') ||
-                           email.toLowerCase().includes('trishil') ||
-                           email.toLowerCase() === workspace.ownerEmail?.toLowerCase();
-
-      const authUser: AuthUser = {
-        id: fbUser.uid || `g_${Date.now()}`,
+      return {
+        uid: fbUser.uid,
         email,
         name,
-        picture,
-        role: isKnownOwner ? 'owner' : 'editor',
-        companyId: workspace.id,
-        companyName: workspace.name,
-        companyCode: workspace.code,
-        sheetAccessGranted: true,
-        sheetTitle: `${workspace.name} Operations Sheet`,
-        authMethod: 'google_oauth',
-        loginTimestamp: new Date().toISOString()
-      };
-
-      return {
-        user: authUser,
-        sheetResult: {
-          hasAccess: true,
-          role: authUser.role,
-          sheetTitle: `${workspace.name} Operations Sheet`
-        }
+        picture
       };
     }
     throw new Error('No user profile returned from Google.');
   } catch (fbErr: any) {
     console.error('Firebase Google Sign-In error details:', fbErr);
-    
     if (fbErr?.code === 'auth/popup-closed-by-user') {
       throw new Error('Google Sign-In popup was closed before completing authentication.');
     }
@@ -253,9 +235,67 @@ import { auth as firebaseAuth } from './firebaseService';export async function r
     if (fbErr?.code === 'auth/operation-not-allowed' || fbErr?.code === 'auth/configuration-not-found') {
       throw new Error('Google Sign-In is disabled: Please enable Google in Firebase Console > Authentication > Sign-in method.');
     }
-    
     throw new Error(fbErr?.message || 'Google Sign-In failed.');
   }
+}
+
+export function findWorkspaceByEmail(email: string): CompanyWorkspace | null {
+  if (!email) return null;
+  const cleanEmail = email.trim().toLowerCase();
+
+  // 1. Trisharth Owners & Team Members
+  if (
+    cleanEmail.includes('atharvabalar') ||
+    cleanEmail.includes('trishil') ||
+    cleanEmail.includes('drlaljirpatel') ||
+    cleanEmail.endsWith('@trisharth.internal') ||
+    TRISHARTH_TEAM_MEMBERS.some(m => m.email.toLowerCase() === cleanEmail)
+  ) {
+    return TRISHARTH_WORKSPACE;
+  }
+
+  // 2. Stored Workspaces by Owner Email
+  const workspaces = getStoredWorkspaces();
+  const matched = workspaces.find(w => w.ownerEmail?.toLowerCase() === cleanEmail);
+  if (matched) return matched;
+
+  return null;
+}
+
+export async function requestGoogleSignIn(
+  sheetId: string,
+  workspace: CompanyWorkspace = TRISHARTH_WORKSPACE
+): Promise<{ user: AuthUser; sheetResult: VerifySheetAccessResult }> {
+  const profile = await authenticateWithGoogle();
+  const email = profile.email;
+  const isKnownOwner = email.toLowerCase().includes('atharvabalar') || 
+                       email.toLowerCase().includes('atharva') ||
+                       email.toLowerCase().includes('trishil') ||
+                       email.toLowerCase() === workspace.ownerEmail?.toLowerCase();
+
+  const authUser: AuthUser = {
+    id: profile.uid || `g_${Date.now()}`,
+    email,
+    name: profile.name,
+    picture: profile.picture,
+    role: isKnownOwner ? 'owner' : 'editor',
+    companyId: workspace.id,
+    companyName: workspace.name,
+    companyCode: workspace.code,
+    sheetAccessGranted: true,
+    sheetTitle: `${workspace.name} Operations Sheet`,
+    authMethod: 'google_oauth',
+    loginTimestamp: new Date().toISOString()
+  };
+
+  return {
+    user: authUser,
+    sheetResult: {
+      hasAccess: true,
+      role: authUser.role,
+      sheetTitle: `${workspace.name} Operations Sheet`
+    }
+  };
 }
 
 // Direct OAuth token request for creating new sheets & Drive operations

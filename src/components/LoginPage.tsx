@@ -17,6 +17,8 @@ import {
 import { AuthUser } from '../types';
 import { 
   requestGoogleSignIn, 
+  authenticateWithGoogle,
+  findWorkspaceByEmail,
   createPresetSession, 
   TRISHARTH_TEAM_MEMBERS,
   TRISHARTH_WORKSPACE,
@@ -137,39 +139,70 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  // Handle Google OAuth Sign In
+  // Handle Google OAuth Sign In (Smart Routing: Existing -> Dashboard, New -> Sign Up)
   const handleGoogleSignIn = async () => {
-    if (!companyCode.trim()) {
-      setErrorMessage('Please enter your Company Code before signing in with Google.');
-      return;
-    }
-
     setIsLoading(true);
     setErrorMessage(null);
-    setAuthStep('Verifying Company Code...');
+    setSuccessMessage(null);
+    setAuthStep('Opening Google Sign-In...');
 
     try {
-      const workspace = await lookupCompanyByCode(companyCode);
+      const profile = await authenticateWithGoogle();
+      setAuthStep(`Google verified (${profile.email}). Checking company registry...`);
+
+      // 1. Check if user typed a company code OR has an existing company registered with this email
+      let workspace: CompanyWorkspace | null = null;
+      if (companyCode.trim()) {
+        workspace = await lookupCompanyByCode(companyCode.trim());
+      }
       if (!workspace) {
-        setErrorMessage(`Company Code "${companyCode.trim().toUpperCase()}" was not found.`);
-        setIsLoading(false);
-        setAuthStep('');
-        return;
+        workspace = findWorkspaceByEmail(profile.email);
       }
 
-      setRememberedCompanyCode(workspace.code);
-      setAuthStep('Connecting to Google Identity Services...');
-      const { user } = await requestGoogleSignIn(workspace.sheetId, workspace);
+      if (workspace) {
+        // Existing Workspace found! Automatically log in
+        setRememberedCompanyCode(workspace.code);
+        const isKnownOwner = profile.email.toLowerCase().includes('atharvabalar') || 
+                             profile.email.toLowerCase().includes('atharva') ||
+                             profile.email.toLowerCase().includes('trishil') ||
+                             profile.email.toLowerCase() === workspace.ownerEmail?.toLowerCase();
 
-      setAuthStep('Google account authorized! Entering dashboard...');
-      setTimeout(() => {
-        onLoginSuccess(user, workspace.sheetId);
-      }, 400);
+        const authUser: AuthUser = {
+          id: profile.uid || `g_${Date.now()}`,
+          email: profile.email,
+          name: profile.name,
+          picture: profile.picture,
+          role: isKnownOwner ? 'owner' : 'editor',
+          companyId: workspace.id,
+          companyName: workspace.name,
+          companyCode: workspace.code,
+          sheetAccessGranted: true,
+          sheetTitle: `${workspace.name} Operations Sheet`,
+          authMethod: 'google_oauth',
+          loginTimestamp: new Date().toISOString()
+        };
+
+        setAuthStep(`Welcome back, ${profile.name}! Launching ${workspace.name}...`);
+        setTimeout(() => {
+          onLoginSuccess(authUser, workspace.sheetId);
+        }, 350);
+      } else {
+        // First-time User: Redirect to Sign Up to choose Register Company or Join Company
+        setRegOwnerName(profile.name);
+        setRegOwnerEmail(profile.email);
+        setJoinEmployeeName(profile.name);
+        setJoinEmployeeEmail(profile.email);
+        
+        setAuthMode('signup');
+        setSignupType('choose');
+        setSuccessMessage(`Google account verified (${profile.email})! Please choose whether to register a new company or join an existing one.`);
+        setIsLoading(false);
+        setAuthStep('');
+      }
     } catch (err: any) {
       if (!err?.message?.includes('closed')) {
         setErrorMessage(err?.message || 'Google Sign-In failed.');
       }
-    } finally {
       setIsLoading(false);
       setAuthStep('');
     }
