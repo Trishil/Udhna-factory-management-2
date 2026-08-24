@@ -77,6 +77,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       return;
     }
 
+    if (!loginEmail.trim()) {
+      setErrorMessage('Please enter your Email or Name before signing in.');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
     setAuthStep('Verifying Company Code with Google Sheet Backend...');
@@ -93,7 +99,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setRememberedCompanyCode(workspace.code);
       setAuthStep(`Connecting to ${workspace.name}...`);
 
-      const email = loginEmail.trim() || workspace.ownerEmail || 'admin@' + workspace.code.toLowerCase() + '.internal';
+      const email = loginEmail.trim();
       const { user, sheetResult } = createPresetSession(email, workspace.sheetId, workspace);
 
       if (user.sheetAccessGranted) {
@@ -405,6 +411,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       <User className="h-4 w-4 text-slate-400 absolute left-3.5 top-3" />
                       <input
                         type="text"
+                        required
                         value={loginEmail}
                         onChange={(e) => setLoginEmail(e.target.value)}
                         placeholder="e.g. atharvabalar6@gmail.com"
