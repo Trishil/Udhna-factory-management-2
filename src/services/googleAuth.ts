@@ -246,16 +246,22 @@ export async function requestGoogleSignIn(
       };
     }
   } catch (fbErr: any) {
-    console.warn('Firebase Google Auth popup notice, testing Google Identity fallback:', fbErr);
+    console.warn('Firebase Google Auth error:', fbErr);
     if (fbErr?.code === 'auth/popup-closed-by-user' || fbErr?.message?.includes('closed')) {
-      throw new Error('Google Sign-In was cancelled by user.');
+      throw new Error('Google Sign-In popup was closed before completing authentication.');
+    }
+    if (fbErr?.code === 'auth/unauthorized-domain') {
+      throw new Error('Firebase Authorized Domain: Please add "ai.studio" and "textileflow.ai.studio" under Firebase Console > Authentication > Settings > Authorized domains.');
+    }
+    if (fbErr?.code === 'auth/operation-not-allowed' || fbErr?.code === 'auth/configuration-not-found') {
+      throw new Error('Google Sign-In is not enabled in Firebase Console. Please go to Firebase Console > Authentication > Sign-in method and enable Google.');
     }
   }
 
   // Method 2: Google Identity Services SDK Fallback
   return new Promise((resolve, reject) => {
     if (!isGsiLoaded()) {
-      reject(new Error('Google Sign-In SDK is loading. Please try again.'));
+      reject(new Error('Google Sign-In SDK is loading. Please check your network or try again.'));
       return;
     }
 
