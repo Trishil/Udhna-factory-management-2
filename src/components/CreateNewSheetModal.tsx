@@ -22,7 +22,7 @@ import {
   Tag
 } from 'lucide-react';
 import { createAutomatedFactorySpreadsheet } from '../services/googleSheetsApi';
-import { requestDirectGoogleOAuth } from '../services/googleAuth';
+import { requestDirectGoogleOAuth, DEFAULT_SHEET_ID } from '../services/googleAuth';
 import { RawMaterial, AuthUser, WorkflowItem, OrderSlip, Machine } from '../types';
 import confetti from 'canvas-confetti';
 
@@ -78,17 +78,17 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
   };
 
   const createSandboxSheet = (sheetTitle: string) => {
-    const mockId = `1${Math.random().toString(36).substring(2, 15)}_${Math.random().toString(36).substring(2, 10)}`;
-    const mockUrl = `https://docs.google.com/spreadsheets/d/${mockId}/edit`;
+    const validSheetId = DEFAULT_SHEET_ID || '1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw';
+    const validUrl = `https://docs.google.com/spreadsheets/d/${validSheetId}/edit`;
     
     setCreatedResult({
-      id: mockId,
-      url: mockUrl,
+      id: validSheetId,
+      url: validUrl,
       title: sheetTitle,
       mode: 'sandbox'
     });
 
-    onSpreadsheetCreated(mockId, mockUrl, sheetTitle);
+    onSpreadsheetCreated(validSheetId, validUrl, sheetTitle);
     confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
   };
 
