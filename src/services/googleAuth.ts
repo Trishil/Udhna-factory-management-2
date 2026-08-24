@@ -241,7 +241,6 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthProfile> {
 
 export function findWorkspaceByEmail(email: string): CompanyWorkspace | null {
   if (!email) return null;
-  const cleanEmail = email.trim().toLowerCase();
 
   // 1. Trisharth Owners & Team Members
   if (
@@ -329,7 +328,6 @@ export function requestDirectGoogleOAuth(): Promise<{ accessToken: string; user:
               email: profile.email,
               name: profile.name,
               picture: profile.picture,
-              accessToken,
               role: 'owner',
               companyId: 'trisharth',
               companyName: 'Trisharth',

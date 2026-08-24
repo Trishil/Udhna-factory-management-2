@@ -304,7 +304,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </div>
             <div>
               <span className="text-lg font-black tracking-tight text-slate-900 font-mono">
-                TexFlow
+                TextileFlow
               </span>
               <span className="ml-2 text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
                 Industrial Textile ERP
@@ -329,7 +329,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             {/* Header / Title */}
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {authMode === 'login' ? 'Sign In to TexFlow' : 'Get Started with TexFlow'}
+                {authMode === 'login' ? 'Sign In to TextileFlow' : 'Get Started with TextileFlow'}
               </h2>
               <p className="text-xs text-slate-500 mt-1">
                 {authMode === 'login' 
@@ -529,7 +529,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             {authMode === 'signup' && signupType === 'choose' && (
               <div className="space-y-3.5">
                 <p className="text-xs text-slate-600 mb-2 text-center">
-                  How would you like to set up your TexFlow access?
+                  How would you like to set up your TextileFlow access?
                 </p>
 
                 {/* Option A: Register New Company */}
@@ -550,7 +550,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
                       </div>
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        I am a factory owner setting up a private TexFlow workspace with my own Google Sheet &amp; company code.
+                        I am a factory owner setting up a private TextileFlow workspace with my own Google Sheet &amp; company code.
                       </p>
                     </div>
                   </div>
@@ -768,7 +768,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
           {/* Footer Note */}
           <div className="mt-6 text-center text-xs text-slate-500">
-            <span>Powered by <strong>TexFlow</strong> • Private Industrial Cloud</span>
+            <span>Powered by <strong>TextileFlow</strong> • Private Industrial Cloud</span>
           </div>
 
           {/* OAuth Diagnostics & Client ID Manager (Expandable) */}
@@ -814,7 +814,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       {/* Global Bottom Bar */}
       <footer className="relative z-10 py-3 text-center text-slate-500 text-[11px] border-t border-slate-200 bg-white/60">
         <div className="max-w-5xl mx-auto px-4 flex items-center justify-between text-[11px]">
-          <span>© 2026 TexFlow Industrial Cloud</span>
+          <span>© 2026 TextileFlow Industrial Cloud</span>
           <div className="flex items-center space-x-3 text-slate-600">
             <span className="flex items-center space-x-1 text-emerald-600 font-medium">
               <ShieldCheck className="h-3.5 w-3.5" />
