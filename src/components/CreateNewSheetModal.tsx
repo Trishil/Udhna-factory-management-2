@@ -104,20 +104,49 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
       return;
     }
 
-    try {
-      if (!currentUser?.accessToken) {
-        // Prompt Google Sign-in to get a live access token
-        setIsAuthenticating(true);
-        const { accessToken, user } = await requestDirectGoogleOAuth();
-        if (onUpdateCurrentUser) {
-          onUpdateCurrentUser(user);
-        }
-        setIsAuthenticating(false);
-        await executeCreationWithToken(accessToken, title);
-      } else {
-        // Try with current user token
+    // 1. Try Direct Google OAuth creation if accessToken exists
+    if (currentUser?.accessToken) {
+      try {
         await executeCreationWithToken(currentUser.accessToken, title);
+        setIsCreating(false);
+        return;
+      } catch (tokenErr) {
+        console.warn('OAuth direct token creation failed, falling back to Apps Script Cloud Backend...', tokenErr);
       }
+    }
+
+    // 2. Try Apps Script Cloud Webhook creation (Requires NO OAuth token or popup from browser!)
+    try {
+      const cloudUrl = `${DEFAULT_APPS_SCRIPT_URL}?action=create_company_sheet&companyName=${encodeURIComponent(title)}&ownerEmail=${encodeURIComponent(currentUser?.email || '')}&companyCode=${encodeURIComponent(currentUser?.companyCode || '')}`;
+      const res = await fetch(cloudUrl);
+      if (res.ok) {
+        const cloudData = await res.json();
+        if (cloudData.status === 'success' && cloudData.sheetId) {
+          setCreatedResult({
+            id: cloudData.sheetId,
+            url: cloudData.sheetUrl,
+            title: cloudData.title || title,
+            mode: 'google'
+          });
+          onSpreadsheetCreated(cloudData.sheetId, cloudData.sheetUrl, cloudData.title || title);
+          confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
+          setIsCreating(false);
+          return;
+        }
+      }
+    } catch (cloudErr) {
+      console.warn('Cloud webhook creation failed, falling back to Google OAuth prompt...', cloudErr);
+    }
+
+    // 3. Fallback to Google Sign-In prompt if both fail
+    try {
+      setIsAuthenticating(true);
+      const { accessToken, user } = await requestDirectGoogleOAuth();
+      if (onUpdateCurrentUser) {
+        onUpdateCurrentUser(user);
+      }
+      setIsAuthenticating(false);
+      await executeCreationWithToken(accessToken, title);
     } catch (err: any) {
       console.warn('Sheet creation failed:', err);
       const rawMsg = err.message || '';
@@ -130,7 +159,7 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
         rawMsg.includes('OAuth')
       ) {
         setIsAuthError(true);
-        setErrorMessage('Google Authentication Required: Your Google session is unauthenticated or the access token has expired. Please sign in with your Google account to grant spreadsheet creation permissions.');
+        setErrorMessage('Google Authentication Required: Your Google session is unauthenticated or the access token has expired. You can also use Sandbox Mode to test without Google account permissions.');
       } else {
         setErrorMessage(rawMsg || 'Failed to create Google Spreadsheet. Please verify your Google Account permissions.');
       }
