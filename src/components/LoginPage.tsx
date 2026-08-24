@@ -24,7 +24,11 @@ import {
   registerNewCompany,
   registerEmployeeAccount,
   getRememberedCompanyCode,
-  setRememberedCompanyCode
+  setRememberedCompanyCode,
+  getEffectiveOAuthClientId,
+  setCustomOAuthClientId,
+  OAUTH_CLIENT_ID,
+  FIREBASE_OAUTH_CLIENT_ID
 } from '../services/googleAuth';
 
 interface LoginPageProps {
@@ -725,6 +729,72 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           {/* Footer Note */}
           <div className="mt-6 text-center text-xs text-slate-500">
             <span>Powered by <strong>TexFlow</strong> • Private Industrial Cloud</span>
+          </div>
+
+          {/* OAuth Diagnostics & Client ID Manager (Expandable) */}
+          <div className="mt-4 p-3 bg-white/80 rounded-xl border border-slate-200 text-slate-700 text-xs">
+            <details className="cursor-pointer">
+              <summary className="font-bold text-slate-700 select-none flex items-center justify-between text-[11px]">
+                <span className="flex items-center space-x-1.5 text-blue-600">
+                  <KeyRound className="h-3.5 w-3.5" />
+                  <span>Google OAuth Diagnostics &amp; Client ID Manager</span>
+                </span>
+                <span className="text-[10px] text-slate-500">Configure</span>
+              </summary>
+              
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5 text-[11px]">
+                <div>
+                  <span className="text-slate-500 block font-semibold">Current Browser Origin (Whitelist in Google Cloud):</span>
+                  <code className="bg-slate-100 text-slate-800 px-2 py-1 rounded text-[10px] font-mono select-all block mt-0.5 break-all">
+                    {typeof window !== 'undefined' ? window.location.origin : 'https://textileflow.ai.studio'}
+                  </code>
+                </div>
+
+                <div>
+                  <span className="text-slate-500 block font-semibold">Active OAuth Client ID:</span>
+                  <code className="bg-slate-100 text-slate-800 px-2 py-1 rounded text-[10px] font-mono select-all block mt-0.5 break-all">
+                    {getEffectiveOAuthClientId()}
+                  </code>
+                </div>
+
+                <div className="pt-1">
+                  <span className="text-slate-600 font-semibold block mb-1">Quick Switch Client ID:</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomOAuthClientId(OAUTH_CLIENT_ID);
+                        window.location.reload();
+                      }}
+                      className={`p-1.5 rounded-lg border text-left text-[10px] ${
+                        getEffectiveOAuthClientId() === OAUTH_CLIENT_ID
+                          ? 'border-blue-600 bg-blue-50 text-blue-800 font-bold'
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="block font-bold">Project (305683757489)</span>
+                      <span className="text-[9px] text-slate-500 truncate block">...7ad5qib</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomOAuthClientId(FIREBASE_OAUTH_CLIENT_ID);
+                        window.location.reload();
+                      }}
+                      className={`p-1.5 rounded-lg border text-left text-[10px] ${
+                        getEffectiveOAuthClientId() === FIREBASE_OAUTH_CLIENT_ID
+                          ? 'border-blue-600 bg-blue-50 text-blue-800 font-bold'
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="block font-bold">Firebase (735454245560)</span>
+                      <span className="text-[9px] text-slate-500 truncate block">...98mcs8o0</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
 
         </div>
