@@ -196,17 +196,12 @@ export async function fetchGoogleUserProfile(accessToken: string): Promise<{ ema
 }
 
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth as firebaseAuth } from './firebaseService';
-
-export async function requestGoogleSignIn(
+import { auth as firebaseAuth } from './firebaseService';export async function requestGoogleSignIn(
   sheetId: string,
   workspace: CompanyWorkspace = TRISHARTH_WORKSPACE
 ): Promise<{ user: AuthUser; sheetResult: VerifySheetAccessResult }> {
-  // Method 1: Firebase Google Auth (Uses verified Firebase OAuth Handler)
   try {
     const provider = new GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-    provider.addScope('https://www.googleapis.com/auth/userinfo.email');
     provider.setCustomParameters({ prompt: 'select_account' });
 
     const credential = await signInWithPopup(firebaseAuth, provider);
@@ -245,82 +240,22 @@ export async function requestGoogleSignIn(
         }
       };
     }
+    throw new Error('No user profile returned from Google.');
   } catch (fbErr: any) {
-    console.warn('Firebase Google Auth error:', fbErr);
-    if (fbErr?.code === 'auth/popup-closed-by-user' || fbErr?.message?.includes('closed')) {
+    console.error('Firebase Google Sign-In error details:', fbErr);
+    
+    if (fbErr?.code === 'auth/popup-closed-by-user') {
       throw new Error('Google Sign-In popup was closed before completing authentication.');
     }
     if (fbErr?.code === 'auth/unauthorized-domain') {
-      throw new Error('Firebase Authorized Domain: Please add "ai.studio" and "textileflow.ai.studio" under Firebase Console > Authentication > Settings > Authorized domains.');
+      throw new Error('Firebase Authorized Domain required: Please add "ai.studio" and "textileflow.ai.studio" in Firebase Console > Authentication > Settings > Authorized domains.');
     }
     if (fbErr?.code === 'auth/operation-not-allowed' || fbErr?.code === 'auth/configuration-not-found') {
-      throw new Error('Google Sign-In is not enabled in Firebase Console. Please go to Firebase Console > Authentication > Sign-in method and enable Google.');
+      throw new Error('Google Sign-In is disabled: Please enable Google in Firebase Console > Authentication > Sign-in method.');
     }
+    
+    throw new Error(fbErr?.message || 'Google Sign-In failed.');
   }
-
-  // Method 2: Google Identity Services SDK Fallback
-  return new Promise((resolve, reject) => {
-    if (!isGsiLoaded()) {
-      reject(new Error('Google Sign-In SDK is loading. Please check your network or try again.'));
-      return;
-    }
-
-    try {
-      const client = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: getEffectiveOAuthClientId(),
-        scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid',
-        callback: async (tokenResponse: any) => {
-          if (tokenResponse.error) {
-            reject(new Error(tokenResponse.error_description || tokenResponse.error || 'Google Sign-In failed'));
-            return;
-          }
-
-          const accessToken = tokenResponse.access_token;
-          if (!accessToken) {
-            reject(new Error('No access token received from Google'));
-            return;
-          }
-
-          try {
-            const profile = await fetchGoogleUserProfile(accessToken);
-            const sheetResult = await verifySheetAccess(accessToken, sheetId);
-
-            const isKnownOwner = profile.email.toLowerCase().includes('atharvabalar') || 
-                                 profile.email.toLowerCase().includes('atharva') ||
-                                 profile.email.toLowerCase().includes('trishil') ||
-                                 profile.email.toLowerCase() === workspace.ownerEmail?.toLowerCase();
-
-            const authUser: AuthUser = {
-              id: profile.sub || `g_${Date.now()}`,
-              email: profile.email,
-              name: profile.name || profile.email.split('@')[0],
-              picture: profile.picture,
-              accessToken,
-              role: isKnownOwner ? 'owner' : 'editor',
-              companyId: workspace.id,
-              companyName: workspace.name,
-              companyCode: workspace.code,
-              sheetAccessGranted: true,
-              sheetTitle: sheetResult.sheetTitle || `${workspace.name} Operations Sheet`,
-              authMethod: 'google_oauth',
-              loginTimestamp: new Date().toISOString()
-            };
-
-            resolve({ user: authUser, sheetResult: { ...sheetResult, hasAccess: true } });
-          } catch (err: any) {
-            reject(err);
-          }
-        },
-        error_callback: (err: any) => {
-          reject(new Error(err?.message || 'OAuth popup closed or failed'));
-        }
-      });
-
-      client.requestAccessToken({ prompt: 'select_account' });
-    } catch (err: any) {
-      reject(err);
-    }
-  });
 }
 
 // Direct OAuth token request for creating new sheets & Drive operations
