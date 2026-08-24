@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function for validating document IDs
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default deny rule
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Workflow designs & Lots collection (bidirectional web <-> mobile sync)
+    match /workflow_designs/{designId} {
+      allow read: if true;
+      allow write: if isValidId(designId);
+    }
+
+    // Order slips collection
+    match /order_slips/{slipId} {
+      allow read: if true;
+      allow write: if isValidId(slipId);
+    }
+
+    // Inventory materials collection
+    match /inventory_materials/{materialId} {
+      allow read: if true;
+      allow write: if isValidId(materialId);
+    }
+
+    // Dispatch orders collection
+    match /dispatch_orders/{dispatchId} {
+      allow read: if true;
+      allow write: if isValidId(dispatchId);
+    }
+
+    // Machines telemetry & status
+    match /factory_machines/{machineId} {
+      allow read: if true;
+      allow write: if isValidId(machineId);
+    }
+
+    // Connection test document
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

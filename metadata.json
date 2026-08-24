@@ -1,0 +1,6 @@
+{
+  "name": "Factory Floor & Inventory Dashboard",
+  "description": "10-stage fabric design workflow pipeline with granular individual piece tracking & alter routing, collapsible left sidebar navigation, inventory telemetry, consignment dispatch logistics, and financial accounts ledger.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

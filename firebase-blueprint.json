@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "WorkflowItem": {
+      "title": "WorkflowItem",
+      "description": "Workflow lot or design progressing through the 10-stage factory pipeline",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "designNumber": { "type": "string" },
+        "lotNumber": { "type": "string" },
+        "partyOrClientName": { "type": "string" },
+        "currentStage": { "type": "string" },
+        "fabricType": { "type": "string" },
+        "fabricColor": { "type": "string" },
+        "quantity": { "type": "number" },
+        "piecesCompleted": { "type": "number" }
+      },
+      "required": ["id", "designNumber", "currentStage"]
+    },
+    "OrderSlip": {
+      "title": "OrderSlip",
+      "description": "Party Order Slip with color matrices and piece counts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "jobNo": { "type": "string" },
+        "partyName": { "type": "string" },
+        "date": { "type": "string" },
+        "totalPcs": { "type": "number" },
+        "piecesCompleted": { "type": "number" }
+      },
+      "required": ["id", "jobNo", "partyName"]
+    },
+    "RawMaterial": {
+      "title": "RawMaterial",
+      "description": "Inventory material SKU with real-time stock levels",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "currentStock": { "type": "number" },
+        "unit": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "DispatchOrder": {
+      "title": "DispatchOrder",
+      "description": "Consignment dispatch order and logistics tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dispatchNumber": { "type": "string" },
+        "partyName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "dispatchNumber"]
+    }
+  },
+  "firestore": {
+    "/workflow_designs/{designId}": {
+      "schema": "WorkflowItem",
+      "description": "Factory production workflow lots and piece tracking data"
+    },
+    "/order_slips/{slipId}": {
+      "schema": "OrderSlip",
+      "description": "Party order slips with color matrices and fulfillment status"
+    },
+    "/inventory_materials/{materialId}": {
+      "schema": "RawMaterial",
+      "description": "Live raw material stock levels and SKU metadata"
+    },
+    "/dispatch_orders/{dispatchId}": {
+      "schema": "DispatchOrder",
+      "description": "Dispatch consignments and delivery records"
+    }
+  }
+}
