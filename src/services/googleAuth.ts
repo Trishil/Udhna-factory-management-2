@@ -1,7 +1,7 @@
 import { AuthUser, CompanyWorkspace } from '../types';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-export const OAUTH_CLIENT_ID = '305683757489-2r97s8e1d4khl0irplk9vb0ov7ad5qib.apps.googleusercontent.com';
+export const OAUTH_CLIENT_ID = '735454245560-jorlpsur6poq88o942h0330n98mcs8o0.apps.googleusercontent.com';
 export const FIREBASE_OAUTH_CLIENT_ID = (firebaseConfig as any)?.oAuthClientId || '735454245560-jorlpsur6poq88o942h0330n98mcs8o0.apps.googleusercontent.com';
 
 export function getEffectiveOAuthClientId(): string {
@@ -9,7 +9,7 @@ export function getEffectiveOAuthClientId(): string {
     const custom = localStorage.getItem('texflow_custom_oauth_client_id');
     if (custom && custom.trim()) return custom.trim();
   } catch {}
-  return OAUTH_CLIENT_ID || FIREBASE_OAUTH_CLIENT_ID;
+  return OAUTH_CLIENT_ID;
 }
 
 export function setCustomOAuthClientId(clientId: string) {

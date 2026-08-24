@@ -758,39 +758,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </div>
 
                 <div className="pt-1">
-                  <span className="text-slate-600 font-semibold block mb-1">Quick Switch Client ID:</span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomOAuthClientId(OAUTH_CLIENT_ID);
-                        window.location.reload();
-                      }}
-                      className={`p-1.5 rounded-lg border text-left text-[10px] ${
-                        getEffectiveOAuthClientId() === OAUTH_CLIENT_ID
-                          ? 'border-blue-600 bg-blue-50 text-blue-800 font-bold'
-                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      <span className="block font-bold">Project (305683757489)</span>
-                      <span className="text-[9px] text-slate-500 truncate block">...7ad5qib</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomOAuthClientId(FIREBASE_OAUTH_CLIENT_ID);
-                        window.location.reload();
-                      }}
-                      className={`p-1.5 rounded-lg border text-left text-[10px] ${
-                        getEffectiveOAuthClientId() === FIREBASE_OAUTH_CLIENT_ID
-                          ? 'border-blue-600 bg-blue-50 text-blue-800 font-bold'
-                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      <span className="block font-bold">Firebase (735454245560)</span>
-                      <span className="text-[9px] text-slate-500 truncate block">...98mcs8o0</span>
-                    </button>
+                  <span className="text-slate-600 font-semibold block mb-1">Active Client ID:</span>
+                  <div className="p-2 rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-900 text-[10px] font-mono">
+                    <span className="block font-bold text-emerald-800">✓ Google Cloud Project (735454245560)</span>
+                    <span className="text-[9px] text-emerald-700 truncate block mt-0.5">735454245560-jorlpsur6poq88o942h0330n98mcs8o0.apps.googleusercontent.com</span>
                   </div>
                 </div>
               </div>
