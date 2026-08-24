@@ -1,6 +1,23 @@
 import { AuthUser, CompanyWorkspace } from '../types';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 export const OAUTH_CLIENT_ID = '305683757489-2r97s8e1d4khl0irplk9vb0ov7ad5qib.apps.googleusercontent.com';
+export const FIREBASE_OAUTH_CLIENT_ID = (firebaseConfig as any)?.oAuthClientId || '735454245560-jorlpsur6poq88o942h0330n98mcs8o0.apps.googleusercontent.com';
+
+export function getEffectiveOAuthClientId(): string {
+  try {
+    const custom = localStorage.getItem('texflow_custom_oauth_client_id');
+    if (custom && custom.trim()) return custom.trim();
+  } catch {}
+  return OAUTH_CLIENT_ID || FIREBASE_OAUTH_CLIENT_ID;
+}
+
+export function setCustomOAuthClientId(clientId: string) {
+  try {
+    localStorage.setItem('texflow_custom_oauth_client_id', clientId.trim());
+  } catch {}
+}
+
 export const DEFAULT_SHEET_ID = '1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw';
 export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDzJBRmDRrxhFg10u9wgektant3SqpWl83ZzOLEc7-s3ZJOk6FXEe_mHxQxFfF6kaY/exec';
 
@@ -190,7 +207,7 @@ export function requestGoogleSignIn(
 
     try {
       const client = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: OAUTH_CLIENT_ID,
+        client_id: getEffectiveOAuthClientId(),
         scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid',
         callback: async (tokenResponse: any) => {
           if (tokenResponse.error) {
@@ -256,7 +273,7 @@ export function requestDirectGoogleOAuth(): Promise<{ accessToken: string; user:
 
     try {
       const client = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: OAUTH_CLIENT_ID,
+        client_id: getEffectiveOAuthClientId(),
         scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid',
         callback: async (tokenResponse: any) => {
           if (tokenResponse.error) {
