@@ -62,6 +62,7 @@ import { DesignPhotoModal } from './DesignPhotoModal';
 import { FabricColorStageMatrix } from './FabricColorStageMatrix';
 import { IndividualPieceTracker } from './IndividualPieceTracker';
 import { OrderSlipModal } from './OrderSlipModal';
+import { normalizeStageForWeb } from '../services/firebaseService';
 
 interface WorkflowManagerProps {
   items: WorkflowItem[];
@@ -130,31 +131,33 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
 
   // Filter items
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      const q = searchQuery.toLowerCase().trim();
+    return (items || []).filter(item => {
+      if (!item) return false;
+      const q = (searchQuery || '').toLowerCase().trim();
       const matchesSearch = !q || (
-        item.designNumber.toLowerCase().includes(q) ||
-        (item.designName && item.designName.toLowerCase().includes(q)) ||
-        item.lotNumber.toLowerCase().includes(q) ||
-        (item.chalanNumber && item.chalanNumber.toLowerCase().includes(q)) ||
-        item.fabricType.toLowerCase().includes(q) ||
-        (item.fabricColor && item.fabricColor.toLowerCase().includes(q)) ||
-        (item.partyOrClientName && item.partyOrClientName.toLowerCase().includes(q)) ||
-        (item.assignedOperator && item.assignedOperator.toLowerCase().includes(q)) ||
-        (item.tags && item.tags.some(t => t.toLowerCase().includes(q))) ||
-        (item.customMetadata && item.customMetadata.some(m => 
-          m.key.toLowerCase().includes(q) || m.value.toLowerCase().includes(q)
+        String(item.designNumber || '').toLowerCase().includes(q) ||
+        String(item.designName || '').toLowerCase().includes(q) ||
+        String(item.lotNumber || item.jobNo || item.id || '').toLowerCase().includes(q) ||
+        String(item.chalanNumber || '').toLowerCase().includes(q) ||
+        String(item.fabricType || '').toLowerCase().includes(q) ||
+        String(item.fabricColor || '').toLowerCase().includes(q) ||
+        String(item.partyOrClientName || item.partyName || '').toLowerCase().includes(q) ||
+        String(item.assignedOperator || '').toLowerCase().includes(q) ||
+        (Array.isArray(item.tags) && item.tags.some(t => String(t || '').toLowerCase().includes(q))) ||
+        (Array.isArray(item.customMetadata) && item.customMetadata.some(m => 
+          String(m.key || '').toLowerCase().includes(q) || String(m.value || '').toLowerCase().includes(q)
         ))
       );
 
       const matchesPriority = selectedPriority === 'all' || item.priority === selectedPriority;
-      const matchesStage = selectedStageFilter === 'all' || item.currentStage === selectedStageFilter;
+      const itemStageNorm = normalizeStageForWeb(item.currentStage);
+      const matchesStage = selectedStageFilter === 'all' || itemStageNorm === selectedStageFilter;
       
       let matchesQuality = true;
       if (selectedQualityFilter === 'good') {
         matchesQuality = item.initialInspectionResult === 'good' || item.alterInspectionResult === 'passed';
       } else if (selectedQualityFilter === 'alter') {
-        matchesQuality = item.currentStage === 'altering' || item.alterInspectionResult === 'needs_alter';
+        matchesQuality = itemStageNorm === 'altering' || item.alterInspectionResult === 'needs_alter';
       } else if (selectedQualityFilter === 'return') {
         matchesQuality = item.initialInspectionResult === 'bad_return' || item.isReturned === true;
       }
@@ -817,7 +820,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
         style={{ minHeight: '620px' }}
       >
         {WORKFLOW_STAGES.map((stage) => {
-          const stageItems = filteredItems.filter(it => it.currentStage === stage.id);
+          const stageItems = filteredItems.filter(it => normalizeStageForWeb(it.currentStage) === stage.id);
           const isOver = dragOverStageId === stage.id;
           const stageTotalUnits = stageItems.reduce((acc, it) => acc + it.quantity, 0);
 
