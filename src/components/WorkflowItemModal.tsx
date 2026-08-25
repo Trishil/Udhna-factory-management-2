@@ -41,6 +41,7 @@ import {
   addNewFabricType 
 } from '../utils/workflowData';
 import { DesignPhotoModal } from './DesignPhotoModal';
+import { formatDirectImageUrl } from '../services/firebaseService';
 
 interface WorkflowItemModalProps {
   item: WorkflowItem | null;
@@ -979,7 +980,7 @@ export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
                     >
                       <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
                         <img 
-                          src={photo.url} 
+                          src={formatDirectImageUrl(photo.url)} 
                           alt={photo.caption || `Design photo ${idx + 1}`} 
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"

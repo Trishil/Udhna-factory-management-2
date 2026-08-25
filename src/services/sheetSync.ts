@@ -25,6 +25,36 @@ export function parseStageFromText(stageText: string): WorkflowStageId {
   return 'fabric';
 }
 
+export function formatDirectImageUrl(rawUrl: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const url = rawUrl.trim();
+
+  // If already Firebase Storage, Google CDN, or base64, return as is
+  if (url.includes('firebasestorage.googleapis.com') || url.includes('firebasestorage.app') || url.includes('lh3.googleusercontent.com') || url.startsWith('data:image')) {
+    return url;
+  }
+
+  // Convert Google Drive view URLs to direct CDN image URLs
+  if (url.includes('drive.google.com')) {
+    let fileId = '';
+    const fileDMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileDMatch) {
+      fileId = fileDMatch[1];
+    } else {
+      const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (idMatch) {
+        fileId = idMatch[1];
+      }
+    }
+
+    if (fileId) {
+      return `https://lh3.googleusercontent.com/d/${fileId}`;
+    }
+  }
+
+  return url;
+}
+
 export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<WorkflowItem> & Record<string, any>): Promise<void> {
   const endpoint = config.scriptUrl || `https://script.google.com/macros/s/${config.deploymentId}/exec`;
   if (!endpoint) return;
@@ -157,7 +187,7 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
         if (notesRaw.includes('http://') || notesRaw.includes('https://')) {
           const match = notesRaw.match(/(https?:\/\/[^\s|]+)/);
           if (match) {
-            photoUrl = match[1];
+            photoUrl = formatDirectImageUrl(match[1]);
             cleanNotes = notesRaw.replace(/\|?\s*Photo:\s*https?:\/\/[^\s|]+/gi, '').trim();
           }
         }

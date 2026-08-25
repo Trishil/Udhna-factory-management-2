@@ -233,6 +233,36 @@ export function normalizeStageForWeb(rawStage: string): WorkflowStageId {
   return 'fabric';
 }
 
+export function formatDirectImageUrl(rawUrl: string): string {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const url = rawUrl.trim();
+
+  // If already Firebase Storage, Google CDN, or base64, return as is
+  if (url.includes('firebasestorage.googleapis.com') || url.includes('firebasestorage.app') || url.includes('lh3.googleusercontent.com') || url.startsWith('data:image')) {
+    return url;
+  }
+
+  // Convert Google Drive view URLs to direct CDN image URLs
+  if (url.includes('drive.google.com')) {
+    let fileId = '';
+    const fileDMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileDMatch) {
+      fileId = fileDMatch[1];
+    } else {
+      const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (idMatch) {
+        fileId = idMatch[1];
+      }
+    }
+
+    if (fileId) {
+      return `https://lh3.googleusercontent.com/d/${fileId}`;
+    }
+  }
+
+  return url;
+}
+
 export function mapFirestoreDocToWorkflowItem(data: any, docId: string): WorkflowItem {
   const currentStage = normalizeStageForWeb(data.currentStage || data.stage);
   const lotNumber = data.lotNumber || data.jobNo || `LOT-${docId.slice(-4)}`;
@@ -242,7 +272,7 @@ export function mapFirestoreDocToWorkflowItem(data: any, docId: string): Workflo
 
   const photos = Array.isArray(data.photos) ? data.photos.map((p: any) => ({
     id: p.id || `photo-${Date.now()}`,
-    url: p.url || '',
+    url: formatDirectImageUrl(p.url || ''),
     storagePath: p.storagePath || '',
     caption: p.caption || '',
     stageCapturedAt: normalizeStageForWeb(p.stageCapturedAt || currentStage),
@@ -260,6 +290,10 @@ export function mapFirestoreDocToWorkflowItem(data: any, docId: string): Workflo
     notes: h.notes || h.note || '',
     qualityStatus: h.qualityStatus
   })) : [];
+
+  const cleanPhotos = photos.filter(p => p.url && p.url.startsWith('http'));
+  const rawDesignImg = formatDirectImageUrl(data.designImage || '');
+  const cleanDesignImg = (rawDesignImg && rawDesignImg.startsWith('http')) ? rawDesignImg : (cleanPhotos[0]?.url || undefined);
 
   return {
     id: data.id || docId,
@@ -284,8 +318,8 @@ export function mapFirestoreDocToWorkflowItem(data: any, docId: string): Workflo
     alterInspectionResult: data.alterInspectionResult || (data.qualityStatus === 'NEEDS_ALTERATION' ? 'needs_alter' : 'passed'),
     alterationReason: data.alterationReason,
     assignedOperator: data.assignedOperator || 'Floor Lead',
-    designImage: (data.designImage && data.designImage.startsWith('http')) ? data.designImage : (photos.find(p => p.url && p.url.startsWith('http'))?.url || undefined),
-    photos: photos.filter(p => p.url && p.url.startsWith('http')),
+    designImage: cleanDesignImg,
+    photos: cleanPhotos,
     customMetadata: Array.isArray(data.customMetadata) ? data.customMetadata : [],
     stageHistory,
     isReturned: data.isReturned || false,
