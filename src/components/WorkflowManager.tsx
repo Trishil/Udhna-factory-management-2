@@ -892,13 +892,16 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                         }`}
                       >
                         {/* Design Image Thumbnail Banner if photo exists */}
-                        {item.designImage && (
+                        {item.designImage && item.designImage.startsWith('http') && (
                           <div className="relative rounded-lg overflow-hidden mb-2.5 bg-slate-900 border border-slate-200 aspect-video max-h-32 flex items-center justify-center">
                             <img
                               src={item.designImage}
                               alt={item.designNumber}
                               className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
                               referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
+                              }}
                             />
                             <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-slate-900/80 text-white font-mono text-[9px] font-bold backdrop-blur-xs flex items-center space-x-1">
                               <Camera className="h-2.5 w-2.5 text-blue-400" />

@@ -135,13 +135,22 @@ export async function fetchPhotosForDesign(designNumberOrLot: string): Promise<s
 export async function attachStoragePhotosToWorkflowItems(items: WorkflowItem[]): Promise<WorkflowItem[]> {
   const updatedItems = await Promise.all(
     items.map(async (item) => {
-      // If item already has a custom photo, keep it
-      if (item.designImage && !item.designImage.includes('unsplash.com') && item.photos && item.photos.length > 0) {
+      const hasValidCustomPhoto = Boolean(
+        item.designImage && 
+        item.designImage.startsWith('http') && 
+        !item.designImage.includes('unsplash.com') && 
+        item.photos && 
+        item.photos.length > 0 &&
+        item.photos.some(p => p.url && p.url.startsWith('http'))
+      );
+
+      // If item already has a valid cloud photo URL, keep it
+      if (hasValidCustomPhoto) {
         return item;
       }
 
-      // Look in design_photos/{designNumber} and design_photos/{lotNumber}
-      const candidates = [item.designNumber, item.lotNumber, item.jobNo].filter(Boolean) as string[];
+      // Look in design_photos/{lotNumber}, design_photos/{id}, and design_photos/{jobNo} FIRST
+      const candidates = [item.lotNumber, item.id, item.jobNo].filter(Boolean) as string[];
       let foundUrls: string[] = [];
       for (const key of candidates) {
         const urls = await fetchPhotosForDesign(key);
@@ -155,7 +164,7 @@ export async function attachStoragePhotosToWorkflowItems(items: WorkflowItem[]):
         const newPhotos = foundUrls.map((u, i) => ({
           id: `storage-photo-${item.id}-${i}`,
           url: u,
-          caption: `Photo for ${item.designNumber || item.lotNumber}`,
+          caption: `Photo for ${item.lotNumber || item.designNumber}`,
           stageCapturedAt: item.currentStage,
           timestamp: item.date || new Date().toISOString()
         }));
@@ -167,7 +176,15 @@ export async function attachStoragePhotosToWorkflowItems(items: WorkflowItem[]):
         };
       }
 
-      return item;
+      // If no lot-specific photos, sanitize any broken file:// URIs
+      const cleanDesignImage = (item.designImage && item.designImage.startsWith('http')) ? item.designImage : undefined;
+      const cleanPhotos = (item.photos || []).filter(p => p.url && p.url.startsWith('http'));
+
+      return {
+        ...item,
+        designImage: cleanDesignImage,
+        photos: cleanPhotos
+      };
     })
   );
 
@@ -267,8 +284,8 @@ export function mapFirestoreDocToWorkflowItem(data: any, docId: string): Workflo
     alterInspectionResult: data.alterInspectionResult || (data.qualityStatus === 'NEEDS_ALTERATION' ? 'needs_alter' : 'passed'),
     alterationReason: data.alterationReason,
     assignedOperator: data.assignedOperator || 'Floor Lead',
-    designImage: data.designImage || (photos[0]?.url) || undefined,
-    photos,
+    designImage: (data.designImage && data.designImage.startsWith('http')) ? data.designImage : (photos.find(p => p.url && p.url.startsWith('http'))?.url || undefined),
+    photos: photos.filter(p => p.url && p.url.startsWith('http')),
     customMetadata: Array.isArray(data.customMetadata) ? data.customMetadata : [],
     stageHistory,
     isReturned: data.isReturned || false,
