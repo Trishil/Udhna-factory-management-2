@@ -1004,12 +1004,12 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
         const validSheetImage = (sheetItem.designImage && sheetItem.designImage.startsWith('http') && !sheetItem.designImage.includes('unsplash.com')) ? sheetItem.designImage : undefined;
 
         map.set(key, {
-          ...existing,
           ...sheetItem,
+          ...existing,
           // Never let empty sheet photos overwrite real photos
-          photos: validSheetPhotos.length > 0 ? validSheetPhotos : validExistingPhotos,
-          designImage: validSheetImage || validExistingImage || (validSheetPhotos[0]?.url) || (validExistingPhotos[0]?.url) || undefined,
-          stageHistory: (sheetItem.stageHistory && sheetItem.stageHistory.length > 0) ? sheetItem.stageHistory : (existing.stageHistory || [])
+          photos: validExistingPhotos.length > 0 ? validExistingPhotos : validSheetPhotos,
+          designImage: validExistingImage || validSheetImage || (validExistingPhotos[0]?.url) || (validSheetPhotos[0]?.url) || undefined,
+          stageHistory: (existing.stageHistory && existing.stageHistory.length > 0) ? existing.stageHistory : (sheetItem.stageHistory || [])
         });
       } else {
         map.set(key, sheetItem);
