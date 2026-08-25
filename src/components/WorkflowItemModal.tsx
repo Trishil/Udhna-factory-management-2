@@ -982,7 +982,9 @@ export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
                           src={formatDirectImageUrl(photo.url)} 
                           alt={photo.caption || `Design photo ${idx + 1}`} 
                           className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
                         />
                         <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-slate-900/80 text-white font-mono text-[9px] font-bold backdrop-blur-xs flex items-center space-x-1">
                           {photo.source === 'android_app' ? (
@@ -1033,10 +1035,12 @@ export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
                 <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs p-4 flex flex-col sm:flex-row items-center gap-4">
                   <div className="w-full sm:w-48 h-36 bg-slate-900 rounded-lg overflow-hidden flex-shrink-0">
                     <img 
-                      src={item.designImage} 
+                      src={formatDirectImageUrl(item.designImage)} 
                       alt={item.designNumber}
                       className="w-full h-full object-cover" 
-                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
                     />
                   </div>
                   <div className="space-y-2 text-xs flex-1">

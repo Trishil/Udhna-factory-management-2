@@ -63,7 +63,7 @@ import { DesignPhotoModal } from './DesignPhotoModal';
 import { FabricColorStageMatrix } from './FabricColorStageMatrix';
 import { IndividualPieceTracker } from './IndividualPieceTracker';
 import { OrderSlipModal } from './OrderSlipModal';
-import { normalizeStageForWeb } from '../services/firebaseService';
+import { normalizeStageForWeb, formatDirectImageUrl } from '../services/firebaseService';
 
 interface WorkflowManagerProps {
   items: WorkflowItem[];
@@ -903,10 +903,9 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                         {item.designImage && item.designImage.startsWith('http') && (
                           <div className="relative rounded-lg overflow-hidden mb-2.5 bg-slate-900 border border-slate-200 aspect-video max-h-32 flex items-center justify-center">
                             <img
-                              src={item.designImage}
+                              src={formatDirectImageUrl(item.designImage)}
                               alt={item.designNumber}
                               className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                              referrerPolicy="no-referrer"
                               onError={(e) => {
                                 (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
                               }}
