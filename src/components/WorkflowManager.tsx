@@ -814,7 +814,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
           </span>
         </div>
         <span className="font-mono font-bold text-blue-800 hidden sm:inline">
-          {filteredItems.length} of {items.length} designs shown
+          {filteredItems.length} of {effectiveItems.length} designs shown
         </span>
       </div>
 

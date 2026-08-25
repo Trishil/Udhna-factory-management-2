@@ -53,6 +53,11 @@ interface WorkflowItemModalProps {
   onHandoverToDispatch?: (item: WorkflowItem) => void;
 }
 
+interface PhotoMetadata {
+  key: string;
+  value: string;
+}
+
 export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
   item,
   isOpen,
@@ -1018,7 +1023,7 @@ export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
                           <div className="pt-2 border-t border-slate-100 space-y-1">
                             <span className="text-[10px] uppercase font-bold text-slate-400">Attached Metadata</span>
                             <div className="grid grid-cols-2 gap-1 text-[10px]">
-                              {photo.metadata.map((m, mIdx) => (
+                              {photo.metadata.map((m: PhotoMetadata, mIdx: number) => (
                                 <div key={mIdx} className="bg-slate-50 p-1 rounded border border-slate-200 truncate">
                                   <strong className="text-slate-500">{m.key}: </strong>
                                   <span className="text-slate-800 font-semibold">{m.value}</span>
