@@ -704,11 +704,11 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
               <p className="text-base font-black font-mono mt-0.5 text-emerald-900">
                 {readyDispatchCount} Lots
               </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Toolbar & Filters */}
+        {/* Toolbar & Filters */}
         <div className="p-4 bg-white border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3">
           
           <div className="relative w-full md:w-80">
