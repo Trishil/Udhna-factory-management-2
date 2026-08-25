@@ -2281,7 +2281,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5] text-slate-900 flex font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans selection:bg-slate-900 selection:text-white">
       
       {/* Collapsible Left Sidebar */}
       <Sidebar
@@ -2551,32 +2551,32 @@ export default function App() {
       )}
 
       {/* Footer - Professional Polish status console */}
-      <footer className="bg-slate-800 text-slate-400 border-t border-slate-700 py-3 text-xs font-mono">
+      <footer className="bg-white text-slate-500 border-t border-slate-200 py-3 text-xs font-mono shadow-xs">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px]">
           <div className="flex items-center space-x-3 flex-wrap">
-            <span className="font-bold text-slate-300">DATABASE ID:</span>
-            <span className="text-slate-400">{syncConfig.sheetId.slice(0, 12)}...</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-slate-400">OPERATOR: {currentUser.name}</span>
-            <span className="text-slate-600">|</span>
-            <span className="text-emerald-400 flex items-center">
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              AUTO-ENTRY WRITE-BACK ACTIVE
+            <span className="font-bold text-slate-700">DATABASE ID:</span>
+            <span className="text-slate-500">{syncConfig.sheetId ? `${syncConfig.sheetId.slice(0, 12)}...` : 'Local / Connected'}</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-slate-600 font-semibold">COMPANY: {currentUser?.companyName || 'Trisharth'}</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-emerald-700 flex items-center font-semibold">
+              <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
+              AUTO-ENTRY ACTIVE
             </span>
           </div>
 
           <div className="flex items-center space-x-3">
             <button 
               onClick={() => setIsCreateSheetOpen(true)}
-              className="text-emerald-400 hover:underline font-medium uppercase flex items-center space-x-1"
+              className="text-slate-700 hover:text-slate-900 font-semibold uppercase flex items-center space-x-1"
             >
-              <Sparkles className="h-3 w-3 mr-0.5" />
+              <Sparkles className="h-3 w-3 mr-0.5 text-slate-400" />
               <span>+ Create New Sheet</span>
             </button>
-            <span className="text-slate-600">|</span>
+            <span className="text-slate-300">|</span>
             <button 
               onClick={() => setIsSyncModalOpen(true)}
-              className="text-blue-400 hover:underline font-medium uppercase"
+              className="text-slate-700 hover:text-slate-900 font-semibold uppercase"
             >
               Spreadsheet Config
             </button>

@@ -49,7 +49,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
   const [date, setDate] = useState(existingSlip?.date || todayStr);
   const [chalanNo, setChalanNo] = useState(existingSlip?.chalanNo || '227');
   const [partyName, setPartyName] = useState(existingSlip?.partyName || 'Jaishri');
-  const [firmName, setFirmName] = useState(existingSlip?.firmName || 'S V ART & CREATION');
+  const [firmName, setFirmName] = useState(existingSlip?.firmName || 'Trisharth');
 
   // Columns: Fabric types in the slip matrix
   const [fabricColumns, setFabricColumns] = useState<string[]>(
@@ -419,16 +419,16 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full border border-slate-300 my-4 overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Modal Top Bar */}
-        <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0">
+        <div className="p-4 bg-white border-b border-slate-200 text-slate-900 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <FileText className="h-5 w-5 text-white" />
+            <div className="p-2 bg-slate-900 rounded-xl text-white shadow-xs">
+              <FileText className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-black tracking-wide flex items-center space-x-2">
-                <span>S V ART &amp; CREATION — Party Order Slip (Grid Matrix)</span>
+              <h2 className="text-base font-black tracking-tight flex items-center space-x-2 text-slate-900">
+                <span>{firmName} — Party Order Slip (Grid Matrix)</span>
               </h2>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-slate-500">
                 Multi-Color &amp; Multi-Fabric production job card matching the physical factory order sheet
               </p>
             </div>
@@ -438,21 +438,21 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
             <button
               type="button"
               onClick={handleLoadPresetJaishri}
-              className="px-2.5 py-1 text-[11px] font-bold bg-white/10 hover:bg-white/20 text-slate-200 rounded-lg transition-colors border border-white/20"
+              className="px-2.5 py-1 text-[11px] font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg transition-colors border border-slate-200"
             >
               Load Jaishri (06/05)
             </button>
             <button
               type="button"
               onClick={handleLoadPresetBLFashion}
-              className="px-2.5 py-1 text-[11px] font-bold bg-white/10 hover:bg-white/20 text-slate-200 rounded-lg transition-colors border border-white/20"
+              className="px-2.5 py-1 text-[11px] font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg transition-colors border border-slate-200"
             >
               Load BL. Fashion (Job 2)
             </button>
             <button
               type="button"
               onClick={handlePrintSlip}
-              className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
               title="Print Order Slip"
             >
               <Printer className="h-4 w-4" />
@@ -460,7 +460,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
             >
               <X className="h-5 w-5" />
             </button>
@@ -472,19 +472,19 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
           
           {/* Live Piece Tracker Synchronization Banner */}
           {existingSlip && (
-            <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-center space-x-2.5">
-                <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
+                <div className="p-2 rounded-xl bg-slate-900 text-white shadow-xs">
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="font-extrabold text-blue-950 flex items-center space-x-2">
+                  <div className="font-extrabold text-slate-900 flex items-center space-x-2">
                     <span>Individual Piece Tracker Connected</span>
-                    <span className="px-2 py-0.2 rounded-full bg-blue-200/80 text-blue-900 text-[10px] font-bold font-mono">
+                    <span className="px-2 py-0.2 rounded-full bg-slate-200 text-slate-800 text-[10px] font-bold font-mono">
                       {livePieceCompletedCount} / {totalOrderedPcs} Pcs Completed
                     </span>
                   </div>
-                  <p className="text-[11px] text-blue-800">
+                  <p className="text-[11px] text-slate-500 mt-0.5">
                     Piece-level status changes in the tracker automatically update this party slip &amp; Google Sheet.
                   </p>
                 </div>
@@ -493,17 +493,17 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
               {liveStageDist && (
                 <div className="flex items-center space-x-2 flex-wrap gap-1">
                   {liveStageDist.prepare_dispatch > 0 && (
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 font-bold font-mono text-[10px] border border-emerald-300">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-900 font-bold font-mono text-[10px] border border-emerald-200">
                       ✅ {liveStageDist.prepare_dispatch} in Dispatch
                     </span>
                   )}
                   {liveStageDist.altering > 0 && (
-                    <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 font-bold font-mono text-[10px] border border-rose-300 animate-pulse">
+                    <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-900 font-bold font-mono text-[10px] border border-rose-200">
                       ⚠️ {liveStageDist.altering} in Altering
                     </span>
                   )}
                   {liveStageDist.embroidery > 0 && (
-                    <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 font-bold font-mono text-[10px] border border-purple-300">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold font-mono text-[10px] border border-slate-200">
                       🧵 {liveStageDist.embroidery} in Embroidery
                     </span>
                   )}
@@ -512,17 +512,23 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
             </div>
           )}
 
-          {/* Slip Header Card (S V ART & CREATION layout) */}
-          <div className="p-5 bg-amber-50/40 rounded-2xl border-2 border-slate-300 space-y-4">
+          {/* Slip Header Card (Paper Layout) */}
+          <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-4">
             
-            <div className="flex flex-col sm:flex-row items-center justify-between border-b-2 border-slate-300 pb-3 gap-2 text-center sm:text-left">
-              <div className="text-sm font-bold text-amber-900 font-serif">
+            <div className="flex flex-col sm:flex-row items-center justify-between border-b border-slate-200 pb-3 gap-2 text-center sm:text-left">
+              <div className="text-sm font-bold text-slate-800 font-serif">
                 श्री ૧૫
               </div>
-              <div className="text-xl sm:text-2xl font-black tracking-wider text-slate-900 uppercase font-serif">
-                {firmName}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={firmName}
+                  onChange={(e) => setFirmName(e.target.value)}
+                  placeholder="Enter Firm / Company Name"
+                  className="text-xl sm:text-2xl font-black tracking-wider text-slate-900 uppercase font-serif text-center bg-transparent border-b border-transparent hover:border-slate-300 focus:border-slate-800 focus:outline-none transition-colors"
+                />
               </div>
-              <div className="text-xs font-bold text-slate-500 font-mono">
+              <div className="text-xs font-bold text-slate-400 font-mono uppercase">
                 Order Sheet
               </div>
             </div>
@@ -531,7 +537,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 text-xs">
               
               <div className="col-span-2 sm:col-span-2 lg:col-span-2">
-                <label className="block text-[11px] font-black text-slate-800 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
                   2) Party Name:
                 </label>
                 <input
@@ -540,7 +546,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
                   value={partyName}
                   onChange={(e) => setPartyName(e.target.value)}
                   placeholder="e.g. Jaishri / BL. FASHION"
-                  className="w-full px-3 py-2 text-xs font-bold bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-slate-900"
+                  className="w-full px-3 py-2 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 text-slate-900 focus:bg-white transition-colors"
                 />
               </div>
 

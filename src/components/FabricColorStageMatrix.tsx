@@ -269,22 +269,22 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
     <div id="fabric-color-stage-matrix-root" className="space-y-6">
       
       {/* Top Banner & Primary Stats */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-6 border border-slate-700/60 shadow-md">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-5 border-b border-slate-700/60">
+      <div className="bg-white text-slate-900 rounded-2xl p-6 border border-slate-200 shadow-xs">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-5 border-b border-slate-100">
           <div className="flex items-center space-x-3.5">
-            <div className="p-3 bg-blue-600 rounded-xl shadow-lg shadow-blue-500/20 ring-1 ring-white/10">
-              <Layers className="h-7 w-7 text-white" />
+            <div className="p-3 bg-slate-900 rounded-xl text-white shadow-xs shrink-0">
+              <Layers className="h-6 w-6 text-white" />
             </div>
             <div>
               <div className="flex items-center space-x-2.5">
-                <h2 className="text-xl font-black tracking-tight text-white">
+                <h2 className="text-lg font-black tracking-tight text-slate-900">
                   Fabric Type &amp; Color Live Stage Tracker
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold font-mono">
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-bold font-mono">
                   Piece-Level Accuracy
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Live visibility of completed vs. remaining pieces categorized by fabric type, color swatch, design number &amp; 10 production stages.
               </p>
             </div>
@@ -295,63 +295,63 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
               id="btn-matrix-new-slip"
               type="button"
               onClick={onOpenCreateSlipModal}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center space-x-2"
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center space-x-2"
             >
               <Plus className="h-4 w-4" />
-              <span>New Order Slip (S V ART Format)</span>
+              <span>New Party Order Slip</span>
             </button>
           </div>
         </div>
 
         {/* Aggregate KPI Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-5">
-          <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 backdrop-blur-xs">
-            <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Total Pieces Ordered</div>
-            <div className="text-2xl font-black text-white mt-1 font-mono">
-              {metrics.totalOrdered.toLocaleString()} <span className="text-xs text-slate-400 font-normal">pcs</span>
+          <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-4">
+            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Pieces Ordered</div>
+            <div className="text-2xl font-black text-slate-900 mt-1 font-mono">
+              {metrics.totalOrdered.toLocaleString()} <span className="text-xs text-slate-500 font-normal">pcs</span>
             </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
+            <div className="text-[11px] text-slate-500 mt-0.5">
               Across {filteredItems.length} color/fabric batches
             </div>
           </div>
 
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3.5 backdrop-blur-xs">
-            <div className="text-[11px] font-medium text-emerald-300 uppercase tracking-wider">Completed (Dispatch Ready)</div>
-            <div className="text-2xl font-black text-emerald-400 mt-1 font-mono">
-              {metrics.totalCompleted.toLocaleString()} <span className="text-xs text-emerald-300/80 font-normal">pcs</span>
+          <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-4">
+            <div className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider">Completed (Dispatch Ready)</div>
+            <div className="text-2xl font-black text-emerald-900 mt-1 font-mono">
+              {metrics.totalCompleted.toLocaleString()} <span className="text-xs text-emerald-700 font-normal">pcs</span>
             </div>
-            <div className="text-[11px] text-emerald-300/80 mt-0.5 flex items-center space-x-1">
-              <CheckCircle2 className="h-3 w-3 inline" />
+            <div className="text-[11px] text-emerald-700 mt-0.5 flex items-center space-x-1 font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5 inline text-emerald-600" />
               <span>{metrics.completionRate}% of total order finished</span>
             </div>
           </div>
 
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 backdrop-blur-xs">
-            <div className="text-[11px] font-medium text-amber-300 uppercase tracking-wider">Remaining in Production</div>
-            <div className="text-2xl font-black text-amber-400 mt-1 font-mono">
-              {metrics.totalRemaining.toLocaleString()} <span className="text-xs text-amber-300/80 font-normal">pcs</span>
+          <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-4">
+            <div className="text-[11px] font-semibold text-amber-800 uppercase tracking-wider">Remaining in Production</div>
+            <div className="text-2xl font-black text-amber-900 mt-1 font-mono">
+              {metrics.totalRemaining.toLocaleString()} <span className="text-xs text-amber-700 font-normal">pcs</span>
             </div>
-            <div className="text-[11px] text-amber-300/80 mt-0.5 flex items-center space-x-1">
-              <Clock className="h-3 w-3 inline" />
+            <div className="text-[11px] text-amber-700 mt-0.5 flex items-center space-x-1 font-medium">
+              <Clock className="h-3.5 w-3.5 inline text-amber-600" />
               <span>Active across 9 work stages</span>
             </div>
           </div>
 
-          <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3.5 backdrop-blur-xs">
-            <div className="text-[11px] font-medium text-rose-300 uppercase tracking-wider">Altering / In Rework</div>
-            <div className="text-2xl font-black text-rose-400 mt-1 font-mono">
-              {((metrics.stagePieceSums.altering || 0) + (metrics.stagePieceSums.inspection_alter || 0)).toLocaleString()} <span className="text-xs text-rose-300/80 font-normal">pcs</span>
+          <div className="bg-rose-50/60 border border-rose-200/80 rounded-xl p-4">
+            <div className="text-[11px] font-semibold text-rose-800 uppercase tracking-wider">Altering / In Rework</div>
+            <div className="text-2xl font-black text-rose-900 mt-1 font-mono">
+              {((metrics.stagePieceSums.altering || 0) + (metrics.stagePieceSums.inspection_alter || 0)).toLocaleString()} <span className="text-xs text-rose-700 font-normal">pcs</span>
             </div>
-            <div className="text-[11px] text-rose-300/80 mt-0.5 flex items-center space-x-1">
-              <AlertTriangle className="h-3 w-3 inline" />
+            <div className="text-[11px] text-rose-700 mt-0.5 flex items-center space-x-1 font-medium">
+              <AlertTriangle className="h-3.5 w-3.5 inline text-rose-600" />
               <span>Requires alteration touchup</span>
             </div>
           </div>
         </div>
 
         {/* Live Stage Counts Strip */}
-        <div className="mt-4 pt-4 border-t border-slate-700/50">
-          <div className="text-xs font-semibold text-slate-300 mb-2 flex items-center justify-between">
+        <div className="mt-4 pt-4 border-t border-slate-100">
+          <div className="text-xs font-semibold text-slate-700 mb-2.5 flex items-center justify-between">
             <span>Live Pieces Remaining By Stage:</span>
             <span className="text-[11px] text-slate-400 font-mono">10-Stage Pipeline Breakdown</span>
           </div>
@@ -363,16 +363,16 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                 <div 
                   key={s.id}
                   onClick={() => setSelectedStageFilter(selectedStageFilter === s.id ? 'all' : s.id)}
-                  className={`p-2 rounded-lg border text-center cursor-pointer transition-all ${
+                  className={`p-2 rounded-xl border text-center cursor-pointer transition-all ${
                     selectedStageFilter === s.id 
-                      ? 'bg-blue-600 text-white border-blue-400 ring-2 ring-blue-400/50 shadow-md' 
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs' 
                       : pcsCount > 0
                         ? isFinished
-                          ? 'bg-emerald-950/60 border-emerald-500/30 text-emerald-200 hover:bg-emerald-900/60'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
                           : s.id === 'altering'
-                            ? 'bg-rose-950/60 border-rose-500/30 text-rose-200 hover:bg-rose-900/60'
-                            : 'bg-slate-800/80 border-slate-700 text-slate-200 hover:bg-slate-700/80'
-                        : 'bg-slate-900/40 border-slate-800/80 text-slate-500'
+                            ? 'bg-rose-50 border-rose-200 text-rose-900 hover:bg-rose-100'
+                            : 'bg-slate-50 border-slate-200 text-slate-800 hover:bg-slate-100'
+                        : 'bg-white border-slate-100 text-slate-400'
                   }`}
                 >
                   <div className="text-[10px] font-bold uppercase truncate" title={s.name}>

@@ -120,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const tabInfo = getTabTitle();
 
   return (
-    <header id="app-header" className="bg-[#1e293b] text-white border-b border-slate-700/80 sticky top-0 z-20 shadow-md">
+    <header id="app-header" className="bg-white text-slate-900 border-b border-slate-200/90 sticky top-0 z-20 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         
         {/* Main Nav Row */}
@@ -132,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onToggleSidebar}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/80 transition-colors"
+                className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition-colors"
                 title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
               >
                 <Layers className="h-4 w-4" />
@@ -140,38 +140,38 @@ export const Navbar: React.FC<NavbarProps> = ({
             )}
             <div>
               <div className="flex items-center space-x-2">
-                <h1 className="text-base font-extrabold tracking-tight text-white font-mono">
+                <h1 className="text-base font-extrabold tracking-tight text-slate-900 font-mono">
                   {tabInfo.title}
                 </h1>
-                <span className="text-[10px] text-blue-300 font-mono font-semibold lowercase bg-blue-950/90 px-1.5 py-0.5 rounded border border-blue-700/60">
+                <span className="text-[10px] text-slate-600 font-mono font-semibold bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
                   Live System
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium">
+              <p className="text-[11px] text-slate-500 font-medium">
                 {tabInfo.subtitle}
               </p>
             </div>
           </div>
 
           {/* Center Stock Health Indicators (Visible on lg+) */}
-          <div className="hidden xl:flex items-center space-x-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-700/70 text-xs shrink-0">
-            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-blue-950/70 border border-blue-700/50 text-blue-300 font-mono text-[11px]">
-              <span className="font-bold">{materials.length}</span> SKUs
+          <div className="hidden xl:flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs shrink-0">
+            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-mono text-[11px]">
+              <span className="font-bold text-slate-900">{materials.length}</span> SKUs
             </div>
             {lowStockCount > 0 ? (
-              <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-amber-900/80 border border-amber-600/70 text-amber-200 font-mono text-[11px] animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+              <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-mono text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                 <span className="font-bold">{lowStockCount}</span> LOW STOCK
               </div>
             ) : (
-              <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-700/50 text-emerald-400 font-mono text-[11px]">
-                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                <span>STOCK HEALTHY</span>
+              <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[11px]">
+                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                <span className="font-semibold">STOCK HEALTHY</span>
               </div>
             )}
-            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 font-mono text-[11px]">
-              <span>VALUATION:</span>
-              <span className="text-emerald-400 font-bold">₹{totalStockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+            <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-mono text-[11px]">
+              <span className="text-slate-500">VALUATION:</span>
+              <span className="text-slate-900 font-bold">₹{totalStockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
             </div>
           </div>
 
@@ -182,27 +182,27 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="btn-open-sync-modal"
               onClick={onOpenSyncModal}
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors shadow-2xs"
               title="Google Sheets Auto-Sync & Integration Status"
             >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-400 shrink-0" />
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
               <div className="hidden sm:block text-left font-mono">
                 <div className="text-[11px] font-bold uppercase tracking-tight leading-tight flex items-center space-x-1">
                   <span>AUTO-ENTRY:</span>
-                  <span className="text-emerald-400">ON</span>
+                  <span className="text-emerald-700 font-bold">ON</span>
                 </div>
               </div>
-              <span className={`w-2 h-2 rounded-full ${syncConfig.syncStatus === 'synced' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+              <span className={`w-2 h-2 rounded-full ${syncConfig.syncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
             </button>
 
             {/* Quick Action: Create New Sheet */}
             <button
               id="btn-create-new-sheet"
               onClick={onOpenCreateSheet}
-              className="hidden lg:flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 text-white transition-colors shadow-xs border border-emerald-500/50"
+              className="hidden lg:flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition-colors shadow-xs"
               title="Create a new automated Google Spreadsheet"
             >
-              <Sparkles className="h-3.5 w-3.5 text-emerald-200" />
+              <Sparkles className="h-3.5 w-3.5 text-slate-300" />
               <span>New Sheet</span>
             </button>
 
@@ -210,9 +210,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="btn-quick-stock"
               onClick={onOpenStockAdjust}
-              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-colors shadow-2xs"
             >
-              <PackagePlus className="h-3.5 w-3.5" />
+              <PackagePlus className="h-3.5 w-3.5 text-slate-600" />
               <span className="hidden md:inline">Log Stock</span>
               <span className="md:hidden">Stock</span>
             </button>
@@ -221,12 +221,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="btn-open-alerts"
               onClick={onOpenAlerts}
-              className="relative p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition-colors shrink-0"
+              className="relative p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 transition-colors shrink-0 shadow-2xs"
               title="Factory Alerts & Logs"
             >
               <Bell className="h-4 w-4" />
               {activeAlertsCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-sm">
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
                   {activeAlertsCount}
                 </span>
               )}
@@ -237,30 +237,30 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="btn-user-profile-menu"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center space-x-2 p-1 rounded-lg hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-all text-left"
+                className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all text-left"
                 title="Account & Sheet Access Status"
               >
                 {currentUser?.picture ? (
                   <img 
                     src={currentUser.picture} 
                     alt={currentUser.name} 
-                    className="h-8 w-8 rounded-full border border-slate-600 object-cover shadow-inner shrink-0" 
+                    className="h-8 w-8 rounded-full border border-slate-200 object-cover shadow-xs shrink-0" 
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center border border-blue-500 font-bold text-xs text-white shadow-inner shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center font-bold text-xs text-white shadow-xs shrink-0 font-mono">
                     {getInitials(currentUser?.name, currentUser?.email)}
                   </div>
                 )}
                 <div className="hidden lg:block text-left">
-                  <div className="text-xs font-bold text-slate-200 truncate max-w-[120px]">
-                    {currentUser?.name || 'Atharva Balar'}
+                  <div className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
+                    {currentUser?.name || 'Trishil Balar'}
                   </div>
-                  <div className="text-[10px] text-blue-400 font-mono font-semibold uppercase flex items-center space-x-1">
-                    <ShieldCheck className="h-2.5 w-2.5 text-emerald-400" />
+                  <div className="text-[10px] text-slate-500 font-medium flex items-center space-x-1">
+                    <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
                     <span>{currentUser?.companyName || 'Trisharth'}</span>
-                    <span className="text-slate-500">•</span>
-                    <span className="text-slate-400">{currentUser?.role === 'owner' ? 'OWNER' : 'STAFF'}</span>
+                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-600 font-semibold">{currentUser?.role === 'owner' ? 'OWNER' : 'STAFF'}</span>
                   </div>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden lg:block" />
@@ -268,41 +268,41 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Dropdown Menu */}
               {isUserMenuOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-[#1e293b] border border-slate-700 rounded-xl shadow-2xl z-50 p-3 text-xs text-slate-200 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="flex items-center space-x-3 pb-3 border-b border-slate-700">
+                <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-3.5 text-xs text-slate-800 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="flex items-center space-x-3 pb-3 border-b border-slate-100">
                     {currentUser?.picture ? (
                       <img 
                         src={currentUser.picture} 
                         alt={currentUser.name} 
-                        className="h-10 w-10 rounded-full border border-slate-600 object-cover" 
+                        className="h-10 w-10 rounded-full border border-slate-200 object-cover" 
                         referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-sm text-white">
+                      <div className="h-10 w-10 rounded-full bg-slate-900 flex items-center justify-center font-bold text-sm text-white font-mono">
                         {getInitials(currentUser?.name, currentUser?.email)}
                       </div>
                     )}
                     <div className="truncate">
-                      <p className="font-bold text-white text-sm truncate">{currentUser?.name || 'Atharva Balar'}</p>
-                      <p className="text-[11px] text-slate-400 font-mono truncate">{currentUser?.email || 'atharvabalar6@gmail.com'}</p>
-                      <span className="text-[10px] font-mono bg-blue-950 text-blue-300 px-1.5 py-0.2 rounded border border-blue-800">
+                      <p className="font-bold text-slate-900 text-sm truncate">{currentUser?.name || 'Trishil Balar'}</p>
+                      <p className="text-[11px] text-slate-500 font-mono truncate">{currentUser?.email || 'trishilbalar@gmail.com'}</p>
+                      <span className="inline-block mt-0.5 text-[10px] font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200 font-semibold">
                         {currentUser?.companyName || 'Trisharth'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="py-2 border-b border-slate-700/80 space-y-1">
-                    <div className="flex justify-between items-center py-1 text-slate-300">
+                  <div className="py-2.5 border-b border-slate-100 space-y-1.5 text-slate-600 text-xs">
+                    <div className="flex justify-between items-center py-0.5">
                       <span>Organization:</span>
-                      <span className="text-[11px] text-blue-400 font-mono font-bold">{currentUser?.companyName || 'Trisharth'}</span>
+                      <span className="text-[11px] text-slate-900 font-mono font-bold">{currentUser?.companyName || 'Trisharth'}</span>
                     </div>
-                    <div className="flex justify-between items-center py-1 text-slate-300">
-                      <span>Connected Spreadsheet:</span>
-                      <span className="text-[11px] text-emerald-400 font-mono font-bold">READY</span>
+                    <div className="flex justify-between items-center py-0.5">
+                      <span>Google Sheet:</span>
+                      <span className="text-[11px] text-emerald-700 font-mono font-bold">READY</span>
                     </div>
-                    <div className="flex justify-between items-center py-1 text-slate-300">
+                    <div className="flex justify-between items-center py-0.5">
                       <span>Sheet ID:</span>
-                      <span className="text-[11px] text-slate-400 font-mono">{syncConfig.sheetId ? `${syncConfig.sheetId.slice(0, 8)}...` : 'None'}</span>
+                      <span className="text-[11px] text-slate-500 font-mono">{syncConfig.sheetId ? `${syncConfig.sheetId.slice(0, 8)}...` : 'None'}</span>
                     </div>
                   </div>
 
@@ -312,9 +312,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setIsUserMenuOpen(false);
                         onOpenSyncModal();
                       }}
-                      className="w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-slate-700 text-slate-200 transition-colors"
+                      className="w-full flex items-center space-x-2 px-2.5 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors font-medium"
                     >
-                      <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                       <span>Spreadsheet Connection Settings</span>
                     </button>
                     <button
@@ -322,9 +322,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setIsUserMenuOpen(false);
                         onOpenCreateSheet();
                       }}
-                      className="w-full flex items-center space-x-2 px-2.5 py-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-white transition-colors text-left"
+                      className="w-full flex items-center space-x-2 px-2.5 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors font-medium text-left"
                     >
-                      <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                      <Sparkles className="h-4 w-4 text-slate-500" />
                       <span>Create New Factory Sheet</span>
                     </button>
                     <button
@@ -332,9 +332,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setIsUserMenuOpen(false);
                         onSwitchAccount();
                       }}
-                      className="w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-slate-700 text-slate-200 transition-colors"
+                      className="w-full flex items-center space-x-2 px-2.5 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors font-medium"
                     >
-                      <User className="h-3.5 w-3.5 text-blue-400" />
+                      <User className="h-4 w-4 text-slate-500" />
                       <span>Switch Google Account</span>
                     </button>
                     <button
@@ -343,9 +343,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         setIsUserMenuOpen(false);
                         onSignOut();
                       }}
-                      className="w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg hover:bg-rose-950/60 text-rose-300 transition-colors"
+                      className="w-full flex items-center space-x-2 px-2.5 py-2 rounded-xl hover:bg-rose-50 text-rose-700 transition-colors font-medium"
                     >
-                      <LogOut className="h-3.5 w-3.5 text-rose-400" />
+                      <LogOut className="h-4 w-4 text-rose-500" />
                       <span>Sign Out</span>
                     </button>
                   </div>
