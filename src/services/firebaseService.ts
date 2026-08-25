@@ -19,7 +19,7 @@ import {
   listAll
 } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { WorkflowItem, OrderSlip, RawMaterial, DispatchOrder } from '../types';
+import { WorkflowItem, OrderSlip, RawMaterial, DispatchOrder, WorkflowStageId } from '../types';
 
 // Initialize Firebase App singleton
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -202,6 +202,81 @@ export async function deleteDesignFromFirestore(itemId: string): Promise<void> {
   }
 }
 
+export function normalizeStageForWeb(rawStage: string): WorkflowStageId {
+  const s = String(rawStage || '').toLowerCase().trim();
+  if (s === 'patta' || s === 'stitching_patta' || s.includes('patta') || s.includes('stitching')) return 'stitching_patta';
+  if (s === 'chalan' || s.includes('chalan') || s.includes('slip')) return 'chalan';
+  if (s === 'inspection' || s.includes('insp-1') || (s.includes('inspection') && !s.includes('alter'))) return 'inspection';
+  if (s === 'embroidery' || s.includes('embroidery')) return 'embroidery';
+  if (s === 'dhaga_cutting' || s.includes('dhaga') || s.includes('cutting') || s.includes('trimming')) return 'dhaga_cutting';
+  if (s === 'inspection_alter' || s.includes('insp-2') || s.includes('alter inspection')) return 'inspection_alter';
+  if (s === 'altering' || s.includes('altering') || s.includes('rework')) return 'altering';
+  if (s === 'folding' || s.includes('folding') || s.includes('packing')) return 'folding';
+  if (s === 'prepare_dispatch' || s.includes('dispatch')) return 'prepare_dispatch';
+  return 'fabric';
+}
+
+export function mapFirestoreDocToWorkflowItem(data: any, docId: string): WorkflowItem {
+  const currentStage = normalizeStageForWeb(data.currentStage || data.stage);
+  const lotNumber = data.lotNumber || data.jobNo || `LOT-${docId.slice(-4)}`;
+  const partyName = data.partyOrClientName || data.partyName || data.clientName || 'Direct Client';
+  const designNumber = data.designNumber || `DSG-100`;
+  const quantity = Number(data.quantity) || Number(data.pieces) || 50;
+
+  const photos = Array.isArray(data.photos) ? data.photos.map((p: any) => ({
+    id: p.id || `photo-${Date.now()}`,
+    url: p.url || '',
+    storagePath: p.storagePath || '',
+    caption: p.caption || '',
+    stageCapturedAt: normalizeStageForWeb(p.stageCapturedAt || currentStage),
+    capturedBy: p.capturedBy || 'Operator',
+    timestamp: p.timestamp || new Date().toISOString(),
+    deviceSource: p.deviceSource || 'android_app',
+    metadata: p.metadata || {}
+  })) : [];
+
+  const stageHistory = Array.isArray(data.stageHistory || data.history) ? (data.stageHistory || data.history).map((h: any) => ({
+    stageId: normalizeStageForWeb(h.stageId || h.toStage || h.stage || currentStage),
+    stageName: h.stageName || h.displayName || currentStage,
+    enteredAt: h.enteredAt || h.timestamp || new Date().toISOString(),
+    operatorName: h.operatorName || h.operator || 'Floor Lead',
+    notes: h.notes || h.note || '',
+    qualityStatus: h.qualityStatus
+  })) : [];
+
+  return {
+    id: data.id || docId,
+    lotNumber,
+    jobNo: data.jobNo || lotNumber,
+    designNumber,
+    designName: data.designName || 'Textile Design',
+    fabricType: data.fabricType || 'Silk Georgette',
+    fabricColor: data.fabricColor || 'Natural',
+    quantity,
+    pieces: quantity,
+    unit: data.unit || 'sarees',
+    partyOrClientName: partyName,
+    partyName,
+    chalanNumber: data.chalanNumber || data.challanSlip || 'CHL-2026',
+    date: data.date || data.createdDate || new Date().toISOString().split('T')[0],
+    createdDate: data.createdDate || data.date || new Date().toISOString().split('T')[0],
+    dueDate: data.dueDate,
+    currentStage,
+    priority: (data.priority === 'urgent' || data.isUrgent) ? 'urgent' : (data.priority === 'high' ? 'high' : 'normal'),
+    initialInspectionResult: data.initialInspectionResult || 'good',
+    alterInspectionResult: data.alterInspectionResult || (data.qualityStatus === 'NEEDS_ALTERATION' ? 'needs_alter' : 'passed'),
+    alterationReason: data.alterationReason,
+    assignedOperator: data.assignedOperator || 'Floor Lead',
+    designImage: data.designImage || (photos[0]?.url) || undefined,
+    photos,
+    customMetadata: Array.isArray(data.customMetadata) ? data.customMetadata : [],
+    stageHistory,
+    isReturned: data.isReturned || false,
+    isDispatched: data.isDispatched || false,
+    lastSyncedWithFirebase: data.lastSyncedWithFirebase || new Date().toISOString()
+  };
+}
+
 /**
  * Subscribe to real-time updates of workflow designs from Firestore
  */
@@ -215,8 +290,10 @@ export function subscribeToDesigns(
     (snapshot) => {
       const items: WorkflowItem[] = [];
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data() as WorkflowItem;
-        items.push(data);
+        const data = docSnap.data();
+        if (data) {
+          items.push(mapFirestoreDocToWorkflowItem(data, docSnap.id));
+        }
       });
       onUpdate(items);
     },

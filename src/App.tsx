@@ -51,7 +51,9 @@ import {
   saveStoredOrderSlips, 
   WORKFLOW_STAGES,
   mergeWorkflowItems,
-  mergeOrderSlips
+  mergeOrderSlips,
+  INITIAL_WORKFLOW_ITEMS,
+  DEFAULT_ORDER_SLIPS
 } from './utils/workflowData';
 import { 
   saveDesignToFirestore, 
@@ -217,16 +219,16 @@ export default function App() {
       localStorage.setItem('factory_finance_cleared_v2', 'true');
     }
 
-    // 1. One-time purge of leftover mock items
-    const cleanOldStorageKey = 'factory_mock_cleared_v4';
-    if (!localStorage.getItem(cleanOldStorageKey)) {
-      setWorkflowItems([]);
-      setOrderSlips([]);
-      setMaterials([]);
-      saveStoredWorkflowItems([]);
-      saveStoredOrderSlips([]);
-      localStorage.setItem('factory_materials', JSON.stringify([]));
-      localStorage.setItem(cleanOldStorageKey, 'true');
+    // 1. Ensure fallback initial data if storage was empty
+    const storedWf = getStoredWorkflowItems();
+    if (!storedWf || storedWf.length === 0) {
+      setWorkflowItems(INITIAL_WORKFLOW_ITEMS);
+      saveStoredWorkflowItems(INITIAL_WORKFLOW_ITEMS);
+    }
+    const storedSlips = getStoredOrderSlips();
+    if (!storedSlips || storedSlips.length === 0) {
+      setOrderSlips(DEFAULT_ORDER_SLIPS);
+      saveStoredOrderSlips(DEFAULT_ORDER_SLIPS);
     }
 
     // 2. Automatically fetch latest data from Google Apps Script Webhook on startup & smartly merge
@@ -2028,20 +2030,39 @@ export default function App() {
   useEffect(() => {
     const unsubDesigns = subscribeToDesigns(async (remoteDesigns) => {
       if (remoteDesigns && remoteDesigns.length > 0) {
-        let mergedList: WorkflowItem[] = [];
         setWorkflowItems((prev) => {
           const map = new Map<string, WorkflowItem>();
-          prev.forEach(item => map.set(item.id, item));
-          remoteDesigns.forEach(item => map.set(item.id, { ...map.get(item.id), ...item }));
-          mergedList = Array.from(map.values());
-          return mergedList;
-        });
+          
+          // 1. Put current items keyed by lot / id
+          prev.forEach(item => {
+            const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
+            if (key) map.set(key, item);
+          });
 
-        try {
-          const withPhotos = await attachStoragePhotosToWorkflowItems(mergedList);
-          setWorkflowItems(withPhotos);
-          saveStoredWorkflowItems(withPhotos);
-        } catch (e) {}
+          // 2. Merge remote Firestore items
+          remoteDesigns.forEach(remote => {
+            const key = (remote.lotNumber || remote.jobNo || remote.id || '').trim().toLowerCase();
+            if (key) {
+              const existing = map.get(key);
+              if (existing) {
+                map.set(key, {
+                  ...existing,
+                  ...remote,
+                  // Keep local photos if remote doesn't have any
+                  photos: (remote.photos && remote.photos.length > 0) ? remote.photos : (existing.photos || []),
+                  designImage: (remote.designImage && !remote.designImage.includes('unsplash.com')) ? remote.designImage : (existing.designImage || remote.designImage),
+                  stageHistory: (remote.stageHistory && remote.stageHistory.length > 0) ? remote.stageHistory : (existing.stageHistory || [])
+                });
+              } else {
+                map.set(key, remote);
+              }
+            }
+          });
+
+          const merged = Array.from(map.values());
+          saveStoredWorkflowItems(merged);
+          return merged;
+        });
       }
     });
 
@@ -2049,9 +2070,19 @@ export default function App() {
       if (remoteSlips && remoteSlips.length > 0) {
         setOrderSlips((prev) => {
           const map = new Map<string, OrderSlip>();
-          prev.forEach(slip => map.set(slip.id, slip));
-          remoteSlips.forEach(slip => map.set(slip.id, { ...map.get(slip.id), ...slip }));
-          return Array.from(map.values());
+          prev.forEach(slip => {
+            const key = (slip.jobNo || slip.id || '').trim().toLowerCase();
+            if (key) map.set(key, slip);
+          });
+          remoteSlips.forEach(slip => {
+            const key = (slip.jobNo || slip.id || '').trim().toLowerCase();
+            if (key) {
+              map.set(key, { ...(map.get(key) || {}), ...slip });
+            }
+          });
+          const merged = Array.from(map.values());
+          saveStoredOrderSlips(merged);
+          return merged;
         });
       }
     });
@@ -2068,50 +2099,66 @@ export default function App() {
     notes?: string, 
     qualityStatus?: 'good' | 'bad_return' | 'needs_alter' | 'passed'
   ) => {
-    let updatedItemForFirestore: WorkflowItem | null = null;
+    const stageDef = WORKFLOW_STAGES.find(s => s.id === newStage);
+    const nowIso = new Date().toISOString();
 
-    setWorkflowItems(prev => prev.map(item => {
-      if (item.id !== itemId) return item;
-      
-      const stageDef = WORKFLOW_STAGES.find(s => s.id === newStage);
-      const nowIso = new Date().toISOString();
-      
-      const newHistory = [
-        ...(item.stageHistory || []),
-        {
-          stageId: newStage,
-          stageName: stageDef ? stageDef.name : newStage,
-          enteredAt: nowIso,
-          operatorName: currentUser?.name || 'Floor Supervisor',
-          notes: notes || `Moved to ${stageDef?.shortName || newStage}`,
-          qualityStatus
-        }
-      ];
+    let updatedItemForSync: WorkflowItem | null = null;
+    let nextList: WorkflowItem[] = [];
 
-      const updated: WorkflowItem = {
-        ...item,
+    setWorkflowItems(prev => {
+      nextList = prev.map(item => {
+        if (item.id !== itemId) return item;
+        
+        const newHistory = [
+          ...(item.stageHistory || []),
+          {
+            stageId: newStage,
+            stageName: stageDef ? stageDef.name : newStage,
+            enteredAt: nowIso,
+            operatorName: currentUser?.name || 'Floor Supervisor',
+            notes: notes || `Moved to ${stageDef?.shortName || newStage}`,
+            qualityStatus
+          }
+        ];
+
+        const updated: WorkflowItem = {
+          ...item,
+          currentStage: newStage,
+          stageHistory: newHistory,
+          isReturned: qualityStatus === 'bad_return' ? true : item.isReturned,
+          initialInspectionResult: qualityStatus === 'good' || qualityStatus === 'bad_return' 
+            ? qualityStatus 
+            : item.initialInspectionResult,
+          alterInspectionResult: qualityStatus === 'passed' || qualityStatus === 'needs_alter'
+            ? qualityStatus
+            : item.alterInspectionResult,
+          alterationReason: qualityStatus === 'needs_alter' && notes ? notes : item.alterationReason,
+          lastSyncedWithFirebase: nowIso
+        };
+
+        updatedItemForSync = updated;
+        return updated;
+      });
+
+      saveStoredWorkflowItems(nextList);
+      return nextList;
+    });
+
+    // Find the item and sync immediately to Firestore and Google Sheets
+    const targetItem = workflowItems.find(i => i.id === itemId) || updatedItemForSync;
+    if (targetItem) {
+      const itemToSync: WorkflowItem = {
+        ...targetItem,
         currentStage: newStage,
-        stageHistory: newHistory,
-        isReturned: qualityStatus === 'bad_return' ? true : item.isReturned,
-        initialInspectionResult: qualityStatus === 'good' || qualityStatus === 'bad_return' 
-          ? qualityStatus 
-          : item.initialInspectionResult,
-        alterInspectionResult: qualityStatus === 'passed' || qualityStatus === 'needs_alter'
-          ? qualityStatus
-          : item.alterInspectionResult,
-        alterationReason: qualityStatus === 'needs_alter' && notes ? notes : item.alterationReason
+        lastSyncedWithFirebase: nowIso
       };
-
-      updatedItemForFirestore = updated;
-      return updated;
-    }));
-
-    if (updatedItemForFirestore) {
-      pushItemToGoogleSheets(syncConfig, updatedItemForFirestore);
-      saveDesignToFirestore(updatedItemForFirestore).catch(err => {
+      saveDesignToFirestore(itemToSync).catch(err => {
         console.warn('Firestore sync note:', err);
       });
-      syncFullStateToGoogleSheets();
+      pushItemToGoogleSheets(syncConfig, itemToSync);
+      syncFullStateToGoogleSheets({ 
+        workflowItemsList: workflowItems.map(i => i.id === itemId ? itemToSync : i)
+      });
     }
 
     if (newStage === 'prepare_dispatch') {
