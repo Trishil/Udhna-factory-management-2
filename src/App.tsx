@@ -2041,7 +2041,7 @@ export default function App() {
           const map = new Map<string, WorkflowItem>();
           
           // 1. Put current items keyed by lot / id
-          prev.forEach(item => {
+          (prev || []).forEach(item => {
             const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
             if (key) map.set(key, item);
           });
@@ -2052,12 +2052,16 @@ export default function App() {
             if (key) {
               const existing = map.get(key);
               if (existing) {
+                const validRemotePhotos = (remote.photos || []).filter(p => p.url && p.url.startsWith('http'));
+                const validExistingPhotos = (existing.photos || []).filter(p => p.url && p.url.startsWith('http'));
+                const validRemoteImage = (remote.designImage && remote.designImage.startsWith('http') && !remote.designImage.includes('unsplash.com')) ? remote.designImage : undefined;
+                const validExistingImage = (existing.designImage && existing.designImage.startsWith('http') && !existing.designImage.includes('unsplash.com')) ? existing.designImage : undefined;
+
                 map.set(key, {
                   ...existing,
                   ...remote,
-                  // Keep local photos if remote doesn't have any
-                  photos: (remote.photos && remote.photos.length > 0) ? remote.photos : (existing.photos || []),
-                  designImage: (remote.designImage && !remote.designImage.includes('unsplash.com')) ? remote.designImage : (existing.designImage || remote.designImage),
+                  photos: validRemotePhotos.length > 0 ? validRemotePhotos : validExistingPhotos,
+                  designImage: validRemoteImage || validExistingImage || (validRemotePhotos[0]?.url) || (validExistingPhotos[0]?.url) || undefined,
                   stageHistory: (remote.stageHistory && remote.stageHistory.length > 0) ? remote.stageHistory : (existing.stageHistory || [])
                 });
               } else {
@@ -2067,15 +2071,22 @@ export default function App() {
           });
 
           mergedList = Array.from(map.values());
-          saveStoredWorkflowItems(mergedList);
-          return mergedList;
+          if (mergedList.length > 0) {
+            saveStoredWorkflowItems(mergedList);
+            return mergedList;
+          }
+          return prev;
         });
 
-        try {
-          const withPhotos = await attachStoragePhotosToWorkflowItems(mergedList);
-          setWorkflowItems(withPhotos);
-          saveStoredWorkflowItems(withPhotos);
-        } catch (e) {}
+        if (mergedList.length > 0) {
+          try {
+            const withPhotos = await attachStoragePhotosToWorkflowItems(mergedList);
+            if (withPhotos && withPhotos.length > 0) {
+              setWorkflowItems(withPhotos);
+              saveStoredWorkflowItems(withPhotos);
+            }
+          } catch (e) {}
+        }
       }
     });
 

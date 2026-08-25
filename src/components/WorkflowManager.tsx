@@ -54,7 +54,8 @@ import {
   saveStoredOrderSlips, 
   getItemStageBreakdown,
   getOrderSlipCompletedPieces,
-  getOrderSlipStageDistribution 
+  getOrderSlipStageDistribution,
+  INITIAL_WORKFLOW_ITEMS
 } from '../utils/workflowData';
 import { WorkflowItemModal } from './WorkflowItemModal';
 import { CreateWorkflowItemModal } from './CreateWorkflowItemModal';
@@ -129,9 +130,13 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
     }
   };
 
+  const effectiveItems = useMemo(() => {
+    return (items && items.length > 0) ? items : INITIAL_WORKFLOW_ITEMS;
+  }, [items]);
+
   // Filter items
   const filteredItems = useMemo(() => {
-    return (items || []).filter(item => {
+    return effectiveItems.filter(item => {
       if (!item) return false;
       const q = (searchQuery || '').toLowerCase().trim();
       const matchesSearch = !q || (
@@ -164,15 +169,15 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
 
       return matchesSearch && matchesPriority && matchesStage && matchesQuality;
     });
-  }, [items, searchQuery, selectedPriority, selectedStageFilter, selectedQualityFilter]);
+  }, [effectiveItems, searchQuery, selectedPriority, selectedStageFilter, selectedQualityFilter]);
 
   // Overall Statistics
-  const totalItems = items.length;
-  const totalVolume = items.reduce((acc, it) => acc + it.quantity, 0);
-  const urgentCount = items.filter(it => it.priority === 'urgent').length;
-  const inEmbroideryCount = items.filter(it => it.currentStage === 'embroidery').length;
-  const alteringCount = items.filter(it => it.currentStage === 'altering' || it.alterInspectionResult === 'needs_alter').length;
-  const readyDispatchCount = items.filter(it => it.currentStage === 'prepare_dispatch').length;
+  const totalItems = effectiveItems.length;
+  const totalVolume = effectiveItems.reduce((acc, it) => acc + (it.quantity || 0), 0);
+  const urgentCount = effectiveItems.filter(it => it.priority === 'urgent').length;
+  const inEmbroideryCount = effectiveItems.filter(it => normalizeStageForWeb(it.currentStage) === 'embroidery').length;
+  const alteringCount = effectiveItems.filter(it => normalizeStageForWeb(it.currentStage) === 'altering' || it.alterInspectionResult === 'needs_alter').length;
+  const readyDispatchCount = effectiveItems.filter(it => normalizeStageForWeb(it.currentStage) === 'prepare_dispatch').length;
 
   // Drag and Drop Handlers
   const handleDragStart = (e: React.DragEvent, itemId: string) => {

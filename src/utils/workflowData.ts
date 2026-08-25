@@ -608,47 +608,54 @@ export function getStoredWorkflowItems(): WorkflowItem[] {
 
 export function saveStoredWorkflowItems(items: WorkflowItem[]): void {
   try {
-    localStorage.setItem(LOCAL_STORAGE_WORKFLOW_KEY, JSON.stringify(items));
+    if (Array.isArray(items) && items.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_WORKFLOW_KEY, JSON.stringify(items));
+    }
   } catch (e) {
     console.error('Error saving workflow items:', e);
   }
 }
 
 export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowItem[]): WorkflowItem[] {
+  if (!incoming || incoming.length === 0) {
+    return (current && current.length > 0) ? current : INITIAL_WORKFLOW_ITEMS;
+  }
+
   const map = new Map<string, WorkflowItem>();
   
-  // 1. Load incoming from sheet
-  for (const item of incoming) {
+  // 1. Put current items into map first
+  for (const item of (current || [])) {
     const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
     if (key) map.set(key, item);
   }
 
-  // 2. Overlay / preserve current local items
-  for (const item of current) {
-    const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
+  // 2. Merge incoming sheet items smartly
+  for (const sheetItem of incoming) {
+    const key = (sheetItem.lotNumber || sheetItem.jobNo || sheetItem.id || '').trim().toLowerCase();
     if (key) {
       if (map.has(key)) {
-        const sheetItem = map.get(key)!;
-        const hasLocalPhotos = Boolean(item.photos && item.photos.length > 0);
-        const hasLocalCustomImage = Boolean(item.designImage && item.designImage.trim() && !item.designImage.includes('unsplash.com'));
-        const hasSheetPhotos = Boolean(sheetItem.photos && sheetItem.photos.length > 0);
-        const hasSheetCustomImage = Boolean(sheetItem.designImage && sheetItem.designImage.trim() && !sheetItem.designImage.includes('unsplash.com'));
+        const existing = map.get(key)!;
+        const validExistingPhotos = (existing.photos || []).filter(p => p.url && p.url.startsWith('http'));
+        const validSheetPhotos = (sheetItem.photos || []).filter(p => p.url && p.url.startsWith('http'));
+        const validExistingImage = (existing.designImage && existing.designImage.startsWith('http') && !existing.designImage.includes('unsplash.com')) ? existing.designImage : undefined;
+        const validSheetImage = (sheetItem.designImage && sheetItem.designImage.startsWith('http') && !sheetItem.designImage.includes('unsplash.com')) ? sheetItem.designImage : undefined;
 
         map.set(key, {
+          ...existing,
           ...sheetItem,
-          // Preserve photos if sheet does not have photos yet
-          photos: hasSheetPhotos ? sheetItem.photos : (hasLocalPhotos ? item.photos : []),
-          designImage: hasSheetCustomImage ? sheetItem.designImage : (hasLocalCustomImage ? item.designImage : undefined),
-          stageHistory: (sheetItem.stageHistory && sheetItem.stageHistory.length > 0) ? sheetItem.stageHistory : (item.stageHistory || [])
+          // Never let empty sheet photos overwrite real photos
+          photos: validSheetPhotos.length > 0 ? validSheetPhotos : validExistingPhotos,
+          designImage: validSheetImage || validExistingImage || (validSheetPhotos[0]?.url) || (validExistingPhotos[0]?.url) || undefined,
+          stageHistory: (sheetItem.stageHistory && sheetItem.stageHistory.length > 0) ? sheetItem.stageHistory : (existing.stageHistory || [])
         });
       } else {
-        // Local item created on website but not in sheet yet: KEEP IT!
-        map.set(key, item);
+        map.set(key, sheetItem);
       }
     }
   }
 
-  return Array.from(map.values());
+  const result = Array.from(map.values());
+  return result.length > 0 ? result : ((current && current.length > 0) ? current : INITIAL_WORKFLOW_ITEMS);
 }
 
 export function mergeOrderSlips(current: OrderSlip[], incoming: OrderSlip[]): OrderSlip[] {
