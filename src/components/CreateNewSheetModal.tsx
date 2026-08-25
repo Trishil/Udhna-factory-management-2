@@ -76,6 +76,12 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
     }
     const fullUrl = sheetInput.includes('https://') ? sheetInput.trim() : `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
     
+    // Automatically trigger 11-tab generation in background on Google Drive
+    try {
+      const populateUrl = `${DEFAULT_APPS_SCRIPT_URL}?action=populate_sheet_tabs&sheetId=${encodeURIComponent(sheetId)}`;
+      fetch(populateUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+    } catch (e) {}
+
     setCreatedResult({
       id: sheetId,
       url: fullUrl,

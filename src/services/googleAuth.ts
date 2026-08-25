@@ -241,21 +241,16 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthProfile> {
 
 export function findWorkspaceByEmail(email: string): CompanyWorkspace | null {
   if (!email) return null;
+  const cleanEmail = email.trim().toLowerCase();
 
-  // 1. Trisharth Owners & Team Members
-  if (
-    cleanEmail.includes('atharvabalar') ||
-    cleanEmail.includes('trishil') ||
-    cleanEmail.includes('drlaljirpatel') ||
-    cleanEmail.endsWith('@trisharth.internal') ||
-    TRISHARTH_TEAM_MEMBERS.some(m => m.email.toLowerCase() === cleanEmail)
-  ) {
+  // 1. Only primary founder email is default Trisharth owner
+  if (cleanEmail === 'atharvabalar6@gmail.com') {
     return TRISHARTH_WORKSPACE;
   }
 
-  // 2. Stored Workspaces by Owner Email
+  // 2. Custom registered workspaces in registry
   const workspaces = getStoredWorkspaces();
-  const matched = workspaces.find(w => w.ownerEmail?.toLowerCase() === cleanEmail);
+  const matched = workspaces.find(w => w.ownerEmail?.toLowerCase() === cleanEmail && w.id !== 'trisharth');
   if (matched) return matched;
 
   return null;
