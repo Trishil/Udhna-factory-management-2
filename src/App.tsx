@@ -263,6 +263,32 @@ export default function App() {
         } catch (e) {}
       }
     }).catch(() => {});
+
+    // 3. Live real-time bidirectional photo & design sync with Android Mobile app & Firebase
+    const unsubscribeDesigns = subscribeToDesigns((firestoreItems) => {
+      if (firestoreItems && firestoreItems.length > 0) {
+        setWorkflowItems((prev) => {
+          const merged = mergeWorkflowItems(prev, firestoreItems);
+          saveStoredWorkflowItems(merged);
+          return merged;
+        });
+      }
+    });
+
+    const unsubscribeSlips = subscribeToOrderSlips((firestoreSlips) => {
+      if (firestoreSlips && firestoreSlips.length > 0) {
+        setOrderSlips((prev) => {
+          const merged = mergeOrderSlips(prev, firestoreSlips);
+          saveStoredOrderSlips(merged);
+          return merged;
+        });
+      }
+    });
+
+    return () => {
+      if (unsubscribeDesigns) unsubscribeDesigns();
+      if (unsubscribeSlips) unsubscribeSlips();
+    };
   }, []);
 
   // Persistence effects
