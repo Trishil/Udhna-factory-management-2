@@ -219,52 +219,28 @@ export default function App() {
       localStorage.setItem('factory_finance_cleared_v2', 'true');
     }
 
-    // 1. Ensure fallback initial data if storage was empty
-    const storedWf = getStoredWorkflowItems();
-    const initialWf = (storedWf && storedWf.length > 0) ? storedWf : INITIAL_WORKFLOW_ITEMS;
-    setWorkflowItems(initialWf);
-    saveStoredWorkflowItems(initialWf);
-
-    // Immediate initial photo scan from Firebase Storage (e.g. design_photos/DSG-104/)
-    attachStoragePhotosToWorkflowItems(initialWf).then(withPhotos => {
-      setWorkflowItems(withPhotos);
-      saveStoredWorkflowItems(withPhotos);
-    }).catch(() => {});
-
-    const storedSlips = getStoredOrderSlips();
-    if (!storedSlips || storedSlips.length === 0) {
-      setOrderSlips(DEFAULT_ORDER_SLIPS);
-      saveStoredOrderSlips(DEFAULT_ORDER_SLIPS);
-    }
-
-    // 2. Automatically fetch latest data from Google Apps Script Webhook on startup & smartly merge
-    syncWithAppsScript(syncConfig).then(async result => {
-      if (result.success) {
-        let mergedWf: WorkflowItem[] = [];
+    // 1. Fetch latest data from Google Apps Script Webhook on startup & smartly merge
+    syncWithAppsScript(syncConfig).then(result => {
+      if (result.success && result.workflow && result.workflow.length > 0) {
         setWorkflowItems(prev => {
-          mergedWf = mergeWorkflowItems(prev, result.workflow || []);
-          saveStoredWorkflowItems(mergedWf);
-          return mergedWf;
-        });
-        setOrderSlips(prev => {
-          const merged = mergeOrderSlips(prev, result.orderSlips || []);
-          saveStoredOrderSlips(merged);
+          const merged = mergeWorkflowItems(prev, result.workflow || []);
+          saveStoredWorkflowItems(merged);
           return merged;
         });
+        if (result.orderSlips && result.orderSlips.length > 0) {
+          setOrderSlips(prev => {
+            const merged = mergeOrderSlips(prev, result.orderSlips || []);
+            saveStoredOrderSlips(merged);
+            return merged;
+          });
+        }
         if (result.inventory && result.inventory.length > 0) {
           setMaterials(result.inventory);
         }
-
-        // Auto-link photos from Firebase Storage folders (e.g. design_photos/DSG-104/)
-        try {
-          const withPhotos = await attachStoragePhotosToWorkflowItems(mergedWf);
-          setWorkflowItems(withPhotos);
-          saveStoredWorkflowItems(withPhotos);
-        } catch (e) {}
       }
     }).catch(() => {});
 
-    // 3. Live real-time bidirectional photo & design sync with Android Mobile app & Firebase
+    // 2. Live real-time bidirectional photo & design sync with Android Mobile app & Firebase
     const unsubscribeDesigns = subscribeToDesigns((firestoreItems) => {
       if (firestoreItems && firestoreItems.length > 0) {
         setWorkflowItems((prev) => {
