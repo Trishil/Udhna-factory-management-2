@@ -702,7 +702,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
             <div>
               <span className="text-[10px] uppercase font-bold text-emerald-800">Ready for Dispatch</span>
               <p className="text-base font-black font-mono mt-0.5 text-emerald-900">
-                {readyForDispatchCount} Lots
+                {readyDispatchCount} Lots
               </p>
           </div>
         </div>

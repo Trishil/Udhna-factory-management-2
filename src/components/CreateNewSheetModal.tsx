@@ -22,7 +22,7 @@ import {
   Tag
 } from 'lucide-react';
 import { createAutomatedFactorySpreadsheet } from '../services/googleSheetsApi';
-import { requestDirectGoogleOAuth, DEFAULT_SHEET_ID } from '../services/googleAuth';
+import { requestDirectGoogleOAuth, DEFAULT_SHEET_ID, DEFAULT_APPS_SCRIPT_URL } from '../services/googleAuth';
 import { RawMaterial, AuthUser, WorkflowItem, OrderSlip, Machine } from '../types';
 import confetti from 'canvas-confetti';
 

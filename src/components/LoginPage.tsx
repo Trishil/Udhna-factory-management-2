@@ -14,7 +14,7 @@ import {
   Lock,
   KeyRound
 } from 'lucide-react';
-import { AuthUser } from '../types';
+import { AuthUser, CompanyWorkspace } from '../types';
 import { 
   requestGoogleSignIn, 
   authenticateWithGoogle,
