@@ -221,10 +221,16 @@ export default function App() {
 
     // 1. Ensure fallback initial data if storage was empty
     const storedWf = getStoredWorkflowItems();
-    if (!storedWf || storedWf.length === 0) {
-      setWorkflowItems(INITIAL_WORKFLOW_ITEMS);
-      saveStoredWorkflowItems(INITIAL_WORKFLOW_ITEMS);
-    }
+    const initialWf = (storedWf && storedWf.length > 0) ? storedWf : INITIAL_WORKFLOW_ITEMS;
+    setWorkflowItems(initialWf);
+    saveStoredWorkflowItems(initialWf);
+
+    // Immediate initial photo scan from Firebase Storage (e.g. design_photos/DSG-104/)
+    attachStoragePhotosToWorkflowItems(initialWf).then(withPhotos => {
+      setWorkflowItems(withPhotos);
+      saveStoredWorkflowItems(withPhotos);
+    }).catch(() => {});
+
     const storedSlips = getStoredOrderSlips();
     if (!storedSlips || storedSlips.length === 0) {
       setOrderSlips(DEFAULT_ORDER_SLIPS);
@@ -2030,6 +2036,7 @@ export default function App() {
   useEffect(() => {
     const unsubDesigns = subscribeToDesigns(async (remoteDesigns) => {
       if (remoteDesigns && remoteDesigns.length > 0) {
+        let mergedList: WorkflowItem[] = [];
         setWorkflowItems((prev) => {
           const map = new Map<string, WorkflowItem>();
           
@@ -2059,10 +2066,16 @@ export default function App() {
             }
           });
 
-          const merged = Array.from(map.values());
-          saveStoredWorkflowItems(merged);
-          return merged;
+          mergedList = Array.from(map.values());
+          saveStoredWorkflowItems(mergedList);
+          return mergedList;
         });
+
+        try {
+          const withPhotos = await attachStoragePhotosToWorkflowItems(mergedList);
+          setWorkflowItems(withPhotos);
+          saveStoredWorkflowItems(withPhotos);
+        } catch (e) {}
       }
     });
 
