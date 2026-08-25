@@ -371,10 +371,9 @@ export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
                     {item.designImage ? (
                       <>
                         <img
-                          src={item.designImage}
+                          src={formatDirectImageUrl(item.designImage)}
                           alt={item.designNumber}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 max-h-48"
-                          referrerPolicy="no-referrer"
                         />
                         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-slate-900/80 backdrop-blur-xs text-[10px] font-mono text-emerald-400 font-bold border border-emerald-500/30 flex items-center space-x-1">
                           <CheckCircle2 className="h-2.5 w-2.5" />
