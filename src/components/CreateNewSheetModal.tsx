@@ -51,12 +51,41 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
   if (!isOpen) return null;
 
   const [title, setTitle] = useState(`Udhna Factory Master & 10-Stage Workflow — ${new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}`);
-  const [creationMode, setCreationMode] = useState<'google' | 'sandbox'>('google');
+  const [creationMode, setCreationMode] = useState<'google' | 'custom' | 'sandbox'>('google');
+  const [customSheetUrl, setCustomSheetUrl] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [createdResult, setCreatedResult] = useState<{ id: string; url: string; title: string; mode: 'google' | 'sandbox' } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthError, setIsAuthError] = useState(false);
+
+  const extractSheetId = (input: string): string => {
+    const clean = input.trim();
+    if (clean.includes('/spreadsheets/d/')) {
+      const match = clean.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (match && match[1]) return match[1];
+    }
+    return clean;
+  };
+
+  const handleLinkCustomSheet = (sheetInput: string, customTitle: string) => {
+    const sheetId = extractSheetId(sheetInput);
+    if (!sheetId) {
+      setErrorMessage('Please enter a valid Google Spreadsheet URL or Sheet ID.');
+      return;
+    }
+    const fullUrl = sheetInput.includes('https://') ? sheetInput.trim() : `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+    
+    setCreatedResult({
+      id: sheetId,
+      url: fullUrl,
+      title: customTitle,
+      mode: 'google'
+    });
+
+    onSpreadsheetCreated(sheetId, fullUrl, customTitle);
+    confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
+  };
 
   const executeCreationWithToken = async (targetToken: string, sheetTitle: string) => {
     const result = await createAutomatedFactorySpreadsheet(
@@ -100,6 +129,12 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
 
     if (creationMode === 'sandbox') {
       createSandboxSheet(title);
+      setIsCreating(false);
+      return;
+    }
+
+    if (creationMode === 'custom') {
+      handleLinkCustomSheet(customSheetUrl, title);
       setIsCreating(false);
       return;
     }
@@ -302,7 +337,7 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
             {/* Mode Select */}
             <div>
               <label className="block font-semibold text-slate-700 mb-1">Creation Destination</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setCreationMode('google')}
@@ -314,10 +349,28 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
                 >
                   <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
                     <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Real Google Sheet</span>
+                    <span>Auto Cloud Sheet</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                    Directly creates in Google Drive and shares with authorized team emails.
+                  <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                    Auto-creates on Google Drive with 11 production tabs.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCreationMode('custom')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    creationMode === 'custom'
+                      ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
+                      : 'border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
+                    <ExternalLink className="h-4 w-4 text-purple-600 shrink-0" />
+                    <span>Paste Sheet Link</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                    Link any existing or newly created spreadsheet.
                   </p>
                 </button>
 
@@ -334,12 +387,38 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
                     <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0" />
                     <span>Sandbox Mode</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                    Simulates sheet creation without requiring Google permissions.
+                  <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                    Local in-memory testing without Google permissions.
                   </p>
                 </button>
               </div>
             </div>
+
+            {/* Custom Sheet Link Input */}
+            {creationMode === 'custom' && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-700 text-xs">Google Spreadsheet URL or Sheet ID</label>
+                  <a
+                    href="https://sheets.new"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1"
+                  >
+                    <span>+ Open Blank sheets.new</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+                <input
+                  type="text"
+                  value={customSheetUrl}
+                  onChange={(e) => setCustomSheetUrl(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id/edit"
+                  required={creationMode === 'custom'}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            )}
 
             {/* Collaborator Sharing Notice */}
             <div className="p-3 bg-purple-50/70 rounded-xl border border-purple-200 text-purple-950 text-[11px] space-y-1">
