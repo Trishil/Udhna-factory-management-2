@@ -987,17 +987,17 @@ export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
                           }}
                         />
                         <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-slate-900/80 text-white font-mono text-[9px] font-bold backdrop-blur-xs flex items-center space-x-1">
-                          {photo.source === 'android_app' ? (
+                          {(photo.source || photo.deviceSource) === 'android_app' ? (
                             <Smartphone className="h-2.5 w-2.5 text-emerald-400" />
                           ) : (
                             <Camera className="h-2.5 w-2.5 text-blue-400" />
                           )}
-                          <span>{photo.source === 'android_app' ? 'Android App' : 'Web Upload'}</span>
+                          <span>{(photo.source || photo.deviceSource) === 'android_app' ? 'Android App' : 'Web Upload'}</span>
                         </span>
 
-                        {photo.stageCaptured && (
+                        {(photo.stageCaptured || photo.stageCapturedAt) && (
                           <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-blue-600/90 text-white font-mono text-[9px] font-bold">
-                            Stage: {photo.stageCaptured}
+                            Stage: {photo.stageCaptured || photo.stageCapturedAt}
                           </span>
                         )}
                       </div>
@@ -1010,7 +1010,7 @@ export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
                         )}
 
                         <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
-                          <span>By: {photo.takenBy || 'Operator'}</span>
+                          <span>By: {photo.takenBy || photo.capturedBy || 'Operator'}</span>
                           <span>{new Date(photo.timestamp).toLocaleDateString()}</span>
                         </div>
 

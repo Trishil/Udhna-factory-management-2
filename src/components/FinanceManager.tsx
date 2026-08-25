@@ -168,7 +168,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     peakDemandCharges: '2800',
     dueDate: new Date(Date.now() + 10 * 86400000).toISOString().split('T')[0],
     billInvoiceRef: `EB-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
-    paymentStatus: 'unpaid' as 'paid' | 'unpaid' | 'partial'
+    paymentStatus: 'unpaid' as 'paid' | 'unpaid' | 'overdue'
   });
 
   // Base tariff rate state for live telemetry calculations (default ₹9.50/kWh)
@@ -1092,7 +1092,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                         <div className="flex items-center space-x-1.5">
                           <span className="font-mono font-bold text-slate-800">{sp.purchaseOrderCode}</span>
                           <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase ${
-                            sp.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : sp.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                            sp.status === 'settled' || (sp.status as any) === 'paid' ? 'bg-emerald-100 text-emerald-700' : sp.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
                           }`}>
                             {sp.status}
                           </span>
@@ -1315,7 +1315,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                         </td>
                         <td className="py-3 px-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            sp.status === 'paid'
+                            sp.status === 'settled' || (sp.status as any) === 'paid'
                               ? 'bg-emerald-100 text-emerald-800'
                               : sp.status === 'partial'
                               ? 'bg-amber-100 text-amber-800'
@@ -1454,7 +1454,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                             ) : (
                               <span className="text-[11px] font-semibold text-emerald-600 flex items-center justify-end space-x-1">
                                 <CheckCircle2 className="h-3.5 w-3.5" />
-                                <span>Paid ({emp.paidDate || 'Disbursed'})</span>
+                                <span>Paid ({emp.paidDate || emp.lastPaidDate || 'Disbursed'})</span>
                               </span>
                             )}
                             {onDeleteEmployee && (

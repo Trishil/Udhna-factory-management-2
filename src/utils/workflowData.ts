@@ -172,8 +172,158 @@ export const WORKFLOW_STAGES: StageDefinition[] = [
   }
 ];
 
-export const INITIAL_WORKFLOW_ITEMS: WorkflowItem[] = [];
-export const DEFAULT_ORDER_SLIPS: OrderSlip[] = [];
+export const INITIAL_WORKFLOW_ITEMS: WorkflowItem[] = [
+  {
+    id: 'wf-lot-9035',
+    lotNumber: 'LOT-9035',
+    jobNo: 'JOB-2026-104',
+    partyName: 'Surat Bridal Couture',
+    partyOrClientName: 'Surat Bridal Couture',
+    chalanNumber: 'CHL-2026-881',
+    date: '2026-08-23',
+    createdDate: '2026-08-23',
+    dueDate: '2026-08-25',
+    designNumber: 'DSG-104',
+    designName: 'Chiffon Saree Foil & Cording',
+    fabricType: 'Silk Georgette',
+    fabricColor: 'Emerald Green',
+    quantity: 45,
+    pieces: 45,
+    unit: 'sarees',
+    currentStage: 'embroidery',
+    priority: 'high',
+    initialInspectionResult: 'good',
+    alterInspectionResult: 'passed',
+    assignedOperator: 'Ramesh Kumar',
+    firmName: 'Udhna Textile',
+    notes: 'Zari tension uniform across 12 heads',
+    photos: [],
+    stageHistory: [
+      { fromStage: 'fabric', toStage: 'chalan', timestamp: '2026-08-23T09:00:00.000Z', operator: 'Floor Supervisor' },
+      { fromStage: 'chalan', toStage: 'inspection', timestamp: '2026-08-23T11:30:00.000Z', operator: 'Floor Supervisor' },
+      { fromStage: 'inspection', toStage: 'stitching_patta', timestamp: '2026-08-23T14:00:00.000Z', operator: 'Lead QC Inspector' },
+      { fromStage: 'stitching_patta', toStage: 'embroidery', timestamp: '2026-08-24T08:30:00.000Z', operator: 'Embroidery Master' }
+    ],
+    lastSyncedWithFirebase: new Date().toISOString()
+  },
+  {
+    id: 'wf-lot-9036',
+    lotNumber: 'LOT-9036',
+    jobNo: 'JOB-2026-105',
+    partyName: 'Shreeji Silk Mills',
+    partyOrClientName: 'Shreeji Silk Mills',
+    chalanNumber: 'CHL-2026-882',
+    date: '2026-08-23',
+    createdDate: '2026-08-23',
+    dueDate: '2026-08-28',
+    designNumber: 'DSG-105',
+    designName: 'Peacock Jacquard Brocade',
+    fabricType: 'Pure Raw Silk',
+    fabricColor: 'Royal Maroon',
+    quantity: 35,
+    pieces: 35,
+    unit: 'sarees',
+    currentStage: 'dhaga_cutting',
+    priority: 'urgent',
+    initialInspectionResult: 'good',
+    alterInspectionResult: 'passed',
+    assignedOperator: 'Vikas Sharma',
+    firmName: 'Udhna Textile',
+    notes: 'Thread trimming on back motifs',
+    photos: [],
+    stageHistory: [
+      { fromStage: 'fabric', toStage: 'embroidery', timestamp: '2026-08-23T10:00:00.000Z', operator: 'Embroidery Master' },
+      { fromStage: 'embroidery', toStage: 'dhaga_cutting', timestamp: '2026-08-24T16:00:00.000Z', operator: 'Dhaga Cutting Master' }
+    ],
+    lastSyncedWithFirebase: new Date().toISOString()
+  },
+  {
+    id: 'wf-lot-9037',
+    lotNumber: 'LOT-9037',
+    jobNo: 'JOB-2026-106',
+    partyName: 'Kaveri Fashion House',
+    partyOrClientName: 'Kaveri Fashion House',
+    chalanNumber: 'CHL-2026-883',
+    date: '2026-08-23',
+    createdDate: '2026-08-23',
+    dueDate: '2026-08-24',
+    designNumber: 'DSG-106',
+    designName: 'Velvet Foil Motif Cut',
+    fabricType: 'Micro Velvet 9000',
+    fabricColor: 'Midnight Navy',
+    quantity: 50,
+    pieces: 50,
+    unit: 'sarees',
+    currentStage: 'altering',
+    priority: 'high',
+    initialInspectionResult: 'good',
+    alterInspectionResult: 'needs_alter',
+    alterationReason: 'Foil lift on border',
+    assignedOperator: 'Anita Shah',
+    firmName: 'Udhna Textile',
+    notes: '5 pieces sent for heat press re-curing',
+    photos: [],
+    stageHistory: [
+      { fromStage: 'fabric', toStage: 'inspection_alter', timestamp: '2026-08-23T12:00:00.000Z', operator: 'Lead QC Inspector' },
+      { fromStage: 'inspection_alter', toStage: 'altering', timestamp: '2026-08-24T14:30:00.000Z', operator: 'Khakha & Jari Specialist' }
+    ],
+    lastSyncedWithFirebase: new Date().toISOString()
+  }
+];
+
+export const DEFAULT_ORDER_SLIPS: OrderSlip[] = [
+  {
+    id: 'slip-job-2026-104',
+    jobNo: 'JOB-2026-104',
+    partyName: 'Surat Bridal Couture',
+    chalanNo: 'CHL-2026-881',
+    dateOfEntry: '2026-08-23',
+    totalPcs: 45,
+    fabricColumns: ['Kali', 'Dupatta', 'Blouse Front'],
+    colorRows: [
+      { id: 'c1', colorName: 'Emerald Green', colorCode: '#059669', count: 45, stageBreakdown: { embroidery: 45 } as any, completedCount: 0 }
+    ],
+    inwardNotes: 'Full bridal lehanga set',
+    calculationNotes: 'Kali: 45 | Dupatta: 45',
+    piecesCompleted: 0,
+    firmName: 'Udhna Textile',
+    status: 'ACTIVE'
+  },
+  {
+    id: 'slip-job-2026-105',
+    jobNo: 'JOB-2026-105',
+    partyName: 'Shreeji Silk Mills',
+    chalanNo: 'CHL-2026-882',
+    dateOfEntry: '2026-08-23',
+    totalPcs: 35,
+    fabricColumns: ['Brocade Saree Roll'],
+    colorRows: [
+      { id: 'c2', colorName: 'Royal Maroon', colorCode: '#991B1B', count: 35, stageBreakdown: { dhaga_cutting: 35 } as any, completedCount: 0 }
+    ],
+    inwardNotes: 'Gold zari weaving pattern',
+    calculationNotes: '35 sarees @ 6.3m',
+    piecesCompleted: 0,
+    firmName: 'Udhna Textile',
+    status: 'ACTIVE'
+  },
+  {
+    id: 'slip-job-2026-106',
+    jobNo: 'JOB-2026-106',
+    partyName: 'Kaveri Fashion House',
+    chalanNo: 'CHL-2026-883',
+    dateOfEntry: '2026-08-23',
+    totalPcs: 50,
+    fabricColumns: ['Velvet Choli'],
+    colorRows: [
+      { id: 'c3', colorName: 'Midnight Navy', colorCode: '#1E3A8A', count: 50, stageBreakdown: { inspection_alter: 45, altering: 5 } as any, completedCount: 0 }
+    ],
+    inwardNotes: 'Micro velvet with foil border',
+    calculationNotes: '50 choli pieces',
+    piecesCompleted: 0,
+    firmName: 'Udhna Textile',
+    status: 'ACTIVE'
+  }
+];
 
 const LOCAL_STORAGE_WORKFLOW_KEY = 'factory_fabric_workflow_items_v1';
 export const LOCAL_STORAGE_METADATA_TEMPLATE_KEY = 'factory_workflow_metadata_template_keys_v1';

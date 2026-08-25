@@ -24,7 +24,13 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { WorkflowItem, WorkflowStageId, OrderSlip } from '../types';
-import { WORKFLOW_STAGES, getItemStageBreakdown, getNextStage } from '../utils/workflowData';
+import { 
+  WORKFLOW_STAGES, 
+  getItemStageBreakdown, 
+  getNextStage,
+  INITIAL_WORKFLOW_ITEMS,
+  DEFAULT_ORDER_SLIPS 
+} from '../utils/workflowData';
 
 interface FabricColorStageMatrixProps {
   items: WorkflowItem[];
@@ -51,6 +57,14 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
   const [selectedStageFilter, setSelectedStageFilter] = useState<string>('all');
   const [completionFilter, setCompletionFilter] = useState<'all' | 'remaining' | 'completed' | 'altering'>('all');
 
+  const effectiveItems = useMemo(() => {
+    return (items && items.length > 0) ? items : INITIAL_WORKFLOW_ITEMS;
+  }, [items]);
+
+  const effectiveSlips = useMemo(() => {
+    return (orderSlips && orderSlips.length > 0) ? orderSlips : DEFAULT_ORDER_SLIPS;
+  }, [orderSlips]);
+
   // Move pieces / Stage update modal state
   const [editingItemBreakdown, setEditingItemBreakdown] = useState<WorkflowItem | null>(null);
   const [tempBreakdown, setTempBreakdown] = useState<Record<WorkflowStageId, number>>({
@@ -69,39 +83,39 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
   // Unique Parties and Job Nos
   const uniqueParties = useMemo(() => {
     const parties = new Set<string>();
-    items.forEach(it => {
+    effectiveItems.forEach(it => {
       const p = it.partyOrClientName || it.partyName;
       if (p) parties.add(p);
     });
-    orderSlips.forEach(s => {
+    effectiveSlips.forEach(s => {
       if (s.partyName) parties.add(s.partyName);
     });
     return Array.from(parties);
-  }, [items, orderSlips]);
+  }, [effectiveItems, effectiveSlips]);
 
   const uniqueJobNos = useMemo(() => {
     const jobs = new Set<string>();
-    items.forEach(it => {
+    effectiveItems.forEach(it => {
       if (it.jobNo) jobs.add(it.jobNo);
       else if (it.lotNumber) jobs.add(it.lotNumber);
     });
-    orderSlips.forEach(s => {
+    effectiveSlips.forEach(s => {
       if (s.jobNo) jobs.add(s.jobNo);
     });
     return Array.from(jobs);
-  }, [items, orderSlips]);
+  }, [effectiveItems, effectiveSlips]);
 
   const uniqueFabricTypes = useMemo(() => {
     const fTypes = new Set<string>();
-    items.forEach(it => {
+    effectiveItems.forEach(it => {
       if (it.fabricType) fTypes.add(it.fabricType);
     });
     return Array.from(fTypes);
-  }, [items]);
+  }, [effectiveItems]);
 
   // Enhanced Items with Stage Breakdowns
   const enrichedItems = useMemo(() => {
-    return items.map(item => {
+    return effectiveItems.map(item => {
       const totalPcs = item.pieces ?? item.quantity;
       const stageDistribution = getItemStageBreakdown(item);
       const completedPcs = stageDistribution.prepare_dispatch || 0;
@@ -126,7 +140,7 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
         remainingStagesWithCounts
       };
     });
-  }, [items]);
+  }, [effectiveItems]);
 
   // Filtered Items
   const filteredItems = useMemo(() => {

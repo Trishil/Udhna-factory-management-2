@@ -1385,7 +1385,8 @@ export default function App() {
     const matchingDispatch = dispatchOrders.find(d => d.linkedInvoiceId === invoiceId || (d.invoiceNumber && d.invoiceNumber === inv.invoiceNumber));
     if (matchingDispatch) {
       const newDispatchPaid = matchingDispatch.amountPaid + amount;
-      const newDispatchBalance = Math.max(0, matchingDispatch.totalAmount - newDispatchPaid);
+      const totalDispatchAmt = matchingDispatch.totalInvoiceAmount ?? matchingDispatch.totalAmount ?? 0;
+      const newDispatchBalance = Math.max(0, totalDispatchAmt - newDispatchPaid);
       const newDispatchStatus = newDispatchBalance <= 0 ? 'paid' : 'partial';
       updatedDispatches = dispatchOrders.map(d => d.id === matchingDispatch.id ? {
         ...d,

@@ -240,11 +240,15 @@ export type WorkflowStageId =
   | 'prepare_dispatch';
 
 export interface WorkflowStageHistory {
-  stageId: WorkflowStageId;
-  stageName: string;
-  enteredAt: string;
+  stageId?: WorkflowStageId;
+  fromStage?: WorkflowStageId | string;
+  toStage?: WorkflowStageId | string;
+  stageName?: string;
+  enteredAt?: string;
+  timestamp?: string;
   completedAt?: string;
   operatorName?: string;
+  operator?: string;
   notes?: string;
   qualityStatus?: 'good' | 'bad_return' | 'needs_alter' | 'passed';
 }
@@ -260,9 +264,12 @@ export interface DesignPhoto {
   storagePath?: string;
   caption?: string;
   stageCapturedAt?: WorkflowStageId;
+  stageCaptured?: WorkflowStageId;
   capturedBy?: string;
+  takenBy?: string;
   timestamp: string;
   deviceSource?: 'android_app' | 'web_camera' | 'web_upload';
+  source?: 'android_app' | 'web_camera' | 'web_upload';
   metadata?: {
     cameraModel?: string;
     resolution?: string;
@@ -355,22 +362,28 @@ export interface OrderSlipColorRow {
   id: string;
   colorName: string;
   colorHex?: string;
+  colorCode?: string;
+  count?: number;
+  stageBreakdown?: Partial<Record<WorkflowStageId, number>>;
+  completedCount?: number;
   swatchPhoto?: string;
   designNumber?: string;
-  fabricQuantities: Record<string, number>; // fabricType -> pieces count
+  fabricQuantities?: Record<string, number>; // fabricType -> pieces count
   notes?: string;
 }
 
 export interface OrderSlip {
   id: string;
   jobNo: string; // e.g. "06/05" or "JOB-2"
-  date: string; // e.g. "2026-07-05"
+  date?: string; // e.g. "2026-07-05"
+  dateOfEntry?: string;
   chalanNo: string; // e.g. "227"
   partyName: string; // e.g. "Jaishri" or "BL. FASHION"
   totalPcs: number; // e.g. 144
   fabricColumns: string[]; // e.g. ["Kali", "Dupatta", "BL. Front", "BL. Back", "Lace", "Kurti", "Lass"]
   colorRows: OrderSlipColorRow[];
   calculationNotes?: string; // e.g. "Kali 3.30 = 39.50\nKurti 2 = 24\nLass 1 = 12"
+  inwardNotes?: string;
   inwardChallanNotes?: string; // e.g. "Ch 227: 12x6x2 = 24x6"
   
   // Delivery & After Completion
@@ -380,8 +393,8 @@ export interface OrderSlip {
   billDate?: string;
   piecesCompleted?: number;
   firmName?: string;
-  status?: 'active' | 'in_progress' | 'completed' | 'dispatched';
-  createdAt: string;
+  status?: 'active' | 'in_progress' | 'completed' | 'dispatched' | 'ACTIVE';
+  createdAt?: string;
   updatedAt?: string;
 }
 
@@ -430,6 +443,7 @@ export interface DispatchOrder {
   discountAmount?: number;
   shippingCharges?: number;
   totalInvoiceAmount: number; // Final payable amount
+  totalAmount?: number; // Alias for totalInvoiceAmount
 
   // Logistics & Dispatch details
   status: DispatchStatus;
@@ -464,11 +478,13 @@ export interface EmployeeRecord {
   baseSalary: number; // monthly fixed salary or base pay
   hourlyRate?: number;
   hoursWorkedMonth?: number;
+  hoursWorkedThisMonth?: number;
   bonusOrOvertime?: number;
   deductions?: number;
   netPayable: number;
   paymentStatus: 'paid' | 'pending' | 'partially_paid';
   lastPaidDate?: string;
+  paidDate?: string;
   paymentMethod: 'bank_transfer' | 'cash' | 'cheque';
   bankAccountOrUpi?: string;
   phone?: string;
