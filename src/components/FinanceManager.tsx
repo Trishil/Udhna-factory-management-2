@@ -694,21 +694,25 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     <div id="finance-manager-root" className="space-y-6">
       
       {/* Top Banner with Summary & Quick Actions */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-6 shadow-md border border-slate-700/60">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white text-slate-900 rounded-2xl p-6 shadow-xs border border-slate-200">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-100">
           <div>
-            <div className="flex items-center space-x-2">
-              <span className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30">
-                <IndianRupee className="h-5 w-5" />
-              </span>
-              <h2 className="text-xl font-black tracking-tight">Factory Financial Management &amp; Ledger</h2>
-              <span className="text-xs font-mono font-bold bg-emerald-500/30 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
-                LIVE LEDGER (INR ₹)
-              </span>
+            <div className="flex items-center space-x-3.5">
+              <div className="p-3 bg-slate-900 rounded-xl text-white shadow-xs shrink-0">
+                <IndianRupee className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-lg font-black tracking-tight text-slate-900">Factory Financial Management &amp; Ledger</h2>
+                  <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200">
+                    LIVE LEDGER (INR ₹)
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5 max-w-2xl">
+                  Complete financial synchronization linking real-time warehouse inventory, staff salaries, 3-phase electricity consumption, party receivables, and supplier payables.
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-              Complete financial synchronization linking real-time warehouse inventory, staff salaries, 3-phase electricity consumption, party receivables, and supplier payables.
-            </p>
           </div>
 
           {/* Action Buttons */}
@@ -716,108 +720,84 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
             <button
               id="btn-import-stock-payable"
               onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all hover:scale-[1.02]"
+              className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all"
             >
-              <Truck className="h-4 w-4" />
+              <Truck className="h-4 w-4 text-slate-300" />
               <span>+ Import Stock &amp; Payable</span>
             </button>
 
             <button
               id="btn-add-expense-top"
               onClick={() => setIsAddExpenseOpen(true)}
-              className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-700/80 hover:bg-slate-600 text-white text-xs font-bold rounded-xl border border-slate-600 shadow-xs transition-all"
+              className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 shadow-2xs transition-all"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 text-slate-500" />
               <span>+ Add Expense</span>
             </button>
-
-            {onOpenSyncModal && (
-              <button
-                id="btn-google-sheets-sync-finance"
-                onClick={onOpenSyncModal}
-                className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all"
-                title="Synchronize all financial & inventory records to Google Sheets"
-              >
-                <RefreshCw className="h-4 w-4" />
-                <span>Google Sheets Sync</span>
-              </button>
-            )}
-
-            {onOpenCreateSheet && (
-              <button
-                id="btn-create-sheet-finance"
-                onClick={onOpenCreateSheet}
-                className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-700/90 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl border border-emerald-500/40 transition-all"
-                title="Create a new automated Google Spreadsheet with all tabs"
-              >
-                <FileText className="h-4 w-4" />
-                <span>+ New Spreadsheet</span>
-              </button>
-            )}
 
             {onClearAllFinanceData && (
               <button
                 id="btn-clear-finance-records"
                 onClick={() => setIsClearAllConfirmOpen(true)}
-                className="flex items-center space-x-1.5 px-3 py-2 bg-rose-700/80 hover:bg-rose-600 text-white text-xs font-bold rounded-xl border border-rose-500/40 transition-all"
-                title="Delete all financial records and reset ledger to new clean slate"
+                className="flex items-center space-x-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold rounded-xl border border-rose-200 transition-all"
+                title="Reset ledger records to clean slate"
               >
-                <Trash2 className="h-4 w-4" />
-                <span>Clear All Finance Data</span>
+                <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                <span>Clear Records</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Highlight Metrics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6 pt-5 border-t border-slate-700/80 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-5 text-xs">
           
-          <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Live Stock Asset</span>
-            <span className="text-base font-black text-white font-mono block mt-0.5">
+          <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Live Stock Asset</span>
+            <span className="text-base font-black text-slate-900 font-mono block mt-0.5">
               {formatINR(totalInventoryValuation)}
             </span>
-            <span className="text-[10px] text-slate-400">{materials.length} Raw Material SKUs</span>
+            <span className="text-[10px] text-slate-500">{materials.length} Raw Material SKUs</span>
           </div>
 
-          <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
-            <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider block">Party Receivables</span>
-            <span className="text-base font-black text-emerald-400 font-mono block mt-0.5">
+          <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200/80">
+            <span className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider block">Party Receivables</span>
+            <span className="text-base font-black text-emerald-950 font-mono block mt-0.5">
               {formatINR(totalPartyReceivableOutstanding)}
             </span>
-            <span className="text-[10px] text-slate-400">{partyInvoices.length} Client Invoices</span>
+            <span className="text-[10px] text-emerald-700 font-medium">{partyInvoices.length} Client Invoices</span>
           </div>
 
-          <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
-            <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">Supplier Payables</span>
-            <span className="text-base font-black text-amber-400 font-mono block mt-0.5">
+          <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80">
+            <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider block">Supplier Payables</span>
+            <span className="text-base font-black text-amber-950 font-mono block mt-0.5">
               {formatINR(totalSupplierBalanceOwed)}
             </span>
-            <span className="text-[10px] text-slate-400">{supplierPayables.length} Purchase Orders</span>
+            <span className="text-[10px] text-amber-700 font-medium">{supplierPayables.length} Purchase Orders</span>
           </div>
 
-          <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
-            <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wider block">Monthly Payroll</span>
-            <span className="text-base font-black text-blue-400 font-mono block mt-0.5">
+          <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Monthly Payroll</span>
+            <span className="text-base font-black text-slate-900 font-mono block mt-0.5">
               {formatINR(totalMonthlyPayroll)}
             </span>
-            <span className="text-[10px] text-slate-400">{employees.length} Active Staff</span>
+            <span className="text-[10px] text-slate-500">{employees.length} Active Staff</span>
           </div>
 
-          <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
-            <span className="text-[10px] text-yellow-400 font-bold uppercase tracking-wider block">Electricity Cost</span>
-            <span className="text-base font-black text-yellow-400 font-mono block mt-0.5">
+          <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Electricity Cost</span>
+            <span className="text-base font-black text-slate-900 font-mono block mt-0.5">
               ₹{liveHourlyElectricityCost.toFixed(2)}/hr
             </span>
-            <span className="text-[10px] text-slate-400">{runningMachinesCount} Running Units</span>
+            <span className="text-[10px] text-slate-500">{runningMachinesCount} Running Units</span>
           </div>
 
-          <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
-            <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wider block">Net Cash Margin</span>
-            <span className={`text-base font-black font-mono block mt-0.5 ${netOperatingMargin >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200/80">
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Net Cash Margin</span>
+            <span className={`text-base font-black font-mono block mt-0.5 ${netOperatingMargin >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
               {formatINR(netOperatingMargin)}
             </span>
-            <span className="text-[10px] text-slate-400">Inflows vs Outflows</span>
+            <span className="text-[10px] text-slate-500">Inflows vs Outflows</span>
           </div>
 
         </div>

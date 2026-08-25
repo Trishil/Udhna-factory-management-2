@@ -194,38 +194,35 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
     <div className="space-y-6">
       
       {/* Top Banner & Title Bar */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-indigo-500/20 relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute left-1/3 bottom-0 w-64 h-64 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white text-slate-900 rounded-2xl p-6 shadow-xs border border-slate-200">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-100">
           <div>
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 bg-indigo-600/80 rounded-xl border border-indigo-400/40 text-white shadow-md">
+            <div className="flex items-center space-x-3.5">
+              <div className="p-3 bg-slate-900 rounded-xl text-white shadow-xs shrink-0">
                 <Truck className="h-6 w-6" />
               </div>
               <div>
-                <h1 className="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                <h1 className="text-lg font-black tracking-tight text-slate-900 flex items-center gap-2">
                   <span>Dispatch &amp; Finished Goods Shipments</span>
-                  <span className="text-[10px] font-mono font-bold bg-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-400/30 uppercase">
+                  <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200 uppercase">
                     Finance Synchronized
                   </span>
                 </h1>
-                <p className="text-xs text-indigo-200/80 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Manage factory dispatch holding, track outbound consignments, and automatically sync buyer payments with the Finance Tab.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 shrink-0">
+          <div className="flex items-center space-x-2.5 shrink-0">
             {onNavigateToFinance && (
               <button
                 type="button"
                 onClick={onNavigateToFinance}
-                className="flex items-center space-x-2 px-3.5 py-2.5 bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 hover:border-slate-600 transition-all shadow-sm"
+                className="flex items-center space-x-2 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-all shadow-2xs"
               >
-                <Receipt className="h-4 w-4 text-emerald-400" />
+                <Receipt className="h-4 w-4 text-slate-500" />
                 <span>View Finance Ledger</span>
               </button>
             )}
@@ -237,7 +234,7 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
                 setSelectedOrder(null);
                 setIsCreateModalOpen(true);
               }}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/30 border border-blue-400/30 transition-all transform active:scale-95"
+              className="flex items-center space-x-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all"
             >
               <Plus className="h-4 w-4" />
               <span>+ New Dispatch Order</span>
@@ -246,106 +243,106 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
         </div>
 
         {/* Real-time KPI Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-6 pt-5 border-t border-slate-700/60">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-5">
           
           {/* Card 1: Ready to Dispatch */}
           <div 
             onClick={() => setActiveFilter('ready_to_dispatch')}
-            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+            className={`p-4 rounded-xl border transition-all cursor-pointer ${
               activeFilter === 'ready_to_dispatch'
-                ? 'bg-amber-500/20 border-amber-400/80 shadow-md ring-2 ring-amber-400/30'
-                : 'bg-slate-800/60 border-slate-700/70 hover:bg-slate-800/90'
+                ? 'bg-amber-50 border-amber-300 shadow-xs ring-1 ring-amber-400/50'
+                : 'bg-amber-50/60 border-amber-200/80 hover:bg-amber-50'
             }`}
           >
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                <Package className="h-3.5 w-3.5 text-amber-400" />
-                <span>READY TO DISPATCH</span>
+              <span className="font-bold text-amber-800 flex items-center gap-1.5 text-[11px] uppercase">
+                <Package className="h-3.5 w-3.5 text-amber-600" />
+                <span>Ready to Dispatch</span>
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-400/20 text-amber-200 font-bold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold">
                 {stats.readyCount} Consignments
               </span>
             </div>
-            <div className="text-xl font-black font-mono text-white mt-1">
+            <div className="text-2xl font-black font-mono text-amber-950 mt-1">
               ₹{stats.readyValue.toLocaleString('en-IN')}
             </div>
-            <div className="text-[10px] text-slate-300 flex items-center justify-between mt-1">
+            <div className="text-[11px] text-amber-700 flex items-center justify-between mt-1 font-medium">
               <span>{stats.readyQty.toLocaleString()} units on floor</span>
-              <span className="text-amber-300 font-medium">Awaiting Pickup &rarr;</span>
+              <span>Awaiting Pickup &rarr;</span>
             </div>
           </div>
 
           {/* Card 2: Dispatched & In Transit */}
           <div 
             onClick={() => setActiveFilter('dispatched')}
-            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+            className={`p-4 rounded-xl border transition-all cursor-pointer ${
               activeFilter === 'dispatched'
-                ? 'bg-blue-500/20 border-blue-400/80 shadow-md ring-2 ring-blue-400/30'
-                : 'bg-slate-800/60 border-slate-700/70 hover:bg-slate-800/90'
+                ? 'bg-slate-100 border-slate-300 shadow-xs ring-1 ring-slate-400/50'
+                : 'bg-slate-50 border-slate-200/80 hover:bg-slate-100/60'
             }`}
           >
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="font-bold text-blue-300 flex items-center gap-1.5">
-                <Truck className="h-3.5 w-3.5 text-blue-400" />
-                <span>DISPATCHED / TRANSIT</span>
+              <span className="font-bold text-slate-700 flex items-center gap-1.5 text-[11px] uppercase">
+                <Truck className="h-3.5 w-3.5 text-slate-600" />
+                <span>Dispatched / Transit</span>
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-400/20 text-blue-200 font-bold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-200 text-slate-800 font-bold">
                 {stats.dispatchedCount} Active
               </span>
             </div>
-            <div className="text-xl font-black font-mono text-white mt-1">
+            <div className="text-2xl font-black font-mono text-slate-900 mt-1">
               ₹{stats.dispatchedValue.toLocaleString('en-IN')}
             </div>
-            <div className="text-[10px] text-slate-300 flex items-center justify-between mt-1">
+            <div className="text-[11px] text-slate-500 flex items-center justify-between mt-1">
               <span>{stats.dispatchedQty.toLocaleString()} units shipped</span>
-              <span className="text-blue-300 font-medium">Tracking Active &rarr;</span>
+              <span>Tracking Active &rarr;</span>
             </div>
           </div>
 
           {/* Card 3: Payments Received */}
-          <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/70">
+          <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200/80">
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="font-bold text-emerald-300 flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                <span>PAYMENTS COLLECTED</span>
+              <span className="font-bold text-emerald-800 flex items-center gap-1.5 text-[11px] uppercase">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Payments Collected</span>
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-400/20 text-emerald-200 font-bold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold">
                 Inflow (₹)
               </span>
             </div>
-            <div className="text-xl font-black font-mono text-emerald-400 mt-1">
+            <div className="text-2xl font-black font-mono text-emerald-950 mt-1">
               ₹{stats.totalCollected.toLocaleString('en-IN')}
             </div>
-            <div className="text-[10px] text-slate-300 flex items-center justify-between mt-1">
+            <div className="text-[11px] text-emerald-700 flex items-center justify-between mt-1 font-medium">
               <span>From {dispatchOrders.length} total orders</span>
-              <span className="text-emerald-400 font-medium">Synced in Finance</span>
+              <span>Synced in Finance</span>
             </div>
           </div>
 
           {/* Card 4: Outstanding Receivables */}
           <div 
             onClick={() => setActiveFilter('unpaid')}
-            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+            className={`p-4 rounded-xl border transition-all cursor-pointer ${
               activeFilter === 'unpaid'
-                ? 'bg-rose-500/20 border-rose-400/80 shadow-md ring-2 ring-rose-400/30'
-                : 'bg-slate-800/60 border-slate-700/70 hover:bg-slate-800/90'
+                ? 'bg-rose-50 border-rose-300 shadow-xs ring-1 ring-rose-400/50'
+                : 'bg-rose-50/60 border-rose-200/80 hover:bg-rose-50'
             }`}
           >
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="font-bold text-rose-300 flex items-center gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5 text-rose-400" />
-                <span>PENDING RECEIVABLES</span>
+              <span className="font-bold text-rose-800 flex items-center gap-1.5 text-[11px] uppercase">
+                <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                <span>Pending Receivables</span>
               </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-400/20 text-rose-200 font-bold">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-rose-100 text-rose-900 font-bold">
                 Due from Buyers
               </span>
             </div>
-            <div className="text-xl font-black font-mono text-rose-400 mt-1">
+            <div className="text-2xl font-black font-mono text-rose-950 mt-1">
               ₹{stats.totalReceivable.toLocaleString('en-IN')}
             </div>
-            <div className="text-[10px] text-slate-300 flex items-center justify-between mt-1">
+            <div className="text-[11px] text-rose-700 flex items-center justify-between mt-1 font-medium">
               <span>{dispatchOrders.filter(o => o.balanceDue > 0).length} orders unpaid</span>
-              <span className="text-rose-300 font-medium">Collect &rarr;</span>
+              <span>Collect &rarr;</span>
             </div>
           </div>
 

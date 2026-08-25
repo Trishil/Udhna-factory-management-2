@@ -175,46 +175,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Right Action Controls & User Profile */}
+          {/* Right Controls & User Profile */}
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0 ml-auto">
             
-            {/* Google Sheets Live Sync Indicator */}
+            {/* Google Sheets Sync Status Dot */}
             <button
               id="btn-open-sync-modal"
               onClick={onOpenSyncModal}
               className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors shadow-2xs"
-              title="Google Sheets Auto-Sync & Integration Status"
+              title="Google Sheets Auto-Sync Status"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-              <div className="hidden sm:block text-left font-mono">
-                <div className="text-[11px] font-bold uppercase tracking-tight leading-tight flex items-center space-x-1">
-                  <span>AUTO-ENTRY:</span>
-                  <span className="text-emerald-700 font-bold">ON</span>
-                </div>
-              </div>
+              <span className="hidden sm:inline text-[11px] font-mono font-bold text-slate-700">Sync:</span>
+              <span className="hidden sm:inline text-[11px] font-mono font-bold text-emerald-700">ON</span>
               <span className={`w-2 h-2 rounded-full ${syncConfig.syncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
-            </button>
-
-            {/* Quick Action: Create New Sheet */}
-            <button
-              id="btn-create-new-sheet"
-              onClick={onOpenCreateSheet}
-              className="hidden lg:flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white transition-colors shadow-xs"
-              title="Create a new automated Google Spreadsheet"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-slate-300" />
-              <span>New Sheet</span>
-            </button>
-
-            {/* Quick Action: Log Consumption / Restock */}
-            <button
-              id="btn-quick-stock"
-              onClick={onOpenStockAdjust}
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 transition-colors shadow-2xs"
-            >
-              <PackagePlus className="h-3.5 w-3.5 text-slate-600" />
-              <span className="hidden md:inline">Log Stock</span>
-              <span className="md:hidden">Stock</span>
             </button>
 
             {/* Alerts Bell */}
@@ -238,7 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 id="btn-user-profile-menu"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all text-left"
-                title="Account & Sheet Access Status"
+                title="Account & Company Status"
               >
                 {currentUser?.picture ? (
                   <img 
@@ -252,18 +226,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                     {getInitials(currentUser?.name, currentUser?.email)}
                   </div>
                 )}
-                <div className="hidden lg:block text-left">
+                <div className="hidden md:block text-left">
                   <div className="text-xs font-bold text-slate-800 truncate max-w-[120px]">
                     {currentUser?.name || 'Trishil Balar'}
                   </div>
                   <div className="text-[10px] text-slate-500 font-medium flex items-center space-x-1">
-                    <ShieldCheck className="h-2.5 w-2.5 text-emerald-600" />
                     <span>{currentUser?.companyName || 'Trisharth'}</span>
-                    <span className="text-slate-400">•</span>
-                    <span className="text-slate-600 font-semibold">{currentUser?.role === 'owner' ? 'OWNER' : 'STAFF'}</span>
                   </div>
                 </div>
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden lg:block" />
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden md:block" />
               </button>
 
               {/* Dropdown Menu */}
