@@ -1003,13 +1003,24 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
         const validExistingImage = (existing.designImage && existing.designImage.startsWith('http') && !existing.designImage.includes('unsplash.com')) ? existing.designImage : undefined;
         const validSheetImage = (sheetItem.designImage && sheetItem.designImage.startsWith('http') && !sheetItem.designImage.includes('unsplash.com')) ? sheetItem.designImage : undefined;
 
+        // Combine all valid photos from both sources
+        const allPhotosMap = new Map<string, any>();
+        for (const p of [...validExistingPhotos, ...validSheetPhotos]) {
+          if (p.url) allPhotosMap.set(p.url, p);
+        }
+        const combinedPhotos = Array.from(allPhotosMap.values());
+
+        const chosenImage = validSheetImage || validExistingImage || combinedPhotos[0]?.url || undefined;
+
         map.set(key, {
-          ...sheetItem,
           ...existing,
-          // Never let empty sheet photos overwrite real photos
-          photos: validExistingPhotos.length > 0 ? validExistingPhotos : validSheetPhotos,
-          designImage: validExistingImage || validSheetImage || (validExistingPhotos[0]?.url) || (validSheetPhotos[0]?.url) || undefined,
-          stageHistory: (existing.stageHistory && existing.stageHistory.length > 0) ? existing.stageHistory : (sheetItem.stageHistory || [])
+          ...sheetItem, // Any updates made on the App immediately take effect on the Website
+          photos: combinedPhotos,
+          designImage: chosenImage,
+          stageHistory: (sheetItem.stageHistory && sheetItem.stageHistory.length >= (existing.stageHistory?.length || 0))
+            ? sheetItem.stageHistory
+            : (existing.stageHistory || sheetItem.stageHistory || []),
+          lastSyncedWithFirebase: new Date().toISOString()
         });
       } else {
         map.set(key, sheetItem);
