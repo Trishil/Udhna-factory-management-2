@@ -34,7 +34,15 @@ import {
   WorkflowStageId,
   OrderSlip
 } from './types';
-import { syncWithAppsScript, exportDataAsCsv, pushItemToGoogleSheets } from './services/sheetSync';
+import { 
+  syncWithAppsScript, 
+  exportDataAsCsv, 
+  pushItemToGoogleSheets,
+  pushMaterialToAppsScript,
+  pushDeleteMaterialToAppsScript,
+  pushStockTransactionToAppsScript,
+  pushDispatchOrderToAppsScript
+} from './services/sheetSync';
 import { 
   syncAllToGoogleSheets, 
   appendTransactionToGoogleSheet, 
@@ -864,6 +872,12 @@ export default function App() {
       }
     }
 
+    const targetMat = ('id' in materialData) ? (materialData as RawMaterial) : updatedList[0];
+    pushMaterialToAppsScript(syncConfig, targetMat);
+    if (newTxList.length > transactions.length) {
+      pushStockTransactionToAppsScript(syncConfig, newTxList[0], targetMat);
+    }
+
     syncFullStateToGoogleSheets({
       materialsList: updatedList,
       payablesList: createdPayable ? [createdPayable, ...supplierPayables] : supplierPayables,
@@ -908,6 +922,7 @@ export default function App() {
     setIsAddMaterialOpen(false);
     setEditingMaterial(null);
 
+    pushDeleteMaterialToAppsScript(syncConfig, materialId);
     syncFullStateToGoogleSheets({ materialsList: updatedList, machinesList: updatedMachs });
     setLastAutoEntryNotice(`Deleted "${mat?.name || 'Material'}" from inventory & Google Sheet`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
@@ -988,7 +1003,12 @@ export default function App() {
     });
     setMaterials(updatedMaterials);
 
-    // AUTO-RECORD INTO GOOGLE SHEETS
+    const targetMat = updatedMaterials.find(m => m.id === txData.materialId);
+    if (targetMat) {
+      pushStockTransactionToAppsScript(syncConfig, newTx, targetMat);
+    }
+
+    // AUTO-RECORD INTO GOOGLE SHEETS VIA DIRECT OAUTH IF LOGGED IN
     if (currentUser?.accessToken && syncConfig.sheetId) {
       appendTransactionToGoogleSheet(currentUser.accessToken, syncConfig.sheetId, newTx, newStock);
       syncFullStateToGoogleSheets({
@@ -997,9 +1017,9 @@ export default function App() {
         expensesList: createdExpense ? [createdExpense, ...expenses] : expenses,
         transactionsList: updatedTxList
       });
-      setLastAutoEntryNotice(`Auto-recorded ${newTx.type.toUpperCase()} transaction & synced Google Sheet`);
-      setTimeout(() => setLastAutoEntryNotice(null), 4000);
     }
+    setLastAutoEntryNotice(`Auto-recorded ${newTx.type.toUpperCase()} transaction & synced Google Sheet`);
+    setTimeout(() => setLastAutoEntryNotice(null), 4000);
   };
 
   // Start Production Task & Multi-Material Recipe Order
@@ -1900,6 +1920,9 @@ export default function App() {
       setPartyInvoices(updatedInvoices);
     }
 
+    const updatedTarget = updated.find(d => d.id === order.id);
+    if (updatedTarget) pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
+
     setLastAutoEntryNotice(`Updated Dispatch Order ${order.dispatchNumber}`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
 
@@ -1935,6 +1958,9 @@ export default function App() {
       updatedAt: new Date().toISOString()
     } : d);
     setDispatchOrders(updated);
+
+    const updatedTarget = updated.find(d => d.id === orderId);
+    if (updatedTarget) pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
 
     confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
     setLastAutoEntryNotice(`Order ${order.dispatchNumber} marked as DISPATCHED via ${dispatchData.transporterName}`);
@@ -1975,6 +2001,9 @@ export default function App() {
       updatedAt: new Date().toISOString()
     } : d);
     setDispatchOrders(updatedOrders);
+
+    const updatedTarget = updatedOrders.find(d => d.id === dispatchId);
+    if (updatedTarget) pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
 
     // Sync into matching party invoice in Finance tab
     let updatedInvoices = [...partyInvoices];

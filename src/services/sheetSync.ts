@@ -163,6 +163,55 @@ export async function pushDispatchOrderToAppsScript(
   }
 }
 
+export async function pushMaterialToAppsScript(
+  config: SyncConfig,
+  material: RawMaterial
+): Promise<void> {
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
+  if (!endpoint) return;
+
+  const payload = {
+    action: 'save_material',
+    material,
+    ...material
+  };
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(material));
+      await fetch(`${endpoint}?action=save_material&data=${encoded}`, { method: 'GET' });
+    } catch (err) {
+      console.warn('Material push error:', err);
+    }
+  }
+}
+
+export async function pushDeleteMaterialToAppsScript(
+  config: SyncConfig,
+  materialIdOrSku: string
+): Promise<void> {
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
+  if (!endpoint) return;
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'delete_material', id: materialIdOrSku, sku: materialIdOrSku })
+    });
+  } catch (e) {
+    try {
+      await fetch(`${endpoint}?action=delete_material&id=${encodeURIComponent(materialIdOrSku)}`, { method: 'GET' });
+    } catch (err) {}
+  }
+}
+
 export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetchResult> {
   const timestamp = new Date().toISOString();
   
