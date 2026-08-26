@@ -387,14 +387,18 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
         const category = String(row[2] || 'Fabric Rolls');
         const size = String(row[3] || 'Standard');
         const colorName = String(row[4] || 'Default');
-        const supplier = String(row[5] || 'Surat Textile Market');
-        const stock = Number(row[6]) || 0;
-        const unit = String(row[7] || 'meters').toLowerCase();
-        const minThreshold = Number(row[8]) || 100;
-        const locationBin = String(row[10] || `Bin ${String.fromCharCode(65 + (idx % 6))}-0${(idx % 4) + 1}`);
-        const lotNumber = String(row[11] || `LOT-SH-${idx + 10}`);
-        const unitCost = Number(row[12]) || 100;
-        const burnRate = Number(row[14]) || 10;
+
+        // Detect whether row has 18 columns (with colorCode at index 5) or 16 columns
+        const is18Cols = row.length >= 17 || String(row[5] || '').startsWith('#');
+        const colorCode = is18Cols && String(row[5] || '').startsWith('#') ? String(row[5]) : getColorForMaterial(name);
+        const supplier = String((is18Cols ? row[6] : row[5]) || 'Surat Textile Market');
+        const stock = Number((is18Cols ? row[7] : row[6])) || 0;
+        const unit = String((is18Cols ? row[8] : row[7]) || 'meters').toLowerCase();
+        const minThreshold = Number((is18Cols ? row[9] : row[8])) || 100;
+        const locationBin = String((is18Cols ? row[11] : row[10]) || `Bin ${String.fromCharCode(65 + (idx % 6))}-0${(idx % 4) + 1}`);
+        const lotNumber = String((is18Cols ? row[12] : row[11]) || `LOT-SH-${idx + 10}`);
+        const unitCost = Number((is18Cols ? row[13] : row[12])) || 100;
+        const burnRate = Number((is18Cols ? row[15] : row[14])) || 10;
 
         parsedInventory.push({
           id: `mat-sheet-${code.replace(/[^a-zA-Z0-9]/g, '_')}`,
@@ -408,7 +412,7 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
           unitCost,
           supplier,
           colorName,
-          colorCode: getColorForMaterial(name),
+          colorCode,
           lotNumber,
           locationBin,
           consumptionRatePerHour: burnRate,

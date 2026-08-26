@@ -677,6 +677,8 @@ function saveWorkflowItemToSheet(ss, item) {
     ];
 
     wfSheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+    try { saveFabricColorMatrixToSheet(ss, item); } catch (e) {}
+    try { if (item.individualPieces && item.individualPieces.length > 0) savePieceUnitsToSheet(ss, item.individualPieces); } catch (e) {}
     return;
   }
 
@@ -710,6 +712,8 @@ function saveWorkflowItemToSheet(ss, item) {
   ];
 
   wfSheet.appendRow(rowValues);
+  try { saveFabricColorMatrixToSheet(ss, item); } catch (e) {}
+  try { if (item.individualPieces && item.individualPieces.length > 0) savePieceUnitsToSheet(ss, item.individualPieces); } catch (e) {}
 }
 
 function formatStageDisplayName(stage) {
@@ -1143,6 +1147,71 @@ function savePieceUnitsToSheet(ss, pieces) {
       tagToRow[tagKey] = sheet.getLastRow();
     }
   });
+}
+
+/**
+ * Save / Update Fabric & Color Matrix in "Fabric & Color Matrix" tab
+ */
+function saveFabricColorMatrixToSheet(ss, item) {
+  if (!item) return;
+  let matrixSheet = ss.getSheetByName("Fabric & Color Matrix");
+  if (!matrixSheet) {
+    setupSpreadsheet();
+    matrixSheet = ss.getSheetByName("Fabric & Color Matrix");
+  }
+  if (!matrixSheet) return;
+
+  const lotNumber = String(item.lotNumber || item.jobNo || "").trim();
+  if (!lotNumber) return;
+  const data = matrixSheet.getDataRange().getValues();
+  let rowIndex = -1;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === lotNumber.toLowerCase()) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  const pcs = Number(item.quantity) || Number(item.pieces) || 0;
+  const stage = String(item.currentStage || "fabric").toLowerCase();
+  const b = item.stagePieceBreakdown || {};
+
+  const s1 = b['fabric'] !== undefined ? b['fabric'] : (stage.includes('fabric') || stage === '1' ? pcs : 0);
+  const s2 = b['chalan'] !== undefined ? b['chalan'] : (stage.includes('chalan') || stage === '2' ? pcs : 0);
+  const s3 = b['inspection'] !== undefined ? b['inspection'] : (stage.includes('insp-1') || (stage.includes('inspection') && !stage.includes('alter')) || stage === '3' ? pcs : 0);
+  const s4 = b['stitching_patta'] !== undefined ? b['stitching_patta'] : (stage.includes('patta') || stage.includes('stitching') || stage === '4' ? pcs : 0);
+  const s5 = b['embroidery'] !== undefined ? b['embroidery'] : (stage.includes('embroidery') || stage === '5' ? pcs : 0);
+  const s6 = b['dhaga_cutting'] !== undefined ? b['dhaga_cutting'] : (stage.includes('dhaga') || stage.includes('cutting') || stage === '6' ? pcs : 0);
+  const s7 = b['inspection_alter'] !== undefined ? b['inspection_alter'] : (stage.includes('insp-2') || stage.includes('alter inspection') || stage === '7' ? pcs : 0);
+  const s8 = b['altering'] !== undefined ? b['altering'] : (stage.includes('altering') || stage.includes('rework') || stage === '8' ? pcs : 0);
+  const s9 = b['folding'] !== undefined ? b['folding'] : (stage.includes('folding') || stage.includes('packing') || stage === '9' ? pcs : 0);
+  const s10 = b['prepare_dispatch'] !== undefined ? b['prepare_dispatch'] : (stage.includes('dispatch') || stage === '10' ? pcs : 0);
+
+  const completed = s10;
+  const inProgress = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9;
+  const compPct = pcs > 0 ? ((completed / pcs) * 100).toFixed(1) + '%' : '0%';
+
+  const rowValues = [
+    lotNumber,
+    item.partyName || item.clientName || "Direct Client",
+    item.designNumber || "DSG-100",
+    item.fabricType || "Silk Georgette",
+    item.fabricColor || "Natural",
+    pcs,
+    s1, s2, s3, s4, s5, s6, s7, s8, s9, s10,
+    completed,
+    inProgress,
+    compPct,
+    item.dueDate || "N/A",
+    new Date().toISOString()
+  ];
+
+  if (rowIndex > 0) {
+    matrixSheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+  } else {
+    matrixSheet.appendRow(rowValues);
+  }
 }
 
 /**
