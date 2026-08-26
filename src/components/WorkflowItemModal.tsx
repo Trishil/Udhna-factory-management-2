@@ -982,15 +982,22 @@ export const WorkflowItemModal: React.FC<WorkflowItemModalProps> = ({
                       key={photo.id || idx}
                       className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs hover:shadow-md transition-shadow"
                     >
-                      <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
-                        <img 
-                          src={formatDirectImageUrl(photo.url)} 
-                          alt={photo.caption || `Design photo ${idx + 1}`} 
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = 'none';
-                          }}
-                        />
+                      <div className="relative aspect-video bg-slate-100 flex items-center justify-center overflow-hidden border-b border-slate-100">
+                        {photo.url ? (
+                          <img 
+                            src={formatDirectImageUrl(photo.url)} 
+                            alt={photo.caption || `Design photo ${idx + 1}`} 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-4 text-slate-400">
+                            <ImageIcon className="h-8 w-8 mb-1 opacity-50" />
+                            <span className="text-[10px] font-medium text-slate-500">QC Photo Registered</span>
+                          </div>
+                        )}
                         <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-slate-900/80 text-white font-mono text-[9px] font-bold backdrop-blur-xs flex items-center space-x-1">
                           {(photo.source || photo.deviceSource) === 'android_app' ? (
                             <Smartphone className="h-2.5 w-2.5 text-emerald-400" />
