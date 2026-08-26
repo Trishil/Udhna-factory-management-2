@@ -239,21 +239,22 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthProfile> {
   }
 }
 
-export function findWorkspaceByEmail(email: string): CompanyWorkspace | null {
-  if (!email) return null;
+export function findWorkspaceByEmail(email: string): CompanyWorkspace {
+  if (!email) return TRISHARTH_WORKSPACE;
   const cleanEmail = email.trim().toLowerCase();
 
-  // 1. Only primary founder email is default Trisharth owner
-  if (cleanEmail === 'atharvabalar6@gmail.com') {
-    return TRISHARTH_WORKSPACE;
-  }
-
-  // 2. Custom registered workspaces in registry
+  // 1. Custom registered workspaces in registry if specifically owned
   const workspaces = getStoredWorkspaces();
   const matched = workspaces.find(w => w.ownerEmail?.toLowerCase() === cleanEmail && w.id !== 'trisharth');
   if (matched) return matched;
 
-  return null;
+  // 2. Automatically allocate employee to the Active Company Workspace & Current Sheet
+  const currentSheetId = getStoredSheetId() || DEFAULT_SHEET_ID;
+  return {
+    ...TRISHARTH_WORKSPACE,
+    sheetId: currentSheetId,
+    sheetUrl: `https://docs.google.com/spreadsheets/d/${currentSheetId}/edit`
+  };
 }
 
 export async function requestGoogleSignIn(
