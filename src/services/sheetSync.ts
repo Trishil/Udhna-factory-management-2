@@ -6,6 +6,7 @@ export interface SheetFetchResult {
   workflow?: WorkflowItem[];
   orderSlips?: OrderSlip[];
   pieces?: IndividualPieceUnit[];
+  dispatchOrders?: DispatchOrder[];
   message: string;
   timestamp: string;
 }
@@ -328,13 +329,64 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
       });
     }
 
+    // 5. Parse Dispatch & Shipments
+    const parsedDispatch: DispatchOrder[] = [];
+    if (Array.isArray(data.dispatch)) {
+      data.dispatch.forEach((row: any[], idx: number) => {
+        if (!row || row.length === 0 || !row[0]) return;
+        const dspNo = String(row[0]).trim();
+        if (!dspNo || dspNo.toLowerCase().includes('dispatch')) return;
+
+        const partyName = String(row[1] || 'Direct Buyer');
+        const statusRaw = String(row[2] || 'ready_to_dispatch').toLowerCase().replace(/\s+/g, '_');
+        const status = (['ready_to_dispatch', 'in_transit', 'dispatched', 'delivered', 'cancelled'].includes(statusRaw) ? statusRaw : 'ready_to_dispatch') as any;
+        const productName = String(row[3] || 'Finished Goods');
+        const quantity = Number(row[4]) || 1;
+        const unit = String(row[5] || 'sarees');
+        const unitPrice = Number(row[6]) || 0;
+        const subtotal = Number(row[7]) || (quantity * unitPrice);
+        const taxAmount = Number(row[8]) || Math.round(subtotal * 0.05);
+        const totalInvoice = Number(row[9]) || (subtotal + taxAmount);
+        const transporterName = String(row[13] || '');
+        const trackingNumber = String(row[14] || '');
+        const readyDate = String(row[15] || new Date().toISOString().split('T')[0]);
+        const dispatchedDate = String(row[16] || '');
+        const invoiceNumber = String(row[17] || '');
+        const deliveryAddress = String(row[18] || '');
+
+        parsedDispatch.push({
+          id: `dsp-${dspNo.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          dispatchNumber: dspNo,
+          orderNumber: `PO-${100 + idx}`,
+          partyName,
+          productName,
+          itemCode: `DSG-${100 + idx}`,
+          quantity,
+          unit,
+          unitPrice,
+          subtotal,
+          taxPercent: 5,
+          taxAmount,
+          totalInvoiceAmount: totalInvoice,
+          totalAmount: totalInvoice,
+          status,
+          readyDate,
+          dispatchedDate: dispatchedDate || undefined,
+          transporterName: transporterName || undefined,
+          trackingNumber: trackingNumber || undefined,
+          deliveryAddress: deliveryAddress || undefined,
+        });
+      });
+    }
+
     return {
       success: true,
       inventory: parsedInventory.length > 0 ? parsedInventory : undefined,
       workflow: parsedWorkflow.length > 0 ? parsedWorkflow : undefined,
       orderSlips: parsedOrderSlips.length > 0 ? parsedOrderSlips : undefined,
       pieces: parsedPieces.length > 0 ? parsedPieces : undefined,
-      message: `Successfully synchronized from Google Apps Script (${parsedWorkflow.length} lots, ${parsedInventory.length} materials).`,
+      dispatchOrders: parsedDispatch.length > 0 ? parsedDispatch : undefined,
+      message: `Successfully synchronized from Google Apps Script (${parsedWorkflow.length} lots, ${parsedInventory.length} materials, ${parsedDispatch.length} dispatch orders).`,
       timestamp
     };
   } catch (error: any) {

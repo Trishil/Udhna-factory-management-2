@@ -661,6 +661,9 @@ export default function App() {
         if (result.inventory && result.inventory.length > 0) {
           setMaterials(result.inventory);
         }
+        if (result.dispatchOrders && result.dispatchOrders.length > 0) {
+          setDispatchOrders(result.dispatchOrders);
+        }
 
         setSyncConfig(prev => ({
           ...prev,
