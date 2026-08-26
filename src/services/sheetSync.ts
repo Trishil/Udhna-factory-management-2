@@ -70,6 +70,7 @@ export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<W
 
     const payload = {
       action: 'update_stage',
+      sheetId: config.sheetId,
       lotNumber: item.lotNumber || item.jobNo,
       partyName: item.partyName || item.partyOrClientName,
       clientName: item.partyName || item.partyOrClientName,
@@ -98,7 +99,7 @@ export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<W
       });
     } catch (e) {
       const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=update_stage&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
+      await fetch(`${endpoint}?action=update_stage&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
     }
   } catch (e) {
     console.warn('Google Apps Script push error:', e);
@@ -115,6 +116,7 @@ export async function pushStockTransactionToAppsScript(
 
   const payload = {
     action: 'log_stock_transaction',
+    sheetId: config.sheetId,
     sku: material.code || material.name,
     itemSku: material.code || material.name,
     name: material.name,
@@ -140,7 +142,7 @@ export async function pushStockTransactionToAppsScript(
   } catch (e) {
     try {
       const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=log_stock_transaction&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
+      await fetch(`${endpoint}?action=log_stock_transaction&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
     } catch (err) {
       console.warn('Stock transaction push error:', err);
     }
@@ -156,6 +158,7 @@ export async function pushDispatchOrderToAppsScript(
 
   const payload = {
     action: 'update_dispatch',
+    sheetId: config.sheetId,
     order,
     ...order
   };
@@ -169,8 +172,8 @@ export async function pushDispatchOrderToAppsScript(
     });
   } catch (e) {
     try {
-      const encoded = encodeURIComponent(JSON.stringify(order));
-      await fetch(`${endpoint}?action=update_dispatch&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      await fetch(`${endpoint}?action=update_dispatch&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
     } catch (err) {
       console.warn('Dispatch push error:', err);
     }
@@ -186,6 +189,7 @@ export async function pushMaterialToAppsScript(
 
   const payload = {
     action: 'save_material',
+    sheetId: config.sheetId,
     material,
     ...material
   };
@@ -199,8 +203,8 @@ export async function pushMaterialToAppsScript(
     });
   } catch (e) {
     try {
-      const encoded = encodeURIComponent(JSON.stringify(material));
-      await fetch(`${endpoint}?action=save_material&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      await fetch(`${endpoint}?action=save_material&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
     } catch (err) {
       console.warn('Material push error:', err);
     }
