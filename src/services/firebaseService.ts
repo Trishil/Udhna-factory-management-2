@@ -512,3 +512,56 @@ export function subscribeToDispatchOrders(
   );
 }
 
+export const COMPANY_CONFIG_COLLECTION = 'factory_company_config';
+export const ACTIVE_SPREADSHEET_DOC = 'active_spreadsheet';
+
+export interface CompanySpreadsheetConfig {
+  sheetId: string;
+  sheetUrl: string;
+  scriptUrl?: string;
+  deploymentId?: string;
+  ownerEmail?: string;
+  title?: string;
+  companyName?: string;
+  updatedAt?: string;
+}
+
+/**
+ * Save Active Company Spreadsheet configuration globally to Firestore
+ */
+export async function saveCompanySpreadsheetConfig(config: CompanySpreadsheetConfig): Promise<void> {
+  try {
+    const docRef = doc(db, COMPANY_CONFIG_COLLECTION, ACTIVE_SPREADSHEET_DOC);
+    await setDoc(docRef, {
+      ...config,
+      updatedAt: new Date().toISOString(),
+      updatedAtServer: serverTimestamp(),
+    }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `${COMPANY_CONFIG_COLLECTION}/${ACTIVE_SPREADSHEET_DOC}`);
+  }
+}
+
+/**
+ * Subscribe to Active Company Spreadsheet configuration globally from Firestore
+ */
+export function subscribeToCompanySpreadsheetConfig(
+  onUpdate: (config: CompanySpreadsheetConfig) => void,
+  onError?: (error: Error) => void
+) {
+  const docRef = doc(db, COMPANY_CONFIG_COLLECTION, ACTIVE_SPREADSHEET_DOC);
+  return onSnapshot(
+    docRef,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        onUpdate(docSnap.data() as CompanySpreadsheetConfig);
+      }
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.GET, `${COMPANY_CONFIG_COLLECTION}/${ACTIVE_SPREADSHEET_DOC}`);
+      if (onError) onError(err);
+    }
+  );
+}
+
+

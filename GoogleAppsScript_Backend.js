@@ -239,7 +239,10 @@ function setupSpreadsheet() {
  * Universal GET & POST handler
  */
 function doGet(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (e && e.parameter && e.parameter.sheetId) {
+    try { ss = SpreadsheetApp.openById(e.parameter.sheetId); } catch (e) {}
+  }
   
   // 1. Company Code Lookup
   if (e && e.parameter && e.parameter.action === "get_company" && e.parameter.code) {
@@ -491,10 +494,16 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
     let body = {};
     if (e && e.postData && e.postData.contents) {
-      body = JSON.parse(e.postData.contents);
+      try {
+        body = JSON.parse(e.postData.contents);
+      } catch (parseErr) {}
+    }
+    let ss = SpreadsheetApp.getActiveSpreadsheet();
+    const targetSheetId = (body && body.sheetId) || (e && e.parameter && e.parameter.sheetId);
+    if (targetSheetId) {
+      try { ss = SpreadsheetApp.openById(targetSheetId); } catch (e) {}
     }
     
     if (body.action === "upload_photo") {

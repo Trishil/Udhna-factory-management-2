@@ -74,7 +74,10 @@ import {
   saveMaterialToFirestore,
   deleteMaterialFromFirestore,
   subscribeToMaterials,
-  attachStoragePhotosToWorkflowItems
+  attachStoragePhotosToWorkflowItems,
+  saveCompanySpreadsheetConfig,
+  subscribeToCompanySpreadsheetConfig,
+  CompanySpreadsheetConfig
 } from './services/firebaseService';
 
 import { Navbar } from './components/Navbar';
@@ -126,11 +129,14 @@ export default function App() {
 
   const [syncConfig, setSyncConfig] = useState<SyncConfig>(() => {
     const saved = localStorage.getItem('factory_sync_config');
+    const storedId = getStoredSheetId();
     const base = saved ? JSON.parse(saved) : INITIAL_SYNC_CONFIG;
     base.scriptUrl = INITIAL_SYNC_CONFIG.scriptUrl;
     base.deploymentId = INITIAL_SYNC_CONFIG.deploymentId;
-    base.sheetId = INITIAL_SYNC_CONFIG.sheetId;
-    base.sheetUrl = INITIAL_SYNC_CONFIG.sheetUrl;
+    if (storedId) {
+      base.sheetId = storedId;
+      base.sheetUrl = `https://docs.google.com/spreadsheets/d/${storedId}/edit`;
+    }
     base.autoSyncIntervalSec = 15;
     return base;
   });
@@ -279,10 +285,32 @@ export default function App() {
       }
     });
 
+    // 3. Centralized Company Google Spreadsheet configuration listener (incognito & multi-device sync)
+    const unsubscribeCompanyConfig = subscribeToCompanySpreadsheetConfig((cloudCfg) => {
+      if (cloudCfg && cloudCfg.sheetId) {
+        setStoredSheetId(cloudCfg.sheetId);
+        setSyncConfig(prev => {
+          if (prev.sheetId !== cloudCfg.sheetId) {
+            return {
+              ...prev,
+              sheetId: cloudCfg.sheetId,
+              sheetUrl: cloudCfg.sheetUrl || `https://docs.google.com/spreadsheets/d/${cloudCfg.sheetId}/edit`,
+              scriptUrl: cloudCfg.scriptUrl || prev.scriptUrl,
+              deploymentId: cloudCfg.deploymentId || prev.deploymentId,
+              syncStatus: 'synced',
+              lastSyncTimestamp: new Date().toISOString()
+            };
+          }
+          return prev;
+        });
+      }
+    });
+
     return () => {
       if (unsubscribeDesigns) unsubscribeDesigns();
       if (unsubscribeSlips) unsubscribeSlips();
       if (unsubscribeMaterials) unsubscribeMaterials();
+      if (unsubscribeCompanyConfig) unsubscribeCompanyConfig();
     };
   }, []);
 
@@ -1324,7 +1352,7 @@ export default function App() {
     });
   };
 
-  // Handle Brand-New Spreadsheet Creation
+  // Handle Brand-New Spreadsheet Creation & Global Company Distribution
   const handleSpreadsheetCreated = (sheetId: string, sheetUrl: string, title: string) => {
     setStoredSheetId(sheetId);
     setSyncConfig(prev => ({
@@ -1334,7 +1362,18 @@ export default function App() {
       syncStatus: 'synced',
       lastSyncTimestamp: new Date().toISOString()
     }));
-    setLastAutoEntryNotice(`Created & linked new spreadsheet "${title}"`);
+
+    saveCompanySpreadsheetConfig({
+      sheetId,
+      sheetUrl,
+      scriptUrl: syncConfig.scriptUrl,
+      deploymentId: syncConfig.deploymentId,
+      ownerEmail: currentUser?.email || 'admin@udhna.com',
+      title,
+      companyName: 'Udhna Factory'
+    });
+
+    setLastAutoEntryNotice(`Created & linked company spreadsheet "${title}" across all devices`);
     setTimeout(() => setLastAutoEntryNotice(null), 5000);
   };
 
