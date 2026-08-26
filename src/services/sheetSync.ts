@@ -219,13 +219,98 @@ export async function pushDeleteMaterialToAppsScript(
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'delete_material', id: materialIdOrSku, sku: materialIdOrSku })
+      body: JSON.stringify({ action: 'delete_material', id: materialIdOrSku, sku: materialIdOrSku, sheetId: config.sheetId })
     });
   } catch (e) {
     try {
-      await fetch(`${endpoint}?action=delete_material&id=${encodeURIComponent(materialIdOrSku)}`, { method: 'GET', mode: 'no-cors' });
+      await fetch(`${endpoint}?action=delete_material&id=${encodeURIComponent(materialIdOrSku)}&sheetId=${encodeURIComponent(config.sheetId || '')}`, { method: 'GET', mode: 'no-cors' });
     } catch (err) {}
   }
+}
+
+export async function pushOrderSlipToAppsScript(
+  config: SyncConfig,
+  slip: OrderSlip
+): Promise<void> {
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
+  if (!endpoint) return;
+
+  const payload = {
+    action: 'save_order_slip',
+    sheetId: config.sheetId,
+    slip
+  };
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      await fetch(`${endpoint}?action=save_order_slip&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
+    } catch (err) {}
+  }
+}
+
+export async function pushPiecesToAppsScript(
+  config: SyncConfig,
+  pieces: IndividualPieceUnit[]
+): Promise<void> {
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
+  if (!endpoint || !pieces || pieces.length === 0) return;
+
+  const payload = {
+    action: 'update_pieces',
+    sheetId: config.sheetId,
+    pieces
+  };
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      await fetch(`${endpoint}?action=update_pieces&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
+    } catch (err) {}
+  }
+}
+
+export async function pushFullStateToAppsScript(
+  config: SyncConfig,
+  fullData: {
+    orderSlips?: OrderSlip[];
+    workflow?: WorkflowItem[];
+    pieces?: IndividualPieceUnit[];
+    inventory?: RawMaterial[];
+    dispatch?: DispatchOrder[];
+  }
+): Promise<void> {
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
+  if (!endpoint) return;
+
+  const payload = {
+    action: 'sync_all_full',
+    sheetId: config.sheetId,
+    ...fullData
+  };
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {}
 }
 
 export function mergeMaterials(localMaterials: RawMaterial[], incomingSheetMaterials: RawMaterial[]): RawMaterial[] {
@@ -271,10 +356,13 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
   }
 
   const endpoint = config.scriptUrl || `https://script.google.com/macros/s/${config.deploymentId}/exec`;
+  const fetchUrl = config.sheetId 
+    ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}sheetId=${encodeURIComponent(config.sheetId)}`
+    : endpoint;
 
   try {
     // Attempt standard fetch to Google Apps Script endpoint
-    const response = await fetch(endpoint, {
+    const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

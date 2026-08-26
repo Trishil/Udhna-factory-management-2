@@ -42,6 +42,9 @@ import {
   pushDeleteMaterialToAppsScript,
   pushStockTransactionToAppsScript,
   pushDispatchOrderToAppsScript,
+  pushOrderSlipToAppsScript,
+  pushPiecesToAppsScript,
+  pushFullStateToAppsScript,
   mergeMaterials
 } from './services/sheetSync';
 import { 
@@ -627,26 +630,39 @@ export default function App() {
     workflowItemsList?: WorkflowItem[];
     orderSlipsList?: OrderSlip[];
   }) => {
-    if (!currentUser?.accessToken || !syncConfig.sheetId) return;
     const targetMats = overrides?.materialsList || materials;
     const targetMachs = overrides?.machinesList || machines;
-    syncAllToGoogleSheets(
-      currentUser.accessToken,
-      syncConfig.sheetId,
-      targetMats,
-      targetMachs,
-      {
-        employees: overrides?.employeesList || employees,
-        electricityRecords: overrides?.electricityList || electricityRecords,
-        expenses: overrides?.expensesList || expenses,
-        partyInvoices: overrides?.partyInvoicesList || partyInvoices,
-        supplierPayables: overrides?.payablesList || supplierPayables,
-        transactions: overrides?.transactionsList || transactions,
-        dispatchOrders: overrides?.dispatchOrdersList || dispatchOrders,
-        workflowItems: overrides?.workflowItemsList || workflowItems,
-        orderSlips: overrides?.orderSlipsList || orderSlips
-      }
-    );
+    const targetSlips = overrides?.orderSlipsList || orderSlips;
+    const targetWf = overrides?.workflowItemsList || workflowItems;
+    const targetDsp = overrides?.dispatchOrdersList || dispatchOrders;
+    const targetTx = overrides?.transactionsList || transactions;
+
+    if (currentUser?.accessToken && syncConfig.sheetId) {
+      syncAllToGoogleSheets(
+        currentUser.accessToken,
+        syncConfig.sheetId,
+        targetMats,
+        targetMachs,
+        {
+          employees: overrides?.employeesList || employees,
+          electricityRecords: overrides?.electricityList || electricityRecords,
+          expenses: overrides?.expensesList || expenses,
+          partyInvoices: overrides?.partyInvoicesList || partyInvoices,
+          supplierPayables: overrides?.payablesList || supplierPayables,
+          transactions: targetTx,
+          dispatchOrders: targetDsp,
+          workflowItems: targetWf,
+          orderSlips: targetSlips
+        }
+      );
+    } else {
+      pushFullStateToAppsScript(syncConfig, {
+        orderSlips: targetSlips,
+        workflow: targetWf,
+        inventory: targetMats,
+        dispatch: targetDsp
+      });
+    }
   };
 
   // Sync execution handler
@@ -2342,6 +2358,9 @@ export default function App() {
     const updatedList = workflowItems.map(i => i.id === updated.id ? updated : i);
     setWorkflowItems(updatedList);
     pushItemToGoogleSheets(syncConfig, updated);
+    if (updated.individualPieces && updated.individualPieces.length > 0) {
+      pushPiecesToAppsScript(syncConfig, updated.individualPieces);
+    }
     saveDesignToFirestore(updated).catch(err => console.warn('Firestore sync error:', err));
     syncFullStateToGoogleSheets({ workflowItemsList: updatedList });
     setLastAutoEntryNotice(`Updated design ${updated.designNumber} & synced to Google Sheet`);
@@ -2370,6 +2389,7 @@ export default function App() {
     }
     setOrderSlips(updatedSlips);
     saveStoredOrderSlips(updatedSlips);
+    pushOrderSlipToAppsScript(syncConfig, slip);
     saveOrderSlipToFirestore(slip).catch(err => console.warn('Firestore order slip sync error:', err));
 
     // Merge generated items into workflowItems and persist each to Firestore & Google Sheets

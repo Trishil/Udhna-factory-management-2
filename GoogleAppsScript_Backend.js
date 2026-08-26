@@ -524,6 +524,14 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
+    if (body.action === "save_order_slip" || body.action === "update_order_slip") {
+      saveOrderSlipToSheet(ss, body.slip || body.orderSlip || body.data || body);
+    }
+
+    if (body.action === "update_pieces" || body.action === "save_pieces" || body.action === "save_piece") {
+      savePieceUnitsToSheet(ss, body.pieces || body.piece || body.data || body);
+    }
+
     if (body.action === "update_stage" || body.action === "update_workflow_item") {
       saveWorkflowItemToSheet(ss, body.item || body);
     }
@@ -542,6 +550,10 @@ function doPost(e) {
 
     if (body.action === "delete_material") {
       deleteMaterialFromSheet(ss, body.id || body.sku || body.data);
+    }
+
+    if (body.action === "sync_all_full") {
+      saveFullBatchStateToSheet(ss, body);
     }
 
     return ContentService.createTextOutput(JSON.stringify({
@@ -1016,5 +1028,140 @@ function deleteMaterialFromSheet(ss, matIdOrSku) {
       sheet.deleteRow(i + 1);
       break;
     }
+  }
+}
+
+/**
+ * Save / Update Master Order Slips in "Master Order Slips" tab
+ */
+function saveOrderSlipToSheet(ss, slip) {
+  if (!slip) return;
+  let sheet = ss.getSheetByName("Master Order Slips");
+  if (!sheet) {
+    setupSpreadsheet();
+    sheet = ss.getSheetByName("Master Order Slips");
+  }
+  const jobNo = String(slip.jobNo || slip.id || "").trim();
+  if (!jobNo) return;
+  const data = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === jobNo.toLowerCase()) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+
+  const fabricColsStr = (slip.fabricColumns || []).join(", ");
+  const colorBreakdownStr = (slip.colorRows || []).map(function(cr) {
+    const fabBreak = Object.keys(cr.fabricQuantities || {})
+      .map(function(f) { return f + ": " + cr.fabricQuantities[f]; })
+      .join(", ");
+    return "[" + cr.colorName + ": " + (fabBreak || "None") + "]";
+  }).join("; ");
+
+  const row = [
+    jobNo,
+    slip.partyName || "Direct Client",
+    slip.chalanNo || "N/A",
+    slip.date || new Date().toISOString().split("T")[0],
+    Number(slip.totalPcs) || 0,
+    fabricColsStr || "Standard Kali",
+    (slip.colorRows && slip.colorRows.length) || 0,
+    colorBreakdownStr || "Standard Breakdown",
+    slip.inwardChallanNotes || "",
+    slip.calculationNotes || "",
+    slip.deliveryChalanNo || "Pending",
+    slip.deliveryDate || "Pending",
+    slip.billNo || "Pending",
+    Number(slip.piecesCompleted) || 0,
+    slip.firmName || "Udhna Textile",
+    (slip.status || "ACTIVE").toUpperCase(),
+    slip.createdAt || new Date().toISOString(),
+    new Date().toISOString()
+  ];
+
+  if (rowIndex > 0) {
+    sheet.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+  } else {
+    sheet.appendRow(row);
+  }
+}
+
+/**
+ * Save / Update Piece-Level Tracking in "Piece-Level Tracking" tab
+ */
+function savePieceUnitsToSheet(ss, pieces) {
+  if (!pieces) return;
+  const piecesList = Array.isArray(pieces) ? pieces : [pieces];
+  if (piecesList.length === 0) return;
+
+  let sheet = ss.getSheetByName("Piece-Level Tracking");
+  if (!sheet) {
+    setupSpreadsheet();
+    sheet = ss.getSheetByName("Piece-Level Tracking");
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const tagToRow = {};
+  for (let i = 1; i < data.length; i++) {
+    const tag = String(data[i][0] || "").trim().toLowerCase();
+    if (tag) tagToRow[tag] = i + 1;
+  }
+
+  piecesList.forEach(function(p) {
+    const pieceTag = String(p.pieceTag || p.id || "").trim();
+    if (!pieceTag) return;
+    const tagKey = pieceTag.toLowerCase();
+    const stageStr = String(p.currentStage || "fabric");
+    const statusStr = String(p.status || "good").toUpperCase();
+
+    const row = [
+      pieceTag,
+      p.jobNo || "LOT-9000",
+      p.lotNumber || p.jobNo || "LOT-9000",
+      Number(p.pieceNumber) || 1,
+      p.designNumber || "DSG-100",
+      p.fabricType || "Silk Georgette",
+      p.fabricColor || "Natural",
+      p.partyName || "Direct Client",
+      getStepNumber(stageStr),
+      formatStageDisplayName(stageStr),
+      statusStr,
+      p.defectReason || "None",
+      p.alterNotes || "",
+      p.assignedOperator || "Floor Lead",
+      p.chalanNo || "N/A",
+      p.lastUpdated || new Date().toISOString(),
+      new Date().toISOString()
+    ];
+
+    if (tagToRow[tagKey]) {
+      sheet.getRange(tagToRow[tagKey], 1, 1, row.length).setValues([row]);
+    } else {
+      sheet.appendRow(row);
+      tagToRow[tagKey] = sheet.getLastRow();
+    }
+  });
+}
+
+/**
+ * Full state synchronization from web/mobile app
+ */
+function saveFullBatchStateToSheet(ss, payload) {
+  if (payload.orderSlips && Array.isArray(payload.orderSlips)) {
+    payload.orderSlips.forEach(function(s) { saveOrderSlipToSheet(ss, s); });
+  }
+  if (payload.workflow && Array.isArray(payload.workflow)) {
+    payload.workflow.forEach(function(w) { saveWorkflowItemToSheet(ss, w); });
+  }
+  if (payload.pieces && Array.isArray(payload.pieces)) {
+    savePieceUnitsToSheet(ss, payload.pieces);
+  }
+  if (payload.inventory && Array.isArray(payload.inventory)) {
+    payload.inventory.forEach(function(m) { saveMaterialToSheet(ss, m); });
+  }
+  if (payload.dispatch && Array.isArray(payload.dispatch)) {
+    payload.dispatch.forEach(function(d) { saveDispatchOrderToSheet(ss, d); });
   }
 }
