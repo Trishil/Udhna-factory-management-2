@@ -77,6 +77,9 @@ import {
   saveMaterialToFirestore,
   deleteMaterialFromFirestore,
   subscribeToMaterials,
+  saveDispatchOrderToFirestore,
+  deleteDispatchOrderFromFirestore,
+  subscribeToDispatchOrders,
   attachStoragePhotosToWorkflowItems,
   saveCompanySpreadsheetConfig,
   subscribeToCompanySpreadsheetConfig,
@@ -242,12 +245,14 @@ export default function App() {
 
     // 1. Fetch latest data from Google Apps Script Webhook on startup & smartly merge
     syncWithAppsScript(syncConfig).then(result => {
-      if (result.success && result.workflow && result.workflow.length > 0) {
-        setWorkflowItems(prev => {
-          const merged = mergeWorkflowItems(prev, result.workflow || []);
-          saveStoredWorkflowItems(merged);
-          return merged;
-        });
+      if (result.success) {
+        if (result.workflow && result.workflow.length > 0) {
+          setWorkflowItems(prev => {
+            const merged = mergeWorkflowItems(prev, result.workflow || []);
+            saveStoredWorkflowItems(merged);
+            return merged;
+          });
+        }
         if (result.orderSlips && result.orderSlips.length > 0) {
           setOrderSlips(prev => {
             const merged = mergeOrderSlips(prev, result.orderSlips || []);
@@ -257,6 +262,23 @@ export default function App() {
         }
         if (result.inventory && result.inventory.length > 0) {
           setMaterials(prev => mergeMaterials(prev, result.inventory || []));
+        }
+        if (result.dispatchOrders && result.dispatchOrders.length > 0) {
+          setDispatchOrders(prev => {
+            const map = new Map<string, DispatchOrder>();
+            result.dispatchOrders!.forEach(d => map.set((d.dispatchNumber || d.id).toLowerCase(), d));
+            prev.forEach(d => {
+              const k = (d.dispatchNumber || d.id).toLowerCase();
+              if (!map.has(k)) map.set(k, d);
+            });
+            return Array.from(map.values());
+          });
+        }
+        if (result.partyInvoices && result.partyInvoices.length > 0) {
+          setPartyInvoices(result.partyInvoices);
+        }
+        if (result.supplierPayables && result.supplierPayables.length > 0) {
+          setSupplierPayables(result.supplierPayables);
         }
       }
     }).catch(() => {});
@@ -288,6 +310,20 @@ export default function App() {
       }
     });
 
+    const unsubscribeDispatches = subscribeToDispatchOrders((firestoreDispatches) => {
+      if (firestoreDispatches && firestoreDispatches.length > 0) {
+        setDispatchOrders((prev) => {
+          const map = new Map<string, DispatchOrder>();
+          firestoreDispatches.forEach(d => map.set((d.dispatchNumber || d.id).toLowerCase(), d));
+          prev.forEach(d => {
+            const k = (d.dispatchNumber || d.id).toLowerCase();
+            if (!map.has(k)) map.set(k, d);
+          });
+          return Array.from(map.values());
+        });
+      }
+    });
+
     // 3. Centralized Company Google Spreadsheet configuration listener (incognito & multi-device sync)
     const unsubscribeCompanyConfig = subscribeToCompanySpreadsheetConfig((cloudCfg) => {
       if (cloudCfg && cloudCfg.sheetId) {
@@ -313,6 +349,7 @@ export default function App() {
       if (unsubscribeDesigns) unsubscribeDesigns();
       if (unsubscribeSlips) unsubscribeSlips();
       if (unsubscribeMaterials) unsubscribeMaterials();
+      if (unsubscribeDispatches) unsubscribeDispatches();
       if (unsubscribeCompanyConfig) unsubscribeCompanyConfig();
     };
   }, []);
@@ -1963,6 +2000,9 @@ export default function App() {
     setLastAutoEntryNotice(`Created Dispatch Order ${dispatchNumber} for ${orderData.partyName} (Synced to Finance Invoice #${invoiceNum})`);
     setTimeout(() => setLastAutoEntryNotice(null), 5000);
 
+    saveDispatchOrderToFirestore(newDispatch).catch(() => {});
+    pushDispatchOrderToAppsScript(syncConfig, newDispatch);
+
     syncFullStateToGoogleSheets({
       dispatchOrdersList: updatedDispatches,
       partyInvoicesList: updatedInvoices,
@@ -1990,7 +2030,10 @@ export default function App() {
     }
 
     const updatedTarget = updated.find(d => d.id === order.id);
-    if (updatedTarget) pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
+    if (updatedTarget) {
+      saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
+      pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
+    }
 
     setLastAutoEntryNotice(`Updated Dispatch Order ${order.dispatchNumber}`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
@@ -2029,7 +2072,10 @@ export default function App() {
     setDispatchOrders(updated);
 
     const updatedTarget = updated.find(d => d.id === orderId);
-    if (updatedTarget) pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
+    if (updatedTarget) {
+      saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
+      pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
+    }
 
     confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
     setLastAutoEntryNotice(`Order ${order.dispatchNumber} marked as DISPATCHED via ${dispatchData.transporterName}`);
@@ -2072,7 +2118,10 @@ export default function App() {
     setDispatchOrders(updatedOrders);
 
     const updatedTarget = updatedOrders.find(d => d.id === dispatchId);
-    if (updatedTarget) pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
+    if (updatedTarget) {
+      saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
+      pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
+    }
 
     // Sync into matching party invoice in Finance tab
     let updatedInvoices = [...partyInvoices];
@@ -2111,6 +2160,8 @@ export default function App() {
   const handleDeleteDispatchOrder = (orderId: string) => {
     const target = dispatchOrders.find(d => d.id === orderId);
     const updated = dispatchOrders.filter(d => d.id !== orderId);
+    setDispatchOrders(updated);
+    deleteDispatchOrderFromFirestore(orderId).catch(() => {});
     setDispatchOrders(updated);
 
     // Also remove linked party invoice if present
