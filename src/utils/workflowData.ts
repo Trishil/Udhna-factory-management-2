@@ -980,56 +980,45 @@ export function saveStoredWorkflowItems(items: WorkflowItem[]): void {
 }
 
 export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowItem[]): WorkflowItem[] {
-  if (!incoming || incoming.length === 0) {
-    return (current && current.length > 0) ? current : INITIAL_WORKFLOW_ITEMS;
-  }
+  if (!incoming || incoming.length === 0) return current || [];
 
-  const map = new Map<string, WorkflowItem>();
-  
-  // 1. Put current items into map first
+  const currentMap = new Map<string, WorkflowItem>();
   for (const item of (current || [])) {
     const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
-    if (key) map.set(key, item);
+    if (key) currentMap.set(key, item);
   }
 
-  // 2. Merge incoming sheet items smartly
-  for (const sheetItem of incoming) {
+  // Google Sheet is the authoritative list
+  const mergedList: WorkflowItem[] = incoming.map(sheetItem => {
     const key = (sheetItem.lotNumber || sheetItem.jobNo || sheetItem.id || '').trim().toLowerCase();
-    if (key) {
-      if (map.has(key)) {
-        const existing = map.get(key)!;
-        const validExistingPhotos = (existing.photos || []).filter(p => p.url && p.url.startsWith('http'));
-        const validSheetPhotos = (sheetItem.photos || []).filter(p => p.url && p.url.startsWith('http'));
-        const validExistingImage = (existing.designImage && existing.designImage.startsWith('http') && !existing.designImage.includes('unsplash.com')) ? existing.designImage : undefined;
-        const validSheetImage = (sheetItem.designImage && sheetItem.designImage.startsWith('http') && !sheetItem.designImage.includes('unsplash.com')) ? sheetItem.designImage : undefined;
+    if (currentMap.has(key)) {
+      const existing = currentMap.get(key)!;
+      const validExistingPhotos = (existing.photos || []).filter(p => p.url && p.url.startsWith('http'));
+      const validSheetPhotos = (sheetItem.photos || []).filter(p => p.url && p.url.startsWith('http'));
+      const validExistingImage = (existing.designImage && existing.designImage.startsWith('http') && !existing.designImage.includes('unsplash.com')) ? existing.designImage : undefined;
+      const validSheetImage = (sheetItem.designImage && sheetItem.designImage.startsWith('http') && !sheetItem.designImage.includes('unsplash.com')) ? sheetItem.designImage : undefined;
 
-        // Combine all valid photos from both sources
-        const allPhotosMap = new Map<string, any>();
-        for (const p of [...validExistingPhotos, ...validSheetPhotos]) {
-          if (p.url) allPhotosMap.set(p.url, p);
-        }
-        const combinedPhotos = Array.from(allPhotosMap.values());
-
-        const chosenImage = validSheetImage || validExistingImage || combinedPhotos[0]?.url || undefined;
-
-        map.set(key, {
-          ...existing,
-          ...sheetItem, // Any updates made on the App immediately take effect on the Website
-          photos: combinedPhotos,
-          designImage: chosenImage,
-          stageHistory: (sheetItem.stageHistory && sheetItem.stageHistory.length >= (existing.stageHistory?.length || 0))
-            ? sheetItem.stageHistory
-            : (existing.stageHistory || sheetItem.stageHistory || []),
-          lastSyncedWithFirebase: new Date().toISOString()
-        });
-      } else {
-        map.set(key, sheetItem);
+      const allPhotosMap = new Map<string, any>();
+      for (const p of [...validExistingPhotos, ...validSheetPhotos]) {
+        if (p.url) allPhotosMap.set(p.url, p);
       }
-    }
-  }
+      const combinedPhotos = Array.from(allPhotosMap.values());
+      const chosenImage = validSheetImage || validExistingImage || combinedPhotos[0]?.url || undefined;
 
-  const result = Array.from(map.values());
-  return result.length > 0 ? result : ((current && current.length > 0) ? current : INITIAL_WORKFLOW_ITEMS);
+      return {
+        ...sheetItem,
+        photos: combinedPhotos,
+        designImage: chosenImage,
+        stageHistory: (sheetItem.stageHistory && sheetItem.stageHistory.length >= (existing.stageHistory?.length || 0))
+          ? sheetItem.stageHistory
+          : (existing.stageHistory || sheetItem.stageHistory || []),
+        lastSyncedWithFirebase: new Date().toISOString()
+      };
+    }
+    return sheetItem;
+  });
+
+  return mergedList.length > 0 ? mergedList : ((current && current.length > 0) ? current : INITIAL_WORKFLOW_ITEMS);
 }
 
 export function mergeOrderSlips(current: OrderSlip[], incoming: OrderSlip[]): OrderSlip[] {
