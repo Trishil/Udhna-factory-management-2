@@ -988,9 +988,13 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
     if (key) currentMap.set(key, item);
   }
 
-  // Google Sheet is the authoritative list
-  const mergedList: WorkflowItem[] = incoming.map(sheetItem => {
+  const seenKeys = new Set<string>();
+  const mergedList: WorkflowItem[] = [];
+
+  for (const sheetItem of incoming) {
     const key = (sheetItem.lotNumber || sheetItem.jobNo || sheetItem.id || '').trim().toLowerCase();
+    seenKeys.add(key);
+
     if (currentMap.has(key)) {
       const existing = currentMap.get(key)!;
       const validExistingPhotos = (existing.photos || []).filter(p => p.url && p.url.startsWith('http'));
@@ -1005,7 +1009,7 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
       const combinedPhotos = Array.from(allPhotosMap.values());
       const chosenImage = validSheetImage || validExistingImage || combinedPhotos[0]?.url || undefined;
 
-      return {
+      mergedList.push({
         ...sheetItem,
         photos: combinedPhotos,
         designImage: chosenImage,
@@ -1013,10 +1017,19 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
           ? sheetItem.stageHistory
           : (existing.stageHistory || sheetItem.stageHistory || []),
         lastSyncedWithFirebase: new Date().toISOString()
-      };
+      });
+    } else {
+      mergedList.push(sheetItem);
     }
-    return sheetItem;
-  });
+  }
+
+  // Preserve any local/Firestore item created recently that hasn't appeared in the Google Sheet fetch yet
+  for (const item of (current || [])) {
+    const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
+    if (key && !seenKeys.has(key)) {
+      mergedList.push(item);
+    }
+  }
 
   return mergedList.length > 0 ? mergedList : ((current && current.length > 0) ? current : INITIAL_WORKFLOW_ITEMS);
 }

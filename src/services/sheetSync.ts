@@ -61,14 +61,15 @@ export function formatDirectImageUrl(rawUrl: string): string {
 }
 
 export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<WorkflowItem> & Record<string, any>): Promise<void> {
-  const endpoint = config.scriptUrl || `https://script.google.com/macros/s/${config.deploymentId}/exec`;
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
   if (!endpoint) return;
   try {
     const photoUrl = (item.designImage && item.designImage.startsWith('http'))
       ? item.designImage
       : (item.photos?.find((p: any) => p.url && p.url.startsWith('http'))?.url || '');
 
-    const encoded = encodeURIComponent(JSON.stringify({
+    const payload = {
+      action: 'update_stage',
       lotNumber: item.lotNumber || item.jobNo,
       partyName: item.partyName || item.partyOrClientName,
       clientName: item.partyName || item.partyOrClientName,
@@ -86,8 +87,19 @@ export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<W
       dueDate: item.dueDate || item.date,
       photoUrl: photoUrl,
       notes: item.notes || (photoUrl ? `Photo: ${photoUrl}` : '')
-    }));
-    await fetch(`${endpoint}?action=update_stage&data=${encoded}`, { method: 'GET' });
+    };
+
+    try {
+      await fetch(endpoint, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      await fetch(`${endpoint}?action=update_stage&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
+    }
   } catch (e) {
     console.warn('Google Apps Script push error:', e);
   }
