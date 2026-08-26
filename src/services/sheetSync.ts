@@ -93,6 +93,76 @@ export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<W
   }
 }
 
+export async function pushStockTransactionToAppsScript(
+  config: SyncConfig,
+  tx: any,
+  material: RawMaterial
+): Promise<void> {
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
+  if (!endpoint) return;
+
+  const payload = {
+    action: 'log_stock_transaction',
+    sku: material.code || material.name,
+    itemSku: material.code || material.name,
+    name: material.name,
+    itemName: material.name,
+    category: material.category,
+    type: tx.type || 'IN',
+    quantity: tx.quantity || 1,
+    currentStock: material.currentStock,
+    unit: material.unit,
+    operator: tx.operator || 'Warehouse Supervisor',
+    orderRef: tx.orderRef || tx.machineOrOrderRef || '',
+    notes: tx.notes || '',
+    timestamp: tx.timestamp || new Date().toISOString()
+  };
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      await fetch(`${endpoint}?action=log_stock_transaction&data=${encoded}`, { method: 'GET' });
+    } catch (err) {
+      console.warn('Stock transaction push error:', err);
+    }
+  }
+}
+
+export async function pushDispatchOrderToAppsScript(
+  config: SyncConfig,
+  order: DispatchOrder
+): Promise<void> {
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
+  if (!endpoint) return;
+
+  const payload = {
+    action: 'update_dispatch',
+    order,
+    ...order
+  };
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(order));
+      await fetch(`${endpoint}?action=update_dispatch&data=${encoded}`, { method: 'GET' });
+    } catch (err) {
+      console.warn('Dispatch push error:', err);
+    }
+  }
+}
+
 export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetchResult> {
   const timestamp = new Date().toISOString();
   
