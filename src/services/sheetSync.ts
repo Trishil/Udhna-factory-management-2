@@ -121,13 +121,14 @@ export async function pushStockTransactionToAppsScript(
   try {
     await fetch(endpoint, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
   } catch (e) {
     try {
       const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=log_stock_transaction&data=${encoded}`, { method: 'GET' });
+      await fetch(`${endpoint}?action=log_stock_transaction&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
     } catch (err) {
       console.warn('Stock transaction push error:', err);
     }
@@ -150,13 +151,14 @@ export async function pushDispatchOrderToAppsScript(
   try {
     await fetch(endpoint, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
   } catch (e) {
     try {
       const encoded = encodeURIComponent(JSON.stringify(order));
-      await fetch(`${endpoint}?action=update_dispatch&data=${encoded}`, { method: 'GET' });
+      await fetch(`${endpoint}?action=update_dispatch&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
     } catch (err) {
       console.warn('Dispatch push error:', err);
     }
@@ -179,13 +181,14 @@ export async function pushMaterialToAppsScript(
   try {
     await fetch(endpoint, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
   } catch (e) {
     try {
       const encoded = encodeURIComponent(JSON.stringify(material));
-      await fetch(`${endpoint}?action=save_material&data=${encoded}`, { method: 'GET' });
+      await fetch(`${endpoint}?action=save_material&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
     } catch (err) {
       console.warn('Material push error:', err);
     }
@@ -202,12 +205,13 @@ export async function pushDeleteMaterialToAppsScript(
   try {
     await fetch(endpoint, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'delete_material', id: materialIdOrSku, sku: materialIdOrSku })
     });
   } catch (e) {
     try {
-      await fetch(`${endpoint}?action=delete_material&id=${encodeURIComponent(materialIdOrSku)}`, { method: 'GET' });
+      await fetch(`${endpoint}?action=delete_material&id=${encodeURIComponent(materialIdOrSku)}`, { method: 'GET', mode: 'no-cors' });
     } catch (err) {}
   }
 }
