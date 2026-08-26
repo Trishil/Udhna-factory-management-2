@@ -212,6 +212,37 @@ export async function pushDeleteMaterialToAppsScript(
   }
 }
 
+export function mergeMaterials(localMaterials: RawMaterial[], incomingSheetMaterials: RawMaterial[]): RawMaterial[] {
+  if (!incomingSheetMaterials || incomingSheetMaterials.length === 0) {
+    return localMaterials;
+  }
+
+  const map = new Map<string, RawMaterial>();
+
+  // 1. First add incoming sheet materials
+  incomingSheetMaterials.forEach(m => {
+    const key = (m.code || m.id || m.name).toLowerCase().trim().replace(/^mat-/, '');
+    map.set(key, m);
+  });
+
+  // 2. Preserve any local material that hasn't appeared in sheet yet or was modified recently
+  localMaterials.forEach(localM => {
+    const key = (localM.code || localM.id || localM.name).toLowerCase().trim().replace(/^mat-/, '');
+    if (!map.has(key)) {
+      map.set(key, localM);
+    } else {
+      const incomingM = map.get(key)!;
+      const localTime = new Date(localM.lastUpdated || 0).getTime();
+      const incomingTime = new Date(incomingM.lastUpdated || 0).getTime();
+      if (localTime > incomingTime && localTime > Date.now() - 120000) {
+        map.set(key, { ...incomingM, ...localM });
+      }
+    }
+  });
+
+  return Array.from(map.values());
+}
+
 export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetchResult> {
   const timestamp = new Date().toISOString();
   

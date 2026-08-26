@@ -41,7 +41,8 @@ import {
   pushMaterialToAppsScript,
   pushDeleteMaterialToAppsScript,
   pushStockTransactionToAppsScript,
-  pushDispatchOrderToAppsScript
+  pushDispatchOrderToAppsScript,
+  mergeMaterials
 } from './services/sheetSync';
 import { 
   syncAllToGoogleSheets, 
@@ -70,6 +71,9 @@ import {
   saveOrderSlipToFirestore,
   deleteOrderSlipFromFirestore,
   subscribeToOrderSlips,
+  saveMaterialToFirestore,
+  deleteMaterialFromFirestore,
+  subscribeToMaterials,
   attachStoragePhotosToWorkflowItems
 } from './services/firebaseService';
 
@@ -243,7 +247,7 @@ export default function App() {
           });
         }
         if (result.inventory && result.inventory.length > 0) {
-          setMaterials(result.inventory);
+          setMaterials(prev => mergeMaterials(prev, result.inventory || []));
         }
       }
     }).catch(() => {});
@@ -269,9 +273,16 @@ export default function App() {
       }
     });
 
+    const unsubscribeMaterials = subscribeToMaterials((firestoreMats) => {
+      if (firestoreMats && firestoreMats.length > 0) {
+        setMaterials((prev) => mergeMaterials(prev, firestoreMats));
+      }
+    });
+
     return () => {
       if (unsubscribeDesigns) unsubscribeDesigns();
       if (unsubscribeSlips) unsubscribeSlips();
+      if (unsubscribeMaterials) unsubscribeMaterials();
     };
   }, []);
 
@@ -667,7 +678,7 @@ export default function App() {
           });
         }
         if (result.inventory && result.inventory.length > 0) {
-          setMaterials(result.inventory);
+          setMaterials(prev => mergeMaterials(prev, result.inventory || []));
         }
         if (result.dispatchOrders && result.dispatchOrders.length > 0) {
           setDispatchOrders(result.dispatchOrders);
@@ -873,6 +884,7 @@ export default function App() {
     }
 
     const targetMat = ('id' in materialData) ? (materialData as RawMaterial) : updatedList[0];
+    saveMaterialToFirestore(targetMat);
     pushMaterialToAppsScript(syncConfig, targetMat);
     if (newTxList.length > transactions.length) {
       pushStockTransactionToAppsScript(syncConfig, newTxList[0], targetMat);
@@ -922,6 +934,7 @@ export default function App() {
     setIsAddMaterialOpen(false);
     setEditingMaterial(null);
 
+    deleteMaterialFromFirestore(materialId);
     pushDeleteMaterialToAppsScript(syncConfig, materialId);
     syncFullStateToGoogleSheets({ materialsList: updatedList, machinesList: updatedMachs });
     setLastAutoEntryNotice(`Deleted "${mat?.name || 'Material'}" from inventory & Google Sheet`);
@@ -1005,6 +1018,7 @@ export default function App() {
 
     const targetMat = updatedMaterials.find(m => m.id === txData.materialId);
     if (targetMat) {
+      saveMaterialToFirestore(targetMat);
       pushStockTransactionToAppsScript(syncConfig, newTx, targetMat);
     }
 
