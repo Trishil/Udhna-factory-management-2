@@ -664,6 +664,18 @@ export default function App() {
         if (result.dispatchOrders && result.dispatchOrders.length > 0) {
           setDispatchOrders(result.dispatchOrders);
         }
+        if (result.partyInvoices && result.partyInvoices.length > 0) {
+          setPartyInvoices(result.partyInvoices);
+        }
+        if (result.supplierPayables && result.supplierPayables.length > 0) {
+          setSupplierPayables(result.supplierPayables);
+        }
+        if (result.employees && result.employees.length > 0) {
+          setEmployees(result.employees);
+        }
+        if (result.expenses && result.expenses.length > 0) {
+          setExpenses(result.expenses);
+        }
 
         setSyncConfig(prev => ({
           ...prev,

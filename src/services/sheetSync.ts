@@ -1,4 +1,4 @@
-import { RawMaterial, SyncConfig, WorkflowItem, OrderSlip, DispatchOrder, IndividualPieceUnit, WorkflowStageId } from '../types';
+import { RawMaterial, SyncConfig, WorkflowItem, OrderSlip, DispatchOrder, IndividualPieceUnit, WorkflowStageId, PartyInvoice, SupplierPayable, EmployeeRecord, OperationalExpense } from '../types';
 
 export interface SheetFetchResult {
   success: boolean;
@@ -7,6 +7,10 @@ export interface SheetFetchResult {
   orderSlips?: OrderSlip[];
   pieces?: IndividualPieceUnit[];
   dispatchOrders?: DispatchOrder[];
+  partyInvoices?: PartyInvoice[];
+  supplierPayables?: SupplierPayable[];
+  employees?: EmployeeRecord[];
+  expenses?: OperationalExpense[];
   message: string;
   timestamp: string;
 }
@@ -379,6 +383,154 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
       });
     }
 
+    // 6. Parse Party Invoices & Receivables
+    const parsedPartyInvoices: PartyInvoice[] = [];
+    if (Array.isArray(data.partyInvoices)) {
+      data.partyInvoices.forEach((row: any[], idx: number) => {
+        if (!row || row.length === 0 || !row[0]) return;
+        const invNo = String(row[0]).trim();
+        if (!invNo || invNo.toLowerCase().includes('invoice')) return;
+
+        const partyName = String(row[1] || 'Direct Client');
+        const invDate = String(row[2] || new Date().toISOString().split('T')[0]);
+        const total = Number(row[3]) || 0;
+        const paid = Number(row[4]) || 0;
+        const balance = Number(row[5]) || (total - paid);
+        const statusRaw = String(row[6] || 'unpaid').toLowerCase();
+        const status = (['paid', 'partial', 'unpaid', 'overdue'].includes(statusRaw) ? statusRaw : (paid >= total ? 'paid' : paid > 0 ? 'partial' : 'unpaid')) as any;
+        const dueDate = String(row[7] || invDate);
+
+        parsedPartyInvoices.push({
+          id: `inv-${invNo.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          invoiceNumber: invNo,
+          partyName,
+          orderDescription: 'Textile Fabric Order Consignment',
+          issueDate: invDate,
+          dueDate,
+          totalAmount: total,
+          amountReceived: paid,
+          balanceDue: balance,
+          status,
+          paymentHistory: paid > 0 ? [{
+            id: `pay-${idx + 1}`,
+            date: invDate,
+            amount: paid,
+            paymentMode: 'Bank Transfer',
+            transactionRef: `REF-${invNo}`,
+            notes: 'Advance receipt'
+          }] : []
+        });
+      });
+    }
+
+    // 7. Parse Supplier Payables & Imports
+    const parsedPayables: SupplierPayable[] = [];
+    if (Array.isArray(data.supplierPayables)) {
+      data.supplierPayables.forEach((row: any[], idx: number) => {
+        if (!row || row.length === 0 || !row[0]) return;
+        const poNo = String(row[0]).trim();
+        if (!poNo || poNo.toLowerCase().includes('bill')) return;
+
+        const supplierName = String(row[1] || 'Raw Material Supplier');
+        const category = String(row[2] || 'Zari Threads');
+        const totalBill = Number(row[3]) || 0;
+        const paid = Number(row[4]) || 0;
+        const balance = Number(row[5]) || (totalBill - paid);
+        const statusRaw = String(row[6] || 'unpaid').toLowerCase();
+        const status = (['settled', 'partial', 'unpaid', 'overdue'].includes(statusRaw) ? statusRaw : (paid >= totalBill ? 'settled' : paid > 0 ? 'partial' : 'unpaid')) as any;
+        const dueDate = String(row[7] || new Date().toISOString().split('T')[0]);
+        const notes = String(row[8] || '');
+
+        parsedPayables.push({
+          id: `pay-${poNo.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          purchaseOrderCode: poNo,
+          supplierName,
+          materialNameOrDescription: category,
+          quantityImported: 100,
+          unit: 'spools',
+          unitPrice: 120,
+          totalBillAmount: totalBill,
+          amountPaid: paid,
+          balanceOwed: balance,
+          purchaseDate: new Date().toISOString().split('T')[0],
+          paymentDueDate: dueDate,
+          status,
+          notes,
+          paymentHistory: paid > 0 ? [{
+            id: `hist-${idx + 1}`,
+            date: new Date().toISOString().split('T')[0],
+            amount: paid,
+            paymentMode: 'Bank Transfer',
+            transactionRef: `PO-${poNo}`
+          }] : []
+        });
+      });
+    }
+
+    // 8. Parse Staff Payroll
+    const parsedEmployees: EmployeeRecord[] = [];
+    if (Array.isArray(data.payroll)) {
+      data.payroll.forEach((row: any[], idx: number) => {
+        if (!row || row.length === 0 || !row[0]) return;
+        const empId = String(row[0]).trim();
+        if (!empId || empId.toLowerCase().includes('employee')) return;
+
+        const name = String(row[1] || 'Floor Worker');
+        const role = String(row[2] || 'Operator');
+        const dept = (String(row[3] || 'Production') as any);
+        const salary = Number(row[4]) || 20000;
+        const pieceRate = Number(row[5]) || 15;
+        const pcs = Number(row[6]) || 0;
+        const pieceEarnings = Number(row[7]) || (pieceRate * pcs);
+        const totalPayout = Number(row[8]) || (salary + pieceEarnings);
+
+        parsedEmployees.push({
+          id: `emp-${empId.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          employeeCode: empId,
+          name,
+          role,
+          department: dept,
+          salaryType: 'monthly',
+          baseSalary: salary,
+          netPayable: totalPayout,
+          paymentStatus: 'pending',
+          paymentMethod: 'bank_transfer',
+        });
+      });
+    }
+
+    // 9. Parse Expenses & Utilities
+    const parsedExpenses: OperationalExpense[] = [];
+    if (Array.isArray(data.expenses)) {
+      data.expenses.forEach((row: any[], idx: number) => {
+        if (!row || row.length === 0 || !row[0]) return;
+        const expId = String(row[0]).trim();
+        if (!expId || expId.toLowerCase().includes('expense')) return;
+
+        const date = String(row[1] || new Date().toISOString().split('T')[0]);
+        const cat = String(row[2] || 'electricity').toLowerCase().replace(/\s+/g, '_') as any;
+        const desc = String(row[3] || 'Factory Expense');
+        const amount = Number(row[4]) || 0;
+        const mode = String(row[5] || 'bank_transfer').toLowerCase().replace(/\s+/g, '_') as any;
+        const paidBy = String(row[6] || 'Manager');
+        const receipt = String(row[7] || '');
+
+        parsedExpenses.push({
+          id: `exp-${expId.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          expenseCode: expId,
+          date,
+          category: cat,
+          title: desc,
+          amount,
+          vendorOrPayee: paidBy,
+          paymentMethod: mode,
+          paymentStatus: 'paid',
+          receiptInvoiceNo: receipt,
+          recordedBy: paidBy
+        });
+      });
+    }
+
     return {
       success: true,
       inventory: parsedInventory.length > 0 ? parsedInventory : undefined,
@@ -386,7 +538,11 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
       orderSlips: parsedOrderSlips.length > 0 ? parsedOrderSlips : undefined,
       pieces: parsedPieces.length > 0 ? parsedPieces : undefined,
       dispatchOrders: parsedDispatch.length > 0 ? parsedDispatch : undefined,
-      message: `Successfully synchronized from Google Apps Script (${parsedWorkflow.length} lots, ${parsedInventory.length} materials, ${parsedDispatch.length} dispatch orders).`,
+      partyInvoices: parsedPartyInvoices.length > 0 ? parsedPartyInvoices : undefined,
+      supplierPayables: parsedPayables.length > 0 ? parsedPayables : undefined,
+      employees: parsedEmployees.length > 0 ? parsedEmployees : undefined,
+      expenses: parsedExpenses.length > 0 ? parsedExpenses : undefined,
+      message: `Successfully synchronized from Google Apps Script (${parsedWorkflow.length} lots, ${parsedInventory.length} materials, ${parsedDispatch.length} dispatch orders, ${parsedPartyInvoices.length} invoices).`,
       timestamp
     };
   } catch (error: any) {
