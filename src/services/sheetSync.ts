@@ -59,6 +59,10 @@ export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<W
   const endpoint = config.scriptUrl || `https://script.google.com/macros/s/${config.deploymentId}/exec`;
   if (!endpoint) return;
   try {
+    const photoUrl = (item.designImage && item.designImage.startsWith('http'))
+      ? item.designImage
+      : (item.photos?.find((p: any) => p.url && p.url.startsWith('http'))?.url || '');
+
     const encoded = encodeURIComponent(JSON.stringify({
       lotNumber: item.lotNumber || item.jobNo,
       partyName: item.partyName || item.partyOrClientName,
@@ -74,7 +78,9 @@ export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<W
       priority: item.priority,
       isUrgent: item.priority === 'urgent' || item.priority === 'high',
       qualityStatus: item.initialInspectionResult === 'good' ? 'GOOD' : 'NEEDS_ALTERATION',
-      dueDate: item.dueDate || item.date
+      dueDate: item.dueDate || item.date,
+      photoUrl: photoUrl,
+      notes: item.notes || (photoUrl ? `Photo: ${photoUrl}` : '')
     }));
     await fetch(`${endpoint}?action=update_stage&data=${encoded}`, { method: 'GET' });
   } catch (e) {

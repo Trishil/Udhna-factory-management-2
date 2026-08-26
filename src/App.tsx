@@ -491,29 +491,63 @@ export default function App() {
   }, [materials, machines, isSimulating, currentUser]);
 
   // Automated Google Sheet Background Synchronization & Telemetry Stream
+  const latestStateRef = useRef({
+    materials,
+    machines,
+    employees,
+    electricityRecords,
+    expenses,
+    partyInvoices,
+    supplierPayables,
+    transactions,
+    dispatchOrders,
+    workflowItems,
+    orderSlips,
+    currentUser,
+    syncConfig
+  });
+
+  useEffect(() => {
+    latestStateRef.current = {
+      materials,
+      machines,
+      employees,
+      electricityRecords,
+      expenses,
+      partyInvoices,
+      supplierPayables,
+      transactions,
+      dispatchOrders,
+      workflowItems,
+      orderSlips,
+      currentUser,
+      syncConfig
+    };
+  });
+
   useEffect(() => {
     if (!currentUser || !currentUser.sheetAccessGranted) return;
     if (!syncConfig.autoSyncIntervalSec || syncConfig.autoSyncIntervalSec <= 0) return;
 
     const syncInterval = setInterval(async () => {
-      // Direct REST API sync if accessToken is present
-      if (currentUser?.accessToken && syncConfig.sheetId) {
+      const state = latestStateRef.current;
+      if (state.currentUser?.accessToken && state.syncConfig.sheetId) {
         try {
           await syncAllToGoogleSheets(
-            currentUser.accessToken, 
-            syncConfig.sheetId, 
-            materials, 
-            machines,
+            state.currentUser.accessToken, 
+            state.syncConfig.sheetId, 
+            state.materials, 
+            state.machines,
             {
-              employees,
-              electricityRecords,
-              expenses,
-              partyInvoices,
-              supplierPayables,
-              transactions,
-              dispatchOrders,
-              workflowItems,
-              orderSlips
+              employees: state.employees,
+              electricityRecords: state.electricityRecords,
+              expenses: state.expenses,
+              partyInvoices: state.partyInvoices,
+              supplierPayables: state.supplierPayables,
+              transactions: state.transactions,
+              dispatchOrders: state.dispatchOrders,
+              workflowItems: state.workflowItems,
+              orderSlips: state.orderSlips
             }
           );
           setSyncConfig(prev => ({
@@ -522,16 +556,15 @@ export default function App() {
             syncStatus: 'synced'
           }));
         } catch {
-          // Fallback to Apps Script sync
           handlePerformSync(true);
         }
       } else {
         handlePerformSync(true);
       }
-    }, syncConfig.autoSyncIntervalSec * 1000);
+    }, Math.max(30, syncConfig.autoSyncIntervalSec) * 1000);
 
     return () => clearInterval(syncInterval);
-  }, [syncConfig.autoSyncIntervalSec, syncConfig.sheetId, materials, machines, workflowItems, orderSlips, employees, electricityRecords, expenses, partyInvoices, supplierPayables, transactions, dispatchOrders, currentUser]);
+  }, [syncConfig.autoSyncIntervalSec, syncConfig.sheetId, currentUser?.sheetAccessGranted]);
 
   // Helper to reliably sync entire factory floor, inventory & financial state to Google Sheets
   const syncFullStateToGoogleSheets = (overrides?: {
@@ -608,30 +641,26 @@ export default function App() {
         }
       }
 
-      // 2. Apps Script sync & smart merge
+      // 2. Apps Script sync & smart merge (Photo URLs are read directly from Google Sheet column 26)
       const result = await syncWithAppsScript(syncConfig);
       if (result.success) {
-        let mergedWf: WorkflowItem[] = [];
-        setWorkflowItems(prev => {
-          mergedWf = mergeWorkflowItems(prev, result.workflow || []);
-          saveStoredWorkflowItems(mergedWf);
-          return mergedWf;
-        });
-        setOrderSlips(prev => {
-          const merged = mergeOrderSlips(prev, result.orderSlips || []);
-          saveStoredOrderSlips(merged);
-          return merged;
-        });
+        if (result.workflow && result.workflow.length > 0) {
+          setWorkflowItems(prev => {
+            const mergedWf = mergeWorkflowItems(prev, result.workflow || []);
+            saveStoredWorkflowItems(mergedWf);
+            return mergedWf;
+          });
+        }
+        if (result.orderSlips && result.orderSlips.length > 0) {
+          setOrderSlips(prev => {
+            const merged = mergeOrderSlips(prev, result.orderSlips || []);
+            saveStoredOrderSlips(merged);
+            return merged;
+          });
+        }
         if (result.inventory && result.inventory.length > 0) {
           setMaterials(result.inventory);
         }
-
-        // Auto-link photos from Firebase Storage folders (e.g. design_photos/DSG-104/)
-        try {
-          const withPhotos = await attachStoragePhotosToWorkflowItems(mergedWf);
-          setWorkflowItems(withPhotos);
-          saveStoredWorkflowItems(withPhotos);
-        } catch (e) {}
 
         setSyncConfig(prev => ({
           ...prev,
