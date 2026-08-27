@@ -95,7 +95,7 @@ export const MaterialAssignModal: React.FC<MaterialAssignModalProps> = ({
                     </div>
 
                     <div className="text-right shrink-0 ml-2">
-                      <span className="font-bold text-slate-800">{mat.currentStock.toLocaleString()} {mat.unit}</span>
+                      <span className="font-bold text-slate-800">{(mat.currentStock ?? 0).toLocaleString()} {mat.unit}</span>
                       {isLow && (
                         <span className="block text-[10px] font-bold text-amber-600">Low Stock</span>
                       )}

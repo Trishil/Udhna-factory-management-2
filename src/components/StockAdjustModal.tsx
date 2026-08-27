@@ -234,7 +234,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
             >
               {materials.map(m => (
                 <option key={m.id} value={m.id}>
-                  {m.code ? `[${m.code}] ` : ''}{m.name} {m.size ? `(${m.size})` : ''} - Stock: {m.currentStock.toLocaleString()} {m.unit} | ₹{m.unitCost}/{m.unit}
+                  {m.code ? `[${m.code}] ` : ''}{m.name} {m.size ? `(${m.size})` : ''} - Stock: {(m.currentStock ?? 0).toLocaleString()} {m.unit} | ₹{m.unitCost || 0}/{m.unit}
                 </option>
               ))}
             </select>
@@ -258,7 +258,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
                   </div>
                   <div className="text-right font-mono">
                     <span className="text-slate-500">In Stock: </span>
-                    <span className="font-bold text-slate-900">{currentMat.currentStock.toLocaleString()} {currentMat.unit}</span>
+                    <span className="font-bold text-slate-900">{((currentMat.currentStock) ?? 0).toLocaleString()} {currentMat.unit}</span>
                   </div>
                 </div>
 
@@ -292,7 +292,7 @@ export const StockAdjustModal: React.FC<StockAdjustModalProps> = ({
                 <p className="text-[11px] text-slate-500 mt-1 flex items-center justify-between font-mono">
                   <span>New Balance:</span>
                   <b className={`text-xs ${type === 'restock' ? 'text-emerald-600' : 'text-blue-600'}`}>
-                    {type === 'restock' ? (currentMat.currentStock + quantity).toLocaleString() : Math.max(0, currentMat.currentStock - quantity).toLocaleString()} {currentMat.unit}
+                    {type === 'restock' ? ((currentMat.currentStock ?? 0) + quantity).toLocaleString() : Math.max(0, (currentMat.currentStock ?? 0) - quantity).toLocaleString()} {currentMat.unit}
                   </b>
                 </p>
               )}

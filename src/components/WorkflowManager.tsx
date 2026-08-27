@@ -864,7 +864,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                   </span>
                   {stageTotalUnits > 0 && (
                     <span className="text-[9px] font-mono font-bold text-slate-500">
-                      {stageTotalUnits.toLocaleString()} units
+                      {(stageTotalUnits || 0).toLocaleString()} units
                     </span>
                   )}
                 </div>
@@ -983,7 +983,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                           <h4 className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors flex items-center justify-between">
                             <span>{item.designNumber}</span>
                             <span className="text-xs font-mono font-extrabold text-blue-700">
-                              {item.quantity.toLocaleString()} {item.unit}
+                              {(item.quantity ?? item.pieces ?? 0).toLocaleString()} {item.unit || 'pcs'}
                             </span>
                           </h4>
                           {item.designName && (

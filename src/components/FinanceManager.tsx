@@ -1098,7 +1098,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                           </span>
                         </div>
                         <p className="font-semibold text-slate-700 mt-0.5">{sp.supplierName}</p>
-                        <p className="text-[10px] text-slate-400">{sp.materialNameOrDescription} ({sp.quantityImported.toLocaleString()} {sp.unit})</p>
+                        <p className="text-[10px] text-slate-400">{sp.materialNameOrDescription} ({(sp.quantityImported ?? 0).toLocaleString()} {sp.unit})</p>
                       </div>
 
                       <div className="text-right">
@@ -1296,7 +1296,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                           <span className="text-[10px] text-slate-400">Imported: {sp.purchaseDate}</span>
                         </td>
                         <td className="py-3 px-3 font-mono text-slate-700">
-                          <div>{sp.quantityImported.toLocaleString()} {sp.unit}</div>
+                          <div>{(sp.quantityImported ?? 0).toLocaleString()} {sp.unit}</div>
                           <span className="text-[10px] text-slate-400 font-mono">@ {formatINR(sp.unitPrice)}</span>
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-slate-900">
@@ -1600,20 +1600,20 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                           )}
                         </td>
                         <td className="py-3 px-3 font-mono text-slate-700">
-                          {rec.meterReadingStartKwh.toLocaleString()}
+                          {(rec.meterReadingStartKwh ?? 0).toLocaleString()}
                         </td>
                         <td className="py-3 px-3 font-mono text-slate-700">
-                          {rec.meterReadingEndKwh.toLocaleString()}
+                          {(rec.meterReadingEndKwh ?? 0).toLocaleString()}
                         </td>
                         <td className="py-3 px-3 font-mono font-bold text-amber-700">
-                          {rec.totalKwhConsumed.toLocaleString()} kWh
+                          {(rec.totalKwhConsumed ?? 0).toLocaleString()} kWh
                         </td>
                         <td className="py-3 px-3 font-mono text-slate-700">
-                          ₹{rec.tariffPerKwh.toFixed(2)}
+                          ₹{(rec.tariffPerKwh || 0).toFixed(2)}
                         </td>
                         <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
-                          <div>Fixed: ₹{rec.baseFixedCharges.toLocaleString()}</div>
-                          <div>Peak: ₹{rec.peakDemandCharges.toLocaleString()}</div>
+                          <div>Fixed: ₹{(rec.baseFixedCharges ?? 0).toLocaleString()}</div>
+                          <div>Peak: ₹{(rec.peakDemandCharges ?? 0).toLocaleString()}</div>
                         </td>
                         <td className="py-3 px-3 font-mono font-black text-slate-900 text-sm">
                           {formatINR(rec.totalBillAmount)}

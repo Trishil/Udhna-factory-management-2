@@ -436,12 +436,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                             <span className={`text-sm font-bold ${
                               isDepleted ? 'text-rose-600' : isLow ? 'text-amber-700' : 'text-slate-800'
                             }`}>
-                              {mat.currentStock.toLocaleString()}
+                              {(mat.currentStock ?? 0).toLocaleString()}
                             </span>
                             <span className="text-[11px] text-slate-500 font-normal ml-1">{mat.unit}</span>
                           </div>
                           <p className="text-[10px] text-slate-400 font-mono">
-                            Min: {mat.minThreshold.toLocaleString()} {mat.unit}
+                            Min: {(mat.minThreshold ?? 0).toLocaleString()} {mat.unit}
                           </p>
                         </td>
 
@@ -644,7 +644,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
                     <div className="flex justify-between items-baseline mb-1">
                       <span className="text-[11px] text-slate-500 font-semibold">Current Stock</span>
                       <span className="text-sm font-bold text-slate-800 font-mono">
-                        {mat.currentStock.toLocaleString()} {mat.unit}
+                        {(mat.currentStock ?? 0).toLocaleString()} {mat.unit}
                       </span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
