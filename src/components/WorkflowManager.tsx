@@ -895,8 +895,8 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                         onDragStart={(e) => handleDragStart(e, item.id)}
                         onDragEnd={handleDragEnd}
                         onClick={() => setSelectedItemForModal(item)}
-                        className={`bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing hover:border-blue-400 group relative ${
-                          isDragging ? 'opacity-40 scale-95 border-dashed border-blue-500' : ''
+                        className={`bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing hover:border-blue-500 group relative ${
+                          isDragging ? 'ring-2 ring-blue-500 scale-[0.98] shadow-lg border-blue-500' : ''
                         }`}
                       >
                         {/* Design Image Thumbnail Banner if photo exists */}
