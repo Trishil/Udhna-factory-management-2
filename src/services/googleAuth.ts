@@ -19,7 +19,7 @@ export function setCustomOAuthClientId(clientId: string) {
 }
 
 export const DEFAULT_SHEET_ID = '1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw';
-export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwDzJBRmDRrxhFg10u9wgektant3SqpWl83ZzOLEc7-s3ZJOk6FXEe_mHxQxFfF6kaY/exec';
+export const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw/exec';
 
 const AUTH_STORAGE_KEY = 'texflow_auth_user_v2';
 const SHEET_ID_STORAGE_KEY = 'texflow_target_sheet_id_v2';

@@ -151,8 +151,8 @@ export const INITIAL_TRANSACTIONS: StockTransaction[] = [
 export const INITIAL_SYNC_CONFIG: SyncConfig = {
   sheetId: '1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw',
   sheetUrl: 'https://docs.google.com/spreadsheets/d/1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw/edit',
-  deploymentId: 'AKfycbwDzJBRmDRrxhFg10u9wgektant3SqpWl83ZzOLEc7-s3ZJOk6FXEe_mHxQxFfF6kaY',
-  scriptUrl: 'https://script.google.com/macros/s/AKfycbwDzJBRmDRrxhFg10u9wgektant3SqpWl83ZzOLEc7-s3ZJOk6FXEe_mHxQxFfF6kaY/exec',
+  deploymentId: 'AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw',
+  scriptUrl: 'https://script.google.com/macros/s/AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw/exec',
   autoSyncIntervalSec: 60,
   lastSyncTimestamp: null,
   syncStatus: 'idle',

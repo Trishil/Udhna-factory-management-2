@@ -191,7 +191,7 @@ function setupSpreadsheet() {
         [
           'Trisharth', 'TRISHARTH-HQ', 'Atharva Balar', 'atharvabalar6@gmail.com',
           '1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw',
-          'https://script.google.com/macros/s/AKfycbwDzJBRmDRrxhFg10u9wgektant3SqpWl83ZzOLEc7-s3ZJOk6FXEe_mHxQxFfF6kaY/exec',
+          'https://script.google.com/macros/s/AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw/exec',
           '2026-08-24', 'ACTIVE'
         ]
       ]
@@ -774,7 +774,7 @@ function lookupCompanyInSheet(ss, companyCode) {
       ownerName: "Atharva Balar",
       ownerEmail: "atharvabalar6@gmail.com",
       sheetId: "1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw",
-      scriptUrl: "https://script.google.com/macros/s/AKfycbwDzJBRmDRrxhFg10u9wgektant3SqpWl83ZzOLEc7-s3ZJOk6FXEe_mHxQxFfF6kaY/exec",
+      scriptUrl: "https://script.google.com/macros/s/AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw/exec",
       isPrimary: true
     };
   }
