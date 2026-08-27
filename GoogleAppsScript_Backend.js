@@ -214,14 +214,6 @@ function setupSpreadsheet() {
     headerRange.setVerticalAlignment("middle");
     sheet.setRowHeight(1, 38);
 
-    if (def.sampleRows && def.sampleRows.length > 0 && sheet.getLastRow() <= 1) {
-      def.sampleRows.forEach(row => sheet.appendRow(row));
-      const dataRange = sheet.getRange(2, 1, def.sampleRows.length, def.headers.length);
-      dataRange.setFontFamily("Inter");
-      dataRange.setFontSize(10);
-      dataRange.setVerticalAlignment("middle");
-    }
-
     for (let c = 1; c <= Math.min(def.headers.length, 25); c++) {
       sheet.autoResizeColumn(c);
       const width = sheet.getColumnWidth(c);
@@ -414,17 +406,6 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
   }
-    try {
-      const mat = JSON.parse(decodeURIComponent(e.parameter.data));
-      saveMaterialToSheet(ss, mat);
-      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Material saved" }))
-        .setMimeType(ContentService.MimeType.JSON);
-    } catch(err) {
-      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-
   // 9. Handle Material Delete via GET query parameter
   if (e && e.parameter && (e.parameter.action === "delete_material") && (e.parameter.id || e.parameter.sku || e.parameter.data)) {
     try {

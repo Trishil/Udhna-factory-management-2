@@ -23,7 +23,19 @@ import {
 } from 'lucide-react';
 import { createAutomatedFactorySpreadsheet } from '../services/googleSheetsApi';
 import { requestDirectGoogleOAuth, DEFAULT_SHEET_ID, DEFAULT_APPS_SCRIPT_URL } from '../services/googleAuth';
-import { RawMaterial, AuthUser, WorkflowItem, OrderSlip, Machine } from '../types';
+import { 
+  RawMaterial, 
+  AuthUser, 
+  WorkflowItem, 
+  OrderSlip, 
+  Machine, 
+  DispatchOrder, 
+  PartyInvoice, 
+  SupplierPayable, 
+  EmployeeRecord, 
+  OperationalExpense, 
+  StockTransaction 
+} from '../types';
 import confetti from 'canvas-confetti';
 
 interface CreateNewSheetModalProps {
@@ -34,6 +46,12 @@ interface CreateNewSheetModalProps {
   machines?: Machine[];
   workflowItems?: WorkflowItem[];
   orderSlips?: OrderSlip[];
+  dispatchOrders?: DispatchOrder[];
+  partyInvoices?: PartyInvoice[];
+  supplierPayables?: SupplierPayable[];
+  employees?: EmployeeRecord[];
+  expenses?: OperationalExpense[];
+  transactions?: StockTransaction[];
   onSpreadsheetCreated: (sheetId: string, sheetUrl: string, title: string) => void;
   onUpdateCurrentUser?: (user: AuthUser) => void;
 }
@@ -45,6 +63,12 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
   materials,
   workflowItems = [],
   orderSlips = [],
+  dispatchOrders = [],
+  partyInvoices = [],
+  supplierPayables = [],
+  employees = [],
+  expenses = [],
+  transactions = [],
   onSpreadsheetCreated,
   onUpdateCurrentUser
 }) => {
@@ -100,7 +124,15 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
       materials, 
       [], 
       workflowItems, 
-      orderSlips
+      orderSlips,
+      {
+        dispatchOrders,
+        partyInvoices,
+        supplierPayables,
+        employees,
+        expenses,
+        transactions
+      }
     );
     setCreatedResult({
       id: result.spreadsheetId,

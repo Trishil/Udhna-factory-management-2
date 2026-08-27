@@ -210,7 +210,16 @@ export async function createAutomatedFactorySpreadsheet(
   initialMaterials: RawMaterial[] = [],
   _initialMachines: Machine[] = [],
   initialWorkflowItems: WorkflowItem[] = [],
-  initialOrderSlips: OrderSlip[] = []
+  initialOrderSlips: OrderSlip[] = [],
+  financeData?: {
+    employees?: EmployeeRecord[];
+    electricityRecords?: ElectricityUsageRecord[];
+    expenses?: OperationalExpense[];
+    partyInvoices?: PartyInvoice[];
+    supplierPayables?: SupplierPayable[];
+    transactions?: StockTransaction[];
+    dispatchOrders?: DispatchOrder[];
+  }
 ): Promise<{ spreadsheetId: string; spreadsheetUrl: string; title: string }> {
   const title = customTitle || `Udhna Factory Master & 10-Stage Workflow (${new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })})`;
 
@@ -256,7 +265,7 @@ export async function createAutomatedFactorySpreadsheet(
   const spreadsheetId = data.spreadsheetId;
   const spreadsheetUrl = data.spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
 
-  // Perform full initial synchronization of Workflow, Order Slips, and Inventory
+  // Perform full initial synchronization of Workflow, Order Slips, Inventory, Dispatch, and Finance
   await syncAllToGoogleSheets(
     accessToken,
     spreadsheetId,
@@ -264,7 +273,14 @@ export async function createAutomatedFactorySpreadsheet(
     [],
     {
       workflowItems: initialWorkflowItems,
-      orderSlips: initialOrderSlips
+      orderSlips: initialOrderSlips,
+      employees: financeData?.employees,
+      electricityRecords: financeData?.electricityRecords,
+      expenses: financeData?.expenses,
+      partyInvoices: financeData?.partyInvoices,
+      supplierPayables: financeData?.supplierPayables,
+      transactions: financeData?.transactions,
+      dispatchOrders: financeData?.dispatchOrders
     }
   );
 

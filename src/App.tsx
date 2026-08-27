@@ -3058,6 +3058,12 @@ export default function App() {
         machines={machines}
         workflowItems={workflowItems}
         orderSlips={orderSlips}
+        dispatchOrders={dispatchOrders}
+        partyInvoices={partyInvoices}
+        supplierPayables={supplierPayables}
+        employees={employees}
+        expenses={expenses}
+        transactions={transactions}
         onSpreadsheetCreated={handleSpreadsheetCreated}
         onUpdateCurrentUser={(user) => {
           setCurrentUser(user);
