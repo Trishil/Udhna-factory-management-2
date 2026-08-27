@@ -90,6 +90,9 @@ export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<W
       notes: item.notes || (photoUrl ? `Photo: ${photoUrl}` : '')
     };
 
+    const encoded = encodeURIComponent(JSON.stringify(payload));
+    fetch(`${endpoint}?action=update_stage&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+
     try {
       await fetch(endpoint, {
         method: 'POST',
@@ -97,10 +100,7 @@ export async function pushItemToGoogleSheets(config: SyncConfig, item: Partial<W
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
       });
-    } catch (e) {
-      const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=update_stage&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
-    }
+    } catch (e) {}
   } catch (e) {
     console.warn('Google Apps Script push error:', e);
   }
@@ -132,6 +132,9 @@ export async function pushStockTransactionToAppsScript(
     timestamp: tx.timestamp || new Date().toISOString()
   };
 
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  fetch(`${endpoint}?action=log_stock_transaction&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+
   try {
     await fetch(endpoint, {
       method: 'POST',
@@ -139,14 +142,7 @@ export async function pushStockTransactionToAppsScript(
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-  } catch (e) {
-    try {
-      const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=log_stock_transaction&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
-    } catch (err) {
-      console.warn('Stock transaction push error:', err);
-    }
-  }
+  } catch (e) {}
 }
 
 export async function pushDispatchOrderToAppsScript(
@@ -163,6 +159,9 @@ export async function pushDispatchOrderToAppsScript(
     ...order
   };
 
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  fetch(`${endpoint}?action=update_dispatch&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+
   try {
     await fetch(endpoint, {
       method: 'POST',
@@ -170,14 +169,7 @@ export async function pushDispatchOrderToAppsScript(
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-  } catch (e) {
-    try {
-      const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=update_dispatch&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
-    } catch (err) {
-      console.warn('Dispatch push error:', err);
-    }
-  }
+  } catch (e) {}
 }
 
 export async function pushMaterialToAppsScript(
@@ -194,6 +186,9 @@ export async function pushMaterialToAppsScript(
     ...material
   };
 
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  fetch(`${endpoint}?action=save_material&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+
   try {
     await fetch(endpoint, {
       method: 'POST',
@@ -201,14 +196,7 @@ export async function pushMaterialToAppsScript(
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-  } catch (e) {
-    try {
-      const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=save_material&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
-    } catch (err) {
-      console.warn('Material push error:', err);
-    }
-  }
+  } catch (e) {}
 }
 
 export async function pushDeleteMaterialToAppsScript(
@@ -218,6 +206,8 @@ export async function pushDeleteMaterialToAppsScript(
   const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
   if (!endpoint) return;
 
+  fetch(`${endpoint}?action=delete_material&id=${encodeURIComponent(materialIdOrSku)}&sheetId=${encodeURIComponent(config.sheetId || '')}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+
   try {
     await fetch(endpoint, {
       method: 'POST',
@@ -225,11 +215,7 @@ export async function pushDeleteMaterialToAppsScript(
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'delete_material', id: materialIdOrSku, sku: materialIdOrSku, sheetId: config.sheetId })
     });
-  } catch (e) {
-    try {
-      await fetch(`${endpoint}?action=delete_material&id=${encodeURIComponent(materialIdOrSku)}&sheetId=${encodeURIComponent(config.sheetId || '')}`, { method: 'GET', mode: 'no-cors' });
-    } catch (err) {}
-  }
+  } catch (e) {}
 }
 
 export async function pushOrderSlipToAppsScript(
@@ -245,6 +231,9 @@ export async function pushOrderSlipToAppsScript(
     slip
   };
 
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  fetch(`${endpoint}?action=save_order_slip&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+
   try {
     await fetch(endpoint, {
       method: 'POST',
@@ -252,12 +241,7 @@ export async function pushOrderSlipToAppsScript(
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-  } catch (e) {
-    try {
-      const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=save_order_slip&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
-    } catch (err) {}
-  }
+  } catch (e) {}
 }
 
 export async function pushPiecesToAppsScript(
@@ -273,6 +257,9 @@ export async function pushPiecesToAppsScript(
     pieces
   };
 
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  fetch(`${endpoint}?action=update_pieces&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+
   try {
     await fetch(endpoint, {
       method: 'POST',
@@ -280,12 +267,7 @@ export async function pushPiecesToAppsScript(
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     });
-  } catch (e) {
-    try {
-      const encoded = encodeURIComponent(JSON.stringify(payload));
-      await fetch(`${endpoint}?action=update_pieces&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' });
-    } catch (err) {}
-  }
+  } catch (e) {}
 }
 
 export async function pushFullStateToAppsScript(
@@ -306,6 +288,9 @@ export async function pushFullStateToAppsScript(
     sheetId: config.sheetId,
     ...fullData
   };
+
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  fetch(`${endpoint}?action=sync_all_full&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
 
   try {
     await fetch(endpoint, {
