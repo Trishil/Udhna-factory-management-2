@@ -43,6 +43,11 @@ service cloud.firestore {
       allow write: if isValidId(machineId);
     }
 
+    // Centralized company spreadsheet configuration
+    match /factory_company_config/{configId} {
+      allow read, write: if true;
+    }
+
     // Connection test document
     match /test/{docId} {
       allow read, write: if true;

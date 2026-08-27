@@ -674,6 +674,15 @@ export default function App() {
     const targetDsp = overrides?.dispatchOrdersList || dispatchOrders;
     const targetTx = overrides?.transactionsList || transactions;
 
+    // 1. Always push to active sheet via Google Apps Script Webhook
+    pushFullStateToAppsScript(syncConfig, {
+      orderSlips: targetSlips,
+      workflow: targetWf,
+      inventory: targetMats,
+      dispatch: targetDsp
+    });
+
+    // 2. If direct Google OAuth token is active, also push directly via Google Sheets API
     if (currentUser?.accessToken && syncConfig.sheetId) {
       syncAllToGoogleSheets(
         currentUser.accessToken,
@@ -691,14 +700,7 @@ export default function App() {
           workflowItems: targetWf,
           orderSlips: targetSlips
         }
-      );
-    } else {
-      pushFullStateToAppsScript(syncConfig, {
-        orderSlips: targetSlips,
-        workflow: targetWf,
-        inventory: targetMats,
-        dispatch: targetDsp
-      });
+      ).catch(() => {});
     }
   };
 
@@ -1408,13 +1410,14 @@ export default function App() {
   // Handle Brand-New Spreadsheet Creation & Global Company Distribution
   const handleSpreadsheetCreated = (sheetId: string, sheetUrl: string, title: string) => {
     setStoredSheetId(sheetId);
-    setSyncConfig(prev => ({
-      ...prev,
+    const newCfg: SyncConfig = {
+      ...syncConfig,
       sheetId,
       sheetUrl,
       syncStatus: 'synced',
       lastSyncTimestamp: new Date().toISOString()
-    }));
+    };
+    setSyncConfig(newCfg);
 
     saveCompanySpreadsheetConfig({
       sheetId,
@@ -1424,6 +1427,14 @@ export default function App() {
       ownerEmail: currentUser?.email || 'admin@udhna.com',
       title,
       companyName: 'Udhna Factory'
+    });
+
+    // Populate all 11 tabs & Push full state immediately into the new sheet
+    pushFullStateToAppsScript(newCfg, {
+      orderSlips,
+      workflow: workflowItems,
+      inventory: materials,
+      dispatch: dispatchOrders
     });
 
     setLastAutoEntryNotice(`Created & linked company spreadsheet "${title}" across all devices`);

@@ -389,6 +389,42 @@ function doGet(e) {
     }
   }
 
+  // 9. Handle Order Slip Save / Update via GET query parameter
+  if (e && e.parameter && (e.parameter.action === "save_order_slip" || e.parameter.action === "update_order_slip") && e.parameter.data) {
+    try {
+      const slip = JSON.parse(decodeURIComponent(e.parameter.data));
+      saveOrderSlipToSheet(ss, slip);
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Order slip saved" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // 10. Handle Full Batch State Sync via GET query parameter
+  if (e && e.parameter && e.parameter.action === "sync_all_full" && e.parameter.data) {
+    try {
+      const batch = JSON.parse(decodeURIComponent(e.parameter.data));
+      saveFullBatchStateToSheet(ss, batch);
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Full state synchronized" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+    try {
+      const mat = JSON.parse(decodeURIComponent(e.parameter.data));
+      saveMaterialToSheet(ss, mat);
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Material saved" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // 9. Handle Material Delete via GET query parameter
   if (e && e.parameter && (e.parameter.action === "delete_material") && (e.parameter.id || e.parameter.sku || e.parameter.data)) {
     try {
