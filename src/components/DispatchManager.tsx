@@ -267,10 +267,10 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
               </span>
             </div>
             <div className="text-2xl font-black font-mono text-amber-950 mt-1">
-              ₹{stats.readyValue.toLocaleString('en-IN')}
+              ₹{(stats.readyValue ?? 0).toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-amber-700 flex items-center justify-between mt-1 font-medium">
-              <span>{stats.readyQty.toLocaleString()} units on floor</span>
+              <span>{(stats.readyQty ?? 0).toLocaleString()} units on floor</span>
               <span>Awaiting Pickup &rarr;</span>
             </div>
           </div>
@@ -294,10 +294,10 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
               </span>
             </div>
             <div className="text-2xl font-black font-mono text-slate-900 mt-1">
-              ₹{stats.dispatchedValue.toLocaleString('en-IN')}
+              ₹{(stats.dispatchedValue ?? 0).toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-slate-500 flex items-center justify-between mt-1">
-              <span>{stats.dispatchedQty.toLocaleString()} units shipped</span>
+              <span>{(stats.dispatchedQty ?? 0).toLocaleString()} units shipped</span>
               <span>Tracking Active &rarr;</span>
             </div>
           </div>
@@ -314,7 +314,7 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
               </span>
             </div>
             <div className="text-2xl font-black font-mono text-emerald-950 mt-1">
-              ₹{stats.totalCollected.toLocaleString('en-IN')}
+              ₹{(stats.totalCollected ?? 0).toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-emerald-700 flex items-center justify-between mt-1 font-medium">
               <span>From {dispatchOrders.length} total orders</span>
@@ -341,7 +341,7 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
               </span>
             </div>
             <div className="text-2xl font-black font-mono text-rose-950 mt-1">
-              ₹{stats.totalReceivable.toLocaleString('en-IN')}
+              ₹{(stats.totalReceivable ?? 0).toLocaleString('en-IN')}
             </div>
             <div className="text-[11px] text-rose-700 flex items-center justify-between mt-1 font-medium">
               <span>{dispatchOrders.filter(o => o.balanceDue > 0).length} orders unpaid</span>
@@ -567,7 +567,7 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
                       {/* 4. Qty & Rate */}
                       <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap">
                         <div className="font-bold text-slate-900">
-                          {order.quantity.toLocaleString()} {order.unit}
+                          {(order.quantity ?? 0).toLocaleString()} {order.unit}
                         </div>
                         <div className="text-[10px] text-slate-500">
                           @ ₹{order.unitPrice || 0} / {order.unit}
@@ -577,11 +577,11 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
                       {/* 5. Total Invoice */}
                       <td className="py-3.5 px-3 text-right font-mono whitespace-nowrap">
                         <div className="font-black text-sm text-slate-900">
-                          ₹{order.totalInvoiceAmount.toLocaleString('en-IN')}
+                          ₹{(order.totalInvoiceAmount ?? 0).toLocaleString('en-IN')}
                         </div>
-                        {order.taxAmount > 0 && (
+                        {(order.taxAmount || 0) > 0 && (
                           <div className="text-[10px] text-slate-500">
-                            Incl. GST {order.taxPercent}% (₹{order.taxAmount.toLocaleString('en-IN')})
+                            Incl. GST {order.taxPercent}% (₹{(order.taxAmount ?? 0).toLocaleString('en-IN')})
                           </div>
                         )}
                       </td>
@@ -592,7 +592,7 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
                           <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                             isFullyPaid
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : order.amountPaid > 0
+                              : (order.amountPaid || 0) > 0
                               ? 'bg-amber-100 text-amber-800 border border-amber-200'
                               : 'bg-rose-100 text-rose-800 border border-rose-200'
                           }`}>
@@ -601,7 +601,7 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
                                 <CheckCircle2 className="h-3 w-3" />
                                 <span>Paid in Full</span>
                               </>
-                            ) : order.amountPaid > 0 ? (
+                            ) : (order.amountPaid || 0) > 0 ? (
                               <>
                                 <Clock className="h-3 w-3" />
                                 <span>Partially Paid</span>
@@ -616,11 +616,11 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
 
                           <div className="text-[11px] font-mono mt-1">
                             <span className="text-emerald-700 font-bold">
-                              ₹{order.amountPaid.toLocaleString('en-IN')}
+                              ₹{(order.amountPaid ?? 0).toLocaleString('en-IN')}
                             </span>
-                            {order.balanceDue > 0 && (
+                            {(order.balanceDue || 0) > 0 && (
                               <span className="text-rose-600 font-bold ml-1">
-                                (Due: ₹{order.balanceDue.toLocaleString('en-IN')})
+                                (Due: ₹{(order.balanceDue ?? 0).toLocaleString('en-IN')})
                               </span>
                             )}
                           </div>
@@ -1455,12 +1455,12 @@ const DispatchShipmentModal: React.FC<DispatchShipmentModalProps> = ({
             <div>
               <div className="font-mono font-bold text-slate-900">{order.dispatchNumber}</div>
               <div className="text-[11px] text-slate-600 font-semibold">{order.partyName}</div>
-              <div className="text-[10px] text-slate-400">{order.productName} ({order.quantity.toLocaleString()} {order.unit})</div>
+              <div className="text-[10px] text-slate-400">{order.productName} ({(order.quantity ?? 0).toLocaleString()} {order.unit})</div>
             </div>
             <div className="text-right">
-              <div className="font-mono font-black text-sm text-slate-900">₹{order.totalInvoiceAmount.toLocaleString('en-IN')}</div>
-              <div className={`text-[10px] font-bold uppercase ${order.balanceDue <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {order.balanceDue <= 0 ? 'Paid' : `Due: ₹${order.balanceDue.toLocaleString('en-IN')}`}
+              <div className="font-mono font-black text-sm text-slate-900">₹{(order.totalInvoiceAmount ?? 0).toLocaleString('en-IN')}</div>
+              <div className={`text-[10px] font-bold uppercase ${(order.balanceDue ?? 0) <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {(order.balanceDue ?? 0) <= 0 ? 'Paid' : `Due: ₹${(order.balanceDue ?? 0).toLocaleString('en-IN')}`}
               </div>
             </div>
           </div>
@@ -1662,10 +1662,10 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             <div className="text-right">
               <span className="text-[10px] uppercase font-bold text-slate-500">Balance Due</span>
               <div className="font-mono font-black text-base text-rose-600">
-                ₹{order.balanceDue.toLocaleString('en-IN')}
+                ₹{(order.balanceDue ?? 0).toLocaleString('en-IN')}
               </div>
               <span className="text-[10px] text-slate-400 font-mono">
-                Total: ₹{order.totalInvoiceAmount.toLocaleString('en-IN')}
+                Total: ₹{(order.totalInvoiceAmount ?? 0).toLocaleString('en-IN')}
               </span>
             </div>
           </div>
@@ -1676,24 +1676,24 @@ const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => setAmount(order.balanceDue)}
+                onClick={() => setAmount(order.balanceDue || 0)}
                 className="px-2.5 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg font-mono font-bold text-[11px] border border-emerald-300 transition-all text-center"
               >
-                Full Due (₹{order.balanceDue.toLocaleString('en-IN')})
+                Full Due (₹{(order.balanceDue ?? 0).toLocaleString('en-IN')})
               </button>
               <button
                 type="button"
-                onClick={() => setAmount(Math.round(order.balanceDue * 0.5))}
+                onClick={() => setAmount(Math.round((order.balanceDue || 0) * 0.5))}
                 className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-mono font-bold text-[11px] border border-slate-300 transition-all text-center"
               >
-                50% (₹{Math.round(order.balanceDue * 0.5).toLocaleString('en-IN')})
+                50% (₹{Math.round((order.balanceDue || 0) * 0.5).toLocaleString('en-IN')})
               </button>
               <button
                 type="button"
-                onClick={() => setAmount(Math.round(order.balanceDue * 0.25))}
+                onClick={() => setAmount(Math.round((order.balanceDue || 0) * 0.25))}
                 className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-mono font-bold text-[11px] border border-slate-300 transition-all text-center"
               >
-                25% (₹{Math.round(order.balanceDue * 0.25).toLocaleString('en-IN')})
+                25% (₹{Math.round((order.balanceDue || 0) * 0.25).toLocaleString('en-IN')})
               </button>
             </div>
           </div>
@@ -1950,7 +1950,7 @@ const InvoiceAndChallanModal: React.FC<InvoiceAndChallanModalProps> = ({
                     {order.lotBatchNumber || 'N/A'}
                   </td>
                   <td className="py-3 text-right font-mono font-bold">
-                    {order.quantity.toLocaleString()} {order.unit}
+                    {(order.quantity ?? 0).toLocaleString()} {order.unit}
                   </td>
                   <td className="py-3 text-right font-mono">
                     ₹{order.unitPrice || 0}
@@ -1959,7 +1959,7 @@ const InvoiceAndChallanModal: React.FC<InvoiceAndChallanModalProps> = ({
                     {order.taxPercent || 0}%
                   </td>
                   <td className="py-3 text-right font-mono font-black text-slate-900">
-                    ₹{order.totalInvoiceAmount.toLocaleString('en-IN')}
+                    ₹{(order.totalInvoiceAmount ?? 0).toLocaleString('en-IN')}
                   </td>
                 </tr>
               </tbody>
@@ -1971,17 +1971,17 @@ const InvoiceAndChallanModal: React.FC<InvoiceAndChallanModalProps> = ({
             <div className="w-64 space-y-1.5 text-right font-mono">
               <div className="flex justify-between text-slate-600">
                 <span>Subtotal:</span>
-                <span>₹{order.subtotal?.toLocaleString('en-IN') || order.totalInvoiceAmount.toLocaleString('en-IN')}</span>
+                <span>₹{(order.subtotal || order.totalInvoiceAmount || 0).toLocaleString('en-IN')}</span>
               </div>
-              {order.taxAmount > 0 && (
+              {(order.taxAmount || 0) > 0 && (
                 <div className="flex justify-between text-slate-600">
-                  <span>GST ({order.taxPercent}%):</span>
-                  <span>+₹{order.taxAmount.toLocaleString('en-IN')}</span>
+                  <span>GST ({order.taxPercent || 0}%):</span>
+                  <span>+₹{(order.taxAmount || 0).toLocaleString('en-IN')}</span>
                 </div>
               )}
               <div className="flex justify-between font-black text-sm text-slate-900 border-t border-slate-300 pt-1.5">
                 <span>Grand Total:</span>
-                <span>₹{order.totalInvoiceAmount.toLocaleString('en-IN')}</span>
+                <span>₹{(order.totalInvoiceAmount || 0).toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-emerald-700 font-bold text-[11px]">
                 <span>Amount Paid:</span>

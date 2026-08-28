@@ -315,7 +315,7 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === "populate_sheet_tabs" && e.parameter.sheetId) {
     try {
       const targetSs = SpreadsheetApp.openById(e.parameter.sheetId);
-      buildAllTabs(targetSs);
+      setupSpreadsheet(targetSs);
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
         sheetId: targetSs.getId(),
@@ -323,6 +323,19 @@ function doGet(e) {
         title: targetSs.getName(),
         message: "All 11 production tabs successfully formatted and populated!"
       })).setMimeType(ContentService.MimeType.JSON);
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // 4b. Handle Piece Unit Updates passed via GET query parameter
+  if (e && e.parameter && (e.parameter.action === "update_pieces" || e.parameter.action === "save_pieces" || e.parameter.action === "save_piece") && e.parameter.data) {
+    try {
+      const pData = JSON.parse(decodeURIComponent(e.parameter.data));
+      savePieceUnitsToSheet(ss, pData.pieces || pData.piece || pData);
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Pieces updated" }))
+        .setMimeType(ContentService.MimeType.JSON);
     } catch(err) {
       return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
         .setMimeType(ContentService.MimeType.JSON);

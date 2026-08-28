@@ -2727,15 +2727,15 @@ export default function App() {
                           {tx.batchId || '—'}
                         </td>
                         <td className="py-2.5 px-3.5 text-right font-mono font-bold whitespace-nowrap">
-                          <span className={tx.quantity > 0 ? 'text-emerald-700' : 'text-amber-700'}>
-                            {tx.quantity > 0 ? `+${tx.quantity.toLocaleString()}` : tx.quantity.toLocaleString()} {tx.unit}
+                          <span className={(tx.quantity || 0) > 0 ? 'text-emerald-700' : 'text-amber-700'}>
+                            {(tx.quantity || 0) > 0 ? `+${(tx.quantity || 0).toLocaleString()}` : (tx.quantity || 0).toLocaleString()} {tx.unit || 'units'}
                           </span>
                         </td>
                         <td className="py-2.5 px-3.5 text-right font-mono text-slate-600 whitespace-nowrap">
                           {tx.unitCost !== undefined ? `₹${tx.unitCost}` : '—'}
                         </td>
                         <td className="py-2.5 px-3.5 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
-                          {tx.totalCost !== undefined ? `₹${tx.totalCost.toLocaleString('en-IN')}` : '—'}
+                          {tx.totalCost !== undefined ? `₹${(tx.totalCost || 0).toLocaleString('en-IN')}` : '—'}
                         </td>
                         <td className="py-2.5 px-3.5 text-slate-600 whitespace-nowrap">
                           {tx.operator}
