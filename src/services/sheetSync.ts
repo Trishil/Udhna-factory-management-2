@@ -627,10 +627,19 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
           totalAmount: totalInvoice,
           amountPaid: paid,
           balanceDue: balance,
+          paymentStatus: paid >= totalInvoice ? 'paid' : paid > 0 ? 'partial' : 'unpaid',
+          paymentHistory: paid > 0 ? [{
+            id: `pay-${dspNo}-${idx}`,
+            date: readyDate,
+            amount: paid,
+            paymentMode: 'Bank Transfer',
+            receiptNumber: `REC-${dspNo}`
+          }] : [],
           status,
           readyDate,
           dispatchedDate: dispatchedDate || undefined,
           transporterName: transporterName || undefined,
+          vehicleOrTrackingNumber: trackingNumber || undefined,
           trackingNumber: trackingNumber || undefined,
           deliveryAddress: deliveryAddress || undefined,
         });
@@ -715,7 +724,7 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
             date: new Date().toISOString().split('T')[0],
             amount: paid,
             paymentMode: 'Bank Transfer',
-            transactionRef: `PO-${poNo}`
+            reference: `PO-${poNo}`
           }] : []
         });
       });

@@ -452,6 +452,7 @@ export interface DispatchOrder {
   expectedDeliveryDate?: string;
   transporterName?: string; // Courier / Transporter, e.g. "VRL Logistics", "BlueDart Express", "Internal Delivery Van"
   vehicleOrTrackingNumber?: string; // LR / Waybill / Tracking / Vehicle #
+  trackingNumber?: string; // Tracking / Waybill #
   packagingDetails?: string; // e.g. "4 Corrugated Boxes (80 kg total)"
   notes?: string;
 
