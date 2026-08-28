@@ -16,17 +16,17 @@ export interface SheetFetchResult {
 }
 
 export function parseStageFromText(stageText: string): WorkflowStageId {
-  const lower = String(stageText || '').toLowerCase();
-  if (lower.includes('fabric') || lower.includes('inward') || lower.includes('1.')) return 'fabric';
-  if (lower.includes('chalan') || lower.includes('slip') || lower.includes('2.')) return 'chalan';
-  if (lower.includes('insp-1') || (lower.includes('inspection') && !lower.includes('alter')) || lower.includes('3.')) return 'inspection';
-  if (lower.includes('patta') || lower.includes('stitching') || lower.includes('4.')) return 'stitching_patta';
-  if (lower.includes('embroidery') || lower.includes('5.')) return 'embroidery';
-  if (lower.includes('dhaga') || lower.includes('cutting') || lower.includes('6.')) return 'dhaga_cutting';
-  if (lower.includes('insp-2') || lower.includes('alter inspection') || lower.includes('7.')) return 'inspection_alter';
-  if (lower.includes('altering') || lower.includes('rework') || lower.includes('8.')) return 'altering';
-  if (lower.includes('folding') || lower.includes('packing') || lower.includes('9.')) return 'folding';
-  if (lower.includes('dispatch') || lower.includes('10.')) return 'prepare_dispatch';
+  const lower = String(stageText || '').toLowerCase().trim();
+  if (lower === '1' || lower.includes('fabric') || lower.includes('inward') || lower.includes('1.')) return 'fabric';
+  if (lower === '2' || lower.includes('chalan') || lower.includes('slip') || lower.includes('2.')) return 'chalan';
+  if (lower === '3' || lower.includes('insp-1') || (lower.includes('inspection') && !lower.includes('alter')) || lower.includes('3.')) return 'inspection';
+  if (lower === '4' || lower.includes('patta') || lower.includes('stitching') || lower.includes('4.')) return 'stitching_patta';
+  if (lower === '5' || lower.includes('embroidery') || lower.includes('5.')) return 'embroidery';
+  if (lower === '6' || lower.includes('dhaga') || lower.includes('cutting') || lower.includes('6.')) return 'dhaga_cutting';
+  if (lower === '7' || lower.includes('insp-2') || lower.includes('alter inspection') || lower.includes('7.')) return 'inspection_alter';
+  if (lower === '8' || lower.includes('altering') || lower.includes('rework') || lower.includes('8.')) return 'altering';
+  if (lower === '9' || lower.includes('folding') || lower.includes('packing') || lower.includes('9.')) return 'folding';
+  if (lower === '10' || lower.includes('dispatch') || lower.includes('10.')) return 'prepare_dispatch';
   return 'fabric';
 }
 
@@ -601,6 +601,8 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
         const subtotal = Number(row[7]) || (quantity * unitPrice);
         const taxAmount = Number(row[8]) || Math.round(subtotal * 0.05);
         const totalInvoice = Number(row[9]) || (subtotal + taxAmount);
+        const paid = Number(row[10]) || 0;
+        const balance = Number(row[11]) || Math.max(0, totalInvoice - paid);
         const transporterName = String(row[13] || '');
         const trackingNumber = String(row[14] || '');
         const readyDate = String(row[15] || new Date().toISOString().split('T')[0]);
@@ -623,6 +625,8 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
           taxAmount,
           totalInvoiceAmount: totalInvoice,
           totalAmount: totalInvoice,
+          amountPaid: paid,
+          balanceDue: balance,
           status,
           readyDate,
           dispatchedDate: dispatchedDate || undefined,
