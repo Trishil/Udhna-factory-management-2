@@ -458,8 +458,8 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
             {/* Slips Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-6">
               {currentOrderSlips.map(slip => {
-                const totalCalculated = slip.colorRows.reduce((acc, row) => {
-                  return acc + Object.values(row.fabricQuantities).reduce<number>((a, b) => a + (Number(b) || 0), 0);
+                const totalCalculated = (slip.colorRows || []).reduce((acc, row) => {
+                  return acc + Object.values(row.fabricQuantities || {}).reduce<number>((a, b) => a + (Number(b) || 0), 0);
                 }, 0);
                 // Compute live completed pieces from individual piece units
                 const completed = getOrderSlipCompletedPieces(slip, items);

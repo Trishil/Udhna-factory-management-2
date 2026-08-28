@@ -1191,9 +1191,14 @@ function savePieceUnitsToSheet(ss, pieces) {
     } catch(e) {}
   });
 
-  // Super-Fast Bulk Batch Append for all new rows in 1 single API call
+  // Super-Fast Bulk Batch Append with automatic row expansion
   if (newRows.length > 0) {
     const startRow = sheet.getLastRow() + 1;
+    const requiredTotalRows = startRow + newRows.length;
+    const currentMaxRows = sheet.getMaxRows();
+    if (requiredTotalRows > currentMaxRows) {
+      sheet.insertRowsAfter(currentMaxRows, (requiredTotalRows - currentMaxRows) + 100);
+    }
     sheet.getRange(startRow, 1, newRows.length, newRows[0].length).setValues(newRows);
   }
 }
