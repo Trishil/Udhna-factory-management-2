@@ -422,7 +422,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
       {/* VIEW 2: INDIVIDUAL PIECE TRACKER (UNIT BREAKDOWN & ALTERATION ROUTING) */}
       {viewMode === 'pieces' && (
         <IndividualPieceTracker
-          items={items}
+          items={effectiveItems}
           orderSlips={currentOrderSlips}
           onUpdateItem={onUpdateItem}
         />
