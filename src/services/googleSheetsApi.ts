@@ -544,7 +544,19 @@ export async function syncAllToGoogleSheets(
         ? w.individualPieces
         : getOrGenerateIndividualPieces(w);
 
-      piecesList.forEach(p => {
+      const defectPiecesList = piecesList.filter(p => {
+        const st = (p.currentStage || '').toLowerCase();
+        const stat = (p.status || '').toLowerCase();
+        return st.includes('alter') || 
+          st.includes('insp-2') ||
+          stat.includes('alter') || 
+          stat.includes('rework') || 
+          stat.includes('reject') || 
+          (p.defectReason && p.defectReason.trim() !== '' && p.defectReason.toLowerCase() !== 'none') ||
+          (p.alterNotes && p.alterNotes.trim() !== '');
+      });
+
+      defectPiecesList.forEach(p => {
         const stepInfo = STAGE_STEP_MAP[p.currentStage] || { step: 1, name: p.currentStage, short: p.currentStage };
         const statusDisplay = p.status === 'good' ? 'GOOD CONDITION'
           : p.status === 'needs_alter' ? 'NEEDS ALTERING'

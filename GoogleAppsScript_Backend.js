@@ -1169,7 +1169,20 @@ function savePieceUnitsToSheet(ss, pieces) {
 
   const nowIso = new Date().toISOString();
 
-  piecesList.forEach(function(p) {
+  const defectPieces = piecesList.filter(function(p) {
+    if (!p) return false;
+    const stageStr = String(p.currentStage || "").toLowerCase();
+    const statusStr = String(p.status || "").toLowerCase();
+    return stageStr.includes("alter") || 
+      stageStr.includes("insp-2") ||
+      statusStr.includes("alter") || 
+      statusStr.includes("rework") || 
+      statusStr.includes("reject") || 
+      (p.defectReason && String(p.defectReason).trim() !== "" && String(p.defectReason).toLowerCase() !== "none") ||
+      (p.alterNotes && String(p.alterNotes).trim() !== "");
+  });
+
+  defectPieces.forEach(function(p) {
     const pieceTag = String(p.pieceTag || p.id || "").trim();
     if (!pieceTag) return;
     const tagKey = pieceTag.toLowerCase();

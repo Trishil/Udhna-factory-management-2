@@ -283,10 +283,24 @@ export async function pushFullStateToAppsScript(
   const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
   if (!endpoint) return;
 
+  const defectPieces = (fullData.pieces || []).filter(p => {
+    if (!p) return false;
+    const st = (p.currentStage || '').toLowerCase();
+    const stat = (p.status || '').toLowerCase();
+    return st.includes('alter') || 
+      st.includes('insp-2') ||
+      stat.includes('alter') || 
+      stat.includes('rework') || 
+      stat.includes('reject') || 
+      Boolean(p.defectReason && p.defectReason.trim() !== '' && p.defectReason.toLowerCase() !== 'none') ||
+      Boolean(p.alterNotes && p.alterNotes.trim() !== '');
+  });
+
   const payload = {
     action: 'sync_all_full',
     sheetId: config.sheetId,
-    ...fullData
+    ...fullData,
+    pieces: defectPieces
   };
 
   const payloadStr = JSON.stringify(payload);
