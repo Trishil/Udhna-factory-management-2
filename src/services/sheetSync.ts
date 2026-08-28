@@ -289,15 +289,18 @@ export async function pushFullStateToAppsScript(
     ...fullData
   };
 
-  const encoded = encodeURIComponent(JSON.stringify(payload));
-  fetch(`${endpoint}?action=sync_all_full&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+  const payloadStr = JSON.stringify(payload);
+  if (payloadStr.length < 3500) {
+    const encoded = encodeURIComponent(payloadStr);
+    fetch(`${endpoint}?action=sync_all_full&sheetId=${encodeURIComponent(config.sheetId || '')}&data=${encoded}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+  }
 
   try {
     await fetch(endpoint, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
+      body: payloadStr
     });
   } catch (e) {}
 }

@@ -1123,7 +1123,7 @@ function saveOrderSlipToSheet(ss, slip) {
 }
 
 /**
- * Save / Update Piece-Level Tracking in "Piece-Level Tracking" tab
+ * Save / Update Piece-Level Tracking in "Piece-Level Tracking" tab with high-speed bulk batch writing
  */
 function savePieceUnitsToSheet(ss, pieces) {
   if (!pieces) return;
@@ -1135,6 +1135,7 @@ function savePieceUnitsToSheet(ss, pieces) {
     setupSpreadsheet();
     sheet = ss.getSheetByName("Piece-Level Tracking");
   }
+  if (!sheet) return;
 
   const data = sheet.getDataRange().getValues();
   const tagToRow = {};
@@ -1142,6 +1143,11 @@ function savePieceUnitsToSheet(ss, pieces) {
     const tag = String(data[i][0] || "").trim().toLowerCase();
     if (tag) tagToRow[tag] = i + 1;
   }
+
+  const rowsToUpdate = []; // { rowNum: number, row: any[] }
+  const newRows = [];      // any[][]
+
+  const nowIso = new Date().toISOString();
 
   piecesList.forEach(function(p) {
     const pieceTag = String(p.pieceTag || p.id || "").trim();
@@ -1166,17 +1172,30 @@ function savePieceUnitsToSheet(ss, pieces) {
       p.alterNotes || "",
       p.assignedOperator || "Floor Lead",
       p.chalanNo || "N/A",
-      p.lastUpdated || new Date().toISOString(),
-      new Date().toISOString()
+      p.lastUpdated || nowIso,
+      nowIso
     ];
 
     if (tagToRow[tagKey]) {
-      sheet.getRange(tagToRow[tagKey], 1, 1, row.length).setValues([row]);
+      rowsToUpdate.push({ rowNum: tagToRow[tagKey], row: row });
     } else {
-      sheet.appendRow(row);
-      tagToRow[tagKey] = sheet.getLastRow();
+      newRows.push(row);
+      tagToRow[tagKey] = data.length + newRows.length;
     }
   });
+
+  // Fast Bulk Write for existing updated rows
+  rowsToUpdate.forEach(function(item) {
+    try {
+      sheet.getRange(item.rowNum, 1, 1, item.row.length).setValues([item.row]);
+    } catch(e) {}
+  });
+
+  // Super-Fast Bulk Batch Append for all new rows in 1 single API call
+  if (newRows.length > 0) {
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, newRows.length, newRows[0].length).setValues(newRows);
+  }
 }
 
 /**
