@@ -721,9 +721,27 @@ export default function App() {
     }
 
     try {
-      // 1. If accessToken exists, use Direct Google Sheets API
+      // 1. Collect all 100% individual piece units across all lots
+      const allPieceUnits: IndividualPieceUnit[] = [];
+      workflowItems.forEach(w => {
+        const pList = (w.individualPieces && w.individualPieces.length > 0)
+          ? w.individualPieces
+          : getOrGenerateIndividualPieces(w);
+        allPieceUnits.push(...pList);
+      });
+
+      // 2. Push full local state (all 1587+ pieces, workflow, slips, inventory, dispatch) to Google Sheets via Webhook
+      await pushFullStateToAppsScript(syncConfig, {
+        orderSlips,
+        workflow: workflowItems,
+        pieces: allPieceUnits,
+        inventory: materials,
+        dispatch: dispatchOrders
+      });
+
+      // 3. If direct Google OAuth token exists, also push directly via Google Sheets API v4
       if (currentUser?.accessToken && syncConfig.sheetId) {
-        const result = await syncAllToGoogleSheets(
+        await syncAllToGoogleSheets(
           currentUser.accessToken, 
           syncConfig.sheetId, 
           materials, 
@@ -740,20 +758,9 @@ export default function App() {
             orderSlips
           }
         );
-        if (result.success) {
-          setSyncConfig(prev => ({
-            ...prev,
-            lastSyncTimestamp: result.timestamp,
-            syncStatus: 'synced',
-            lastErrorMessage: undefined
-          }));
-          setLastAutoEntryNotice(`Fully synchronized ${orderSlips.length} master slips, ${workflowItems.length} workflow designs, inventory & finances to Google Sheet`);
-          setTimeout(() => setLastAutoEntryNotice(null), 4000);
-          return;
-        }
       }
 
-      // 2. Apps Script sync & smart merge (Photo URLs are read directly from Google Sheet column 26)
+      // 4. Apps Script sync & smart merge (Photo URLs are read directly from Google Sheet column 26)
       const result = await syncWithAppsScript(syncConfig);
       if (result.success) {
         if (result.workflow && result.workflow.length > 0) {

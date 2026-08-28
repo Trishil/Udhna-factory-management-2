@@ -643,6 +643,8 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
           vehicleOrTrackingNumber: trackingNumber || undefined,
           trackingNumber: trackingNumber || undefined,
           deliveryAddress: deliveryAddress || undefined,
+          createdAt: '',
+          updatedAt: ''
         });
       });
     }
