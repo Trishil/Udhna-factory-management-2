@@ -68,10 +68,17 @@ export const IndividualPieceTracker: React.FC<IndividualPieceTrackerProps> = ({
   const [selectedLotId, setSelectedLotId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('defects_only');
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [trackerDisplayMode, setTrackerDisplayMode] = useState<'grid' | 'columns'>('grid');
   const [lastActionToast, setLastActionToast] = useState<string | null>(null);
+
+  // Quick Alter Piece Entry Modal
+  const [isQuickAlterModalOpen, setIsQuickAlterModalOpen] = useState(false);
+  const [quickAlterLotId, setQuickAlterLotId] = useState('');
+  const [quickAlterPieceNum, setQuickAlterPieceNum] = useState(1);
+  const [quickAlterReason, setQuickAlterReason] = useState(COMMON_DEFECT_REASONS[0]);
+  const [quickAlterNote, setQuickAlterNote] = useState('');
 
   // Defect Modal State for Altering Routing
   const [isDefectModalOpen, setIsDefectModalOpen] = useState(false);
@@ -155,14 +162,26 @@ export const IndividualPieceTracker: React.FC<IndividualPieceTrackerProps> = ({
       }
 
       // Status filter
-      if (statusFilter !== 'all') {
-        if (statusFilter === 'needs_alter' && piece.currentStage !== 'altering' && piece.status !== 'needs_alter') {
+      if (statusFilter === 'defects_only' || statusFilter === 'needs_alter') {
+        const isDefect = piece.currentStage === 'altering' || 
+          piece.currentStage === 'inspection_alter' ||
+          piece.status === 'needs_alter' || 
+          piece.status === 'in_rework' || 
+          piece.status === 'rejected' ||
+          Boolean(piece.defectReason) ||
+          item.initialInspectionResult === 'bad_return' ||
+          item.alterInspectionResult === 'needs_alter';
+        if (!isDefect) return false;
+      } else if (statusFilter === 'good') {
+        if (piece.currentStage === 'altering' || piece.status === 'needs_alter' || piece.status === 'in_rework' || piece.status === 'rejected') {
           return false;
         }
-        if (statusFilter === 'good' && (piece.currentStage === 'altering' || piece.status === 'needs_alter')) {
+      } else if (statusFilter === 'rejected') {
+        if (piece.status !== 'rejected' && item.initialInspectionResult !== 'bad_return') {
           return false;
         }
-        if (statusFilter === 'completed' && piece.currentStage !== 'prepare_dispatch') {
+      } else if (statusFilter === 'completed') {
+        if (piece.currentStage !== 'prepare_dispatch') {
           return false;
         }
       }
@@ -331,6 +350,31 @@ export const IndividualPieceTracker: React.FC<IndividualPieceTrackerProps> = ({
     setSelectedPieceIds(new Set());
   };
 
+  // Handle Quick Route Piece to Altering
+  const handleQuickRouteAlter = (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetItem = items.find(it => it.id === quickAlterLotId) || items[0];
+    if (!targetItem) return;
+
+    const pieces = getOrGenerateIndividualPieces(targetItem);
+    const targetPiece = pieces.find(p => p.pieceNumber === Number(quickAlterPieceNum)) || pieces[0];
+    if (!targetPiece) return;
+
+    const fullReason = quickAlterReason ? (quickAlterNote.trim() ? `${quickAlterReason} - ${quickAlterNote.trim()}` : quickAlterReason) : 'Quality Defect';
+    const updated = updateIndividualPieceStage(
+      targetItem,
+      targetPiece.id,
+      'altering',
+      'needs_alter',
+      fullReason
+    );
+    onUpdateItem(updated);
+    setIsQuickAlterModalOpen(false);
+    setStatusFilter('defects_only');
+    setLastActionToast(`⚠️ Piece #${targetPiece.pieceNumber} from ${targetItem.jobNo || targetItem.lotNumber} (${targetItem.partyName || 'Party'}) routed to Altering: ${fullReason}`);
+    setTimeout(() => setLastActionToast(null), 5000);
+  };
+
   // Toggle selection
   const togglePieceSelection = (pieceId: string) => {
     const next = new Set(selectedPieceIds);
@@ -392,32 +436,52 @@ export const IndividualPieceTracker: React.FC<IndividualPieceTrackerProps> = ({
             </div>
           </div>
 
-          {/* View Mode Toggle (Grid vs Columns) */}
-          <div className="flex items-center space-x-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/70">
+          {/* Top Right Action Buttons: View Toggle & Route Piece to Altering */}
+          <div className="flex items-center space-x-2 flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setTrackerDisplayMode('grid')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
-                trackerDisplayMode === 'grid'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              onClick={() => {
+                const defaultItem = items[0];
+                if (defaultItem) setQuickAlterLotId(defaultItem.id);
+                setQuickAlterPieceNum(1);
+                setQuickAlterReason(COMMON_DEFECT_REASONS[0]);
+                setQuickAlterNote('');
+                setIsQuickAlterModalOpen(true);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all"
+              title="Flag a specific piece for altering/rework"
             >
-              <Tag className="h-3.5 w-3.5" />
-              <span>Unit Cards</span>
+              <Wrench className="h-4 w-4" />
+              <span>+ Route Piece to Altering</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setTrackerDisplayMode('columns')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
-                trackerDisplayMode === 'columns'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>10-Stage Columns</span>
-            </button>
+
+            {/* View Mode Toggle (Grid vs Columns) */}
+            <div className="flex items-center space-x-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/70">
+              <button
+                type="button"
+                onClick={() => setTrackerDisplayMode('grid')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  trackerDisplayMode === 'grid'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Tag className="h-3.5 w-3.5" />
+                <span>Unit Cards</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrackerDisplayMode('columns')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  trackerDisplayMode === 'columns'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>10-Stage Columns</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -477,6 +541,58 @@ export const IndividualPieceTracker: React.FC<IndividualPieceTrackerProps> = ({
 
       {/* Filter & Lot Selector Controls - Clean Non-Overlapping Grid */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 space-y-3">
+        
+        {/* Quality Status Pill Filters */}
+        <div className="flex items-center space-x-2 flex-wrap gap-1.5 pb-3 border-b border-slate-100">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('defects_only')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              statusFilter === 'defects_only'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200'
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            <span>⚠️ Defects &amp; Alterations ({stats.inAltering})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('needs_alter')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              statusFilter === 'needs_alter'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+            }`}
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            <span>In Altering ({stats.inAltering})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('good')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              statusFilter === 'good'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+            }`}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Standard Flow ({stats.goodInProduction})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              statusFilter === 'all'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+            }`}
+          >
+            <span>Show All Units ({stats.total})</span>
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           
           {/* Party Slip Selector */}
@@ -675,13 +791,54 @@ export const IndividualPieceTracker: React.FC<IndividualPieceTrackerProps> = ({
 
       {/* VIEW 1: UNIT CARDS GRID */}
       {trackerDisplayMode === 'grid' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredPieces.map(({ item, piece }) => {
-            const isSelected = selectedPieceIds.has(piece.id);
-            const isAltering = piece.currentStage === 'altering' || piece.status === 'needs_alter';
-            const stageDef = WORKFLOW_STAGES.find(s => s.id === piece.currentStage) || WORKFLOW_STAGES[0];
-            const nextStageId = getNextStage(piece.currentStage);
-            const nextStageDef = nextStageId ? WORKFLOW_STAGES.find(s => s.id === nextStageId) : null;
+        filteredPieces.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs">
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900">
+              {statusFilter === 'defects_only' || statusFilter === 'needs_alter' 
+                ? 'No Defects or Alterations Found in This View' 
+                : 'No Pieces Found'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              {statusFilter === 'defects_only' || statusFilter === 'needs_alter'
+                ? 'All pieces in this batch are passing in standard production flow! If any piece needs altering or repair, click "+ Route Piece to Altering" above.'
+                : 'Try clearing your search query or lot filters to view pieces.'}
+            </p>
+            <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setStatusFilter('all')}
+                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs"
+              >
+                Show All Floor Units ({allPiecesWithParent.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const defaultItem = items[0];
+                  if (defaultItem) setQuickAlterLotId(defaultItem.id);
+                  setQuickAlterPieceNum(1);
+                  setQuickAlterReason(COMMON_DEFECT_REASONS[0]);
+                  setQuickAlterNote('');
+                  setIsQuickAlterModalOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-xs flex items-center space-x-1.5"
+              >
+                <Wrench className="h-4 w-4" />
+                <span>+ Route Piece to Altering</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredPieces.map(({ item, piece }) => {
+              const isSelected = selectedPieceIds.has(piece.id);
+              const isAltering = piece.currentStage === 'altering' || piece.status === 'needs_alter';
+              const stageDef = WORKFLOW_STAGES.find(s => s.id === piece.currentStage) || WORKFLOW_STAGES[0];
+              const nextStageId = getNextStage(piece.currentStage);
+              const nextStageDef = nextStageId ? WORKFLOW_STAGES.find(s => s.id === nextStageId) : null;
 
             return (
               <div
@@ -853,7 +1010,7 @@ export const IndividualPieceTracker: React.FC<IndividualPieceTrackerProps> = ({
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* VIEW 2: 10-STAGE COLUMNS / SWIMLANES */}
       {trackerDisplayMode === 'columns' && (
@@ -1085,6 +1242,124 @@ export const IndividualPieceTracker: React.FC<IndividualPieceTrackerProps> = ({
             </div>
 
           </div>
+        </div>
+      )}
+
+      {/* QUICK ROUTE PIECE TO ALTERING MODAL */}
+      {isQuickAlterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <form onSubmit={handleQuickRouteAlter} className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            
+            <div className="flex items-center space-x-3 pb-3 border-b border-slate-100">
+              <div className="p-2.5 rounded-xl bg-rose-100 text-rose-700">
+                <Wrench className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  Route Piece to Altering / Defect
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Flag a single piece from any lot for rework/repair
+                </p>
+              </div>
+            </div>
+
+            {/* Select Lot / Job */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Select Lot / Job:
+              </label>
+              <select
+                value={quickAlterLotId}
+                onChange={(e) => setQuickAlterLotId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+              >
+                {items.map(it => (
+                  <option key={it.id} value={it.id}>
+                    {it.partyName || it.partyOrClientName || 'Client'} &bull; Job: {it.jobNo || it.lotNumber} &bull; {it.fabricType} ({it.pieces || it.quantity} pcs)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Piece Number input */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Piece Number (#):
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="5000"
+                value={quickAlterPieceNum}
+                onChange={(e) => setQuickAlterPieceNum(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 font-mono font-bold focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                placeholder="e.g. 20"
+                required
+              />
+            </div>
+
+            {/* Defect Reasons */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 block">
+                Select Defect Reason:
+              </label>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {COMMON_DEFECT_REASONS.map(reason => (
+                  <label
+                    key={reason}
+                    className={`flex items-center space-x-2.5 p-2 rounded-xl border text-xs cursor-pointer transition-all ${
+                      quickAlterReason === reason 
+                        ? 'bg-rose-50 border-rose-400 text-rose-950 font-bold' 
+                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="quickAlterReasonRadio"
+                      checked={quickAlterReason === reason}
+                      onChange={() => setQuickAlterReason(reason)}
+                      className="text-rose-600 focus:ring-rose-500"
+                    />
+                    <span>{reason}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Specific Defect Notes */}
+            <div>
+              <label className="text-xs font-bold text-slate-700 block mb-1">
+                Specific Location / Repair Notes (Optional):
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 3 stitches missing on sleeve border..."
+                value={quickAlterNote}
+                onChange={(e) => setQuickAlterNote(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+              <button
+                type="button"
+                onClick={() => setIsQuickAlterModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/30 transition-all flex items-center space-x-1.5"
+              >
+                <Wrench className="h-4 w-4" />
+                <span>Save &amp; Route to Altering</span>
+              </button>
+            </div>
+
+          </form>
         </div>
       )}
 
