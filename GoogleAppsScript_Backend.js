@@ -231,23 +231,37 @@ function setupSpreadsheet() {
  * Universal GET & POST handler
  */
 function doGet(e) {
-  let ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (e && e.parameter && e.parameter.sheetId) {
-    try { ss = SpreadsheetApp.openById(e.parameter.sheetId); } catch (e) {}
-  }
-  
-  // 1. Company Code Lookup
-  if (e && e.parameter && e.parameter.action === "get_company" && e.parameter.code) {
-    const code = e.parameter.code.trim().toUpperCase();
-    const comp = lookupCompanyInSheet(ss, code);
-    if (comp) {
-      return ContentService.createTextOutput(JSON.stringify({ status: "success", found: true, company: comp }))
-        .setMimeType(ContentService.MimeType.JSON);
-    } else {
-      return ContentService.createTextOutput(JSON.stringify({ status: "error", found: false, message: "Company code not found" }))
-        .setMimeType(ContentService.MimeType.JSON);
+  try {
+    let ss = null;
+    const targetSheetId = (e && e.parameter && e.parameter.sheetId) ? e.parameter.sheetId.trim() : null;
+    if (targetSheetId) {
+      try { ss = SpreadsheetApp.openById(targetSheetId); } catch (openErr) {}
     }
-  }
+    if (!ss) {
+      try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (activeErr) {}
+    }
+    if (!ss) {
+      try { ss = SpreadsheetApp.openById("1Vr3thFhROUAxb2taWcnGWRbgms_Y_N3kyf62SyloCUs"); } catch (fallbackErr) {}
+    }
+    if (!ss) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Spreadsheet not found or access denied. Please verify sheetId."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 1. Company Code Lookup
+    if (e && e.parameter && e.parameter.action === "get_company" && e.parameter.code) {
+      const code = e.parameter.code.trim().toUpperCase();
+      const comp = lookupCompanyInSheet(ss, code);
+      if (comp) {
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", found: true, company: comp }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } else {
+        return ContentService.createTextOutput(JSON.stringify({ status: "error", found: false, message: "Company code not found" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
 
   // 2. Company Registration via GET
   if (e && e.parameter && e.parameter.action === "register_company" && e.parameter.data) {
@@ -520,6 +534,12 @@ function doGet(e) {
 
   return ContentService.createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: err.message || String(err)
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function doPost(e) {
