@@ -633,6 +633,7 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
             date: readyDate,
             amount: paid,
             paymentMode: 'Bank Transfer',
+            transactionRef: `REC-${dspNo}`,
             receiptNumber: `REC-${dspNo}`
           }] : [],
           status,

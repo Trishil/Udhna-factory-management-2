@@ -406,7 +406,8 @@ export interface DispatchPaymentRecord {
   date: string;
   amount: number;
   paymentMode: string; // 'bank_transfer' | 'upi' | 'cheque' | 'cash' | 'neft_rtgs'
-  transactionRef: string;
+  transactionRef?: string;
+  receiptNumber?: string;
   notes?: string;
   recordedBy?: string;
 }
