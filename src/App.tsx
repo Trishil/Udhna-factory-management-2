@@ -674,10 +674,20 @@ export default function App() {
     const targetDsp = overrides?.dispatchOrdersList || dispatchOrders;
     const targetTx = overrides?.transactionsList || transactions;
 
+    // Collect 100% full piece units for all workflow items
+    const allPieceUnits: IndividualPieceUnit[] = [];
+    targetWf.forEach(w => {
+      const pList = (w.individualPieces && w.individualPieces.length > 0)
+        ? w.individualPieces
+        : getOrGenerateIndividualPieces(w);
+      allPieceUnits.push(...pList);
+    });
+
     // 1. Always push to active sheet via Google Apps Script Webhook
     pushFullStateToAppsScript(syncConfig, {
       orderSlips: targetSlips,
       workflow: targetWf,
+      pieces: allPieceUnits,
       inventory: targetMats,
       dispatch: targetDsp
     });
@@ -1430,9 +1440,18 @@ export default function App() {
     });
 
     // Populate all 11 tabs & Push full state immediately into the new sheet
+    const allPieceUnits: IndividualPieceUnit[] = [];
+    workflowItems.forEach(w => {
+      const pList = (w.individualPieces && w.individualPieces.length > 0)
+        ? w.individualPieces
+        : getOrGenerateIndividualPieces(w);
+      allPieceUnits.push(...pList);
+    });
+
     pushFullStateToAppsScript(newCfg, {
       orderSlips,
       workflow: workflowItems,
+      pieces: allPieceUnits,
       inventory: materials,
       dispatch: dispatchOrders
     });

@@ -1,18 +1,19 @@
 import { 
   RawMaterial, 
   StockTransaction, 
-  EmployeeRecord,
-  ElectricityUsageRecord,
-  OperationalExpense,
-  PartyInvoice,
-  SupplierPayable,
-  DispatchOrder,
-  WorkflowItem,
-  OrderSlip,
-  IndividualPieceUnit,
-  WorkflowStageId,
-  Machine
+  EmployeeRecord, 
+  ElectricityUsageRecord, 
+  OperationalExpense, 
+  PartyInvoice, 
+  SupplierPayable, 
+  DispatchOrder, 
+  WorkflowItem, 
+  OrderSlip, 
+  IndividualPieceUnit, 
+  WorkflowStageId, 
+  Machine 
 } from '../types';
+import { getOrGenerateIndividualPieces } from '../utils/workflowData';
 
 export interface GoogleSheetsSyncResult {
   success: boolean;
@@ -539,63 +540,39 @@ export async function syncAllToGoogleSheets(
       const jobVal = w.jobNo || w.lotNumber;
       const partyVal = w.partyName || w.partyOrClientName || 'N/A';
       const colorVal = w.fabricColor || 'Default';
-      const totalPcs = Number(w.pieces ?? w.quantity) || 1;
+      const piecesList = (w.individualPieces && w.individualPieces.length > 0)
+        ? w.individualPieces
+        : getOrGenerateIndividualPieces(w);
 
-      if (w.individualPieces && w.individualPieces.length > 0) {
-        w.individualPieces.forEach(p => {
-          const stepInfo = STAGE_STEP_MAP[p.currentStage] || { step: 1, name: p.currentStage, short: p.currentStage };
-          const statusDisplay = p.status === 'good' ? 'GOOD CONDITION'
-            : p.status === 'needs_alter' ? 'NEEDS ALTERING'
-            : p.status === 'in_rework' ? 'IN REWORK'
-            : p.status === 'repaired' ? 'ALTERED & REPAIRED'
-            : p.status === 'rejected' ? 'REJECTED'
-            : 'COMPLETED';
+      piecesList.forEach(p => {
+        const stepInfo = STAGE_STEP_MAP[p.currentStage] || { step: 1, name: p.currentStage, short: p.currentStage };
+        const statusDisplay = p.status === 'good' ? 'GOOD CONDITION'
+          : p.status === 'needs_alter' ? 'NEEDS ALTERING'
+          : p.status === 'in_rework' ? 'IN REWORK'
+          : p.status === 'repaired' ? 'ALTERED & REPAIRED'
+          : p.status === 'rejected' ? 'REJECTED'
+          : 'COMPLETED';
 
-          pieceRows.push([
-            p.pieceTag || `${jobVal}-${w.fabricType.slice(0, 4).toUpperCase()}-P${String(p.pieceNumber).padStart(2, '0')}`,
-            p.jobNo || jobVal,
-            w.lotNumber,
-            Number(p.pieceNumber),
-            p.designNumber || w.designNumber,
-            p.fabricType || w.fabricType,
-            p.fabricColor || colorVal,
-            p.partyName || partyVal,
-            stepInfo.step,
-            stepInfo.name,
-            statusDisplay,
-            p.defectReason || 'None',
-            p.alterNotes || 'None',
-            p.assignedOperator || w.assignedOperator || 'Floor Supervisor',
-            w.chalanNumber || 'N/A',
-            p.lastUpdated || w.date || timestamp,
-            timestamp
-          ]);
-        });
-      } else {
-        const countToGen = Math.min(totalPcs, 30);
-        const stepInfo = STAGE_STEP_MAP[w.currentStage] || { step: 1, name: w.currentStage, short: w.currentStage };
-        for (let i = 1; i <= countToGen; i++) {
-          pieceRows.push([
-            `${jobVal}-${w.fabricType.slice(0, 4).toUpperCase()}-P${String(i).padStart(2, '0')}`,
-            jobVal,
-            w.lotNumber,
-            i,
-            w.designNumber,
-            w.fabricType,
-            colorVal,
-            partyVal,
-            stepInfo.step,
-            stepInfo.name,
-            w.initialInspectionResult === 'bad_return' ? 'REJECTED' : 'GOOD CONDITION',
-            w.alterationReason || 'None',
-            w.notes || 'None',
-            w.assignedOperator || 'Floor Supervisor',
-            w.chalanNumber || 'N/A',
-            w.date || timestamp,
-            timestamp
-          ]);
-        }
-      }
+        pieceRows.push([
+          p.pieceTag || `${jobVal}-${(p.fabricType || w.fabricType || 'PC').slice(0, 4).toUpperCase()}-P${String(p.pieceNumber).padStart(2, '0')}`,
+          p.jobNo || jobVal,
+          w.lotNumber,
+          Number(p.pieceNumber),
+          p.designNumber || w.designNumber,
+          p.fabricType || w.fabricType,
+          p.fabricColor || colorVal,
+          p.partyName || partyVal,
+          stepInfo.step,
+          stepInfo.name,
+          statusDisplay,
+          p.defectReason || 'None',
+          p.alterNotes || 'None',
+          p.assignedOperator || w.assignedOperator || 'Floor Supervisor',
+          w.chalanNumber || 'N/A',
+          p.lastUpdated || w.date || timestamp,
+          timestamp
+        ]);
+      });
     });
 
     batchData.push({
