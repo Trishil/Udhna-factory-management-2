@@ -4,10 +4,10 @@
  * FOR UDHNA TEXTILE FACTORY & MOBILE WORKFLOW TRACKER
  * =========================================================================
  * 
- * SPREADSHEET ID: 1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw
+ * SPREADSHEET ID: 1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU
  * 
  * 🚀 HOW TO UPDATE YOUR DEPLOYMENT (30 seconds):
- * 1. Open your Google Spreadsheet (1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw).
+ * 1. Open your Google Spreadsheet (1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU).
  * 2. Click: Extensions ➔ Apps Script.
  * 3. Replace all code with this file.
  * 4. Click: Deploy (top right) ➔ Manage deployments ➔ Edit (pencil icon) ➔ Version: "New version" ➔ Deploy!
@@ -190,8 +190,8 @@ function setupSpreadsheet() {
       sampleRows: [
         [
           'Trisharth', 'TRISHARTH-HQ', 'Atharva Balar', 'atharvabalar6@gmail.com',
-          '1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw',
-          'https://script.google.com/macros/s/AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw/exec',
+          '1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU',
+          'https://script.google.com/macros/s/AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q/exec',
           '2026-08-24', 'ACTIVE'
         ]
       ]
@@ -241,7 +241,7 @@ function doGet(e) {
       try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (activeErr) {}
     }
     if (!ss) {
-      try { ss = SpreadsheetApp.openById("1Vr3thFhROUAxb2taWcnGWRbgms_Y_N3kyf62SyloCUs"); } catch (fallbackErr) {}
+      try { ss = SpreadsheetApp.openById("1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU"); } catch (fallbackErr) {}
     }
     if (!ss) {
       return ContentService.createTextOutput(JSON.stringify({
@@ -806,8 +806,8 @@ function lookupCompanyInSheet(ss, companyCode) {
       code: "TRISHARTH-HQ",
       ownerName: "Atharva Balar",
       ownerEmail: "atharvabalar6@gmail.com",
-      sheetId: "1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw",
-      scriptUrl: "https://script.google.com/macros/s/AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw/exec",
+      sheetId: "1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU",
+      scriptUrl: "https://script.google.com/macros/s/AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q/exec",
       isPrimary: true
     };
   }

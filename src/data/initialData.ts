@@ -149,11 +149,11 @@ export const INITIAL_TRANSACTIONS: StockTransaction[] = [
 ];
 
 export const INITIAL_SYNC_CONFIG: SyncConfig = {
-  sheetId: '1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw',
-  sheetUrl: 'https://docs.google.com/spreadsheets/d/1ZlURNllkyGeQF40UsG4QWNqdqRA1Uxg5MnRqWblDYxw/edit',
-  deploymentId: 'AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw',
-  scriptUrl: 'https://script.google.com/macros/s/AKfycbywXhN1rPLkYgodcQ1L0z9kJ1bwr1TWNySreOQSa1FpSWirULjH1qO0GoD7QzXDWbRmPw/exec',
-  autoSyncIntervalSec: 60,
+  sheetId: '1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU',
+  sheetUrl: 'https://docs.google.com/spreadsheets/d/1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU/edit',
+  deploymentId: 'AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q',
+  scriptUrl: 'https://script.google.com/macros/s/AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q/exec',
+  autoSyncIntervalSec: 30,
   lastSyncTimestamp: null,
   syncStatus: 'idle',
   mode: 'live_app_script',
