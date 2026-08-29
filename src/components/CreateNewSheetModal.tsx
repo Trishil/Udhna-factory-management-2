@@ -19,10 +19,17 @@ import {
   LogIn,
   Truck,
   Grid3X3,
-  Tag
+  Tag,
+  Copy,
+  Check,
+  Code2,
+  Trash2,
+  FolderSync,
+  HelpCircle
 } from 'lucide-react';
 import { createAutomatedFactorySpreadsheet } from '../services/googleSheetsApi';
 import { requestDirectGoogleOAuth, DEFAULT_SHEET_ID, DEFAULT_APPS_SCRIPT_URL } from '../services/googleAuth';
+import { GOOGLE_APPS_SCRIPT_BACKEND_CODE } from '../utils/backendScriptSource';
 import { 
   RawMaterial, 
   AuthUser, 
@@ -52,7 +59,13 @@ interface CreateNewSheetModalProps {
   employees?: EmployeeRecord[];
   expenses?: OperationalExpense[];
   transactions?: StockTransaction[];
-  onSpreadsheetCreated: (sheetId: string, sheetUrl: string, title: string) => void;
+  onSpreadsheetCreated: (
+    sheetId: string, 
+    sheetUrl: string, 
+    title: string, 
+    dataTransferMode?: 'fresh' | 'transfer_all' | 'transfer_selected',
+    selectedSlipIds?: string[]
+  ) => void;
   onUpdateCurrentUser?: (user: AuthUser) => void;
 }
 
@@ -74,14 +87,27 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const [activeTab, setActiveTab] = useState<'create' | 'script'>('create');
   const [title, setTitle] = useState(`Udhna Factory Master & 10-Stage Workflow — ${new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}`);
-  const [creationMode, setCreationMode] = useState<'google' | 'custom' | 'sandbox'>('google');
+  const [creationMode, setCreationMode] = useState<'google' | 'custom' | 'sandbox'>('custom');
   const [customSheetUrl, setCustomSheetUrl] = useState('');
+  
+  // Data Transfer selection
+  const [dataTransferMode, setDataTransferMode] = useState<'fresh' | 'transfer_all' | 'transfer_selected'>('fresh');
+  const [selectedSlipIds, setSelectedSlipIds] = useState<string[]>([]);
+  
+  const [isCopied, setIsCopied] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [createdResult, setCreatedResult] = useState<{ id: string; url: string; title: string; mode: 'google' | 'sandbox' } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isAuthError, setIsAuthError] = useState(false);
+
+  const handleCopyScript = () => {
+    navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_BACKEND_CODE);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2500);
+  };
 
   const extractSheetId = (input: string): string => {
     const clean = input.trim();
@@ -113,20 +139,30 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
       mode: 'google'
     });
 
-    onSpreadsheetCreated(sheetId, fullUrl, customTitle);
+    onSpreadsheetCreated(sheetId, fullUrl, customTitle, dataTransferMode, selectedSlipIds);
     confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
   };
 
   const executeCreationWithToken = async (targetToken: string, sheetTitle: string) => {
+    const effectiveSlips = dataTransferMode === 'fresh' 
+      ? [] 
+      : (dataTransferMode === 'transfer_selected' ? orderSlips.filter(s => selectedSlipIds.includes(s.id)) : orderSlips);
+
+    const effectiveItems = dataTransferMode === 'fresh'
+      ? []
+      : (dataTransferMode === 'transfer_selected' 
+          ? workflowItems.filter(w => effectiveSlips.some(s => s.id === w.orderSlipId || s.jobNo === w.jobNo))
+          : workflowItems);
+
     const result = await createAutomatedFactorySpreadsheet(
       targetToken, 
       sheetTitle, 
       materials, 
       [], 
-      workflowItems, 
-      orderSlips,
+      effectiveItems, 
+      effectiveSlips,
       {
-        dispatchOrders,
+        dispatchOrders: dataTransferMode === 'fresh' ? [] : dispatchOrders,
         partyInvoices,
         supplierPayables,
         employees,
@@ -140,7 +176,7 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
       title: result.title,
       mode: 'google'
     });
-    onSpreadsheetCreated(result.spreadsheetId, result.spreadsheetUrl, result.title);
+    onSpreadsheetCreated(result.spreadsheetId, result.spreadsheetUrl, result.title, dataTransferMode, selectedSlipIds);
     confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
   };
 
@@ -266,17 +302,17 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
         
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+        {/* Header with Navigation Tabs */}
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
           <div className="flex items-center space-x-2.5">
             <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100">
               <FileSpreadsheet className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Create Workflow Spreadsheet</h3>
-              <p className="text-xs text-slate-500">Auto-configured 11 tabs with 10-stage workflow, matrix, and finance</p>
+              <h3 className="text-base font-bold text-slate-900">Workflow &amp; Spreadsheet Center</h3>
+              <p className="text-xs text-slate-500">Link Google Sheets, manage backend scripts, and choose data retention</p>
             </div>
           </div>
           <button
@@ -287,314 +323,487 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
           </button>
         </div>
 
-        {/* Success View */}
-        {createdResult ? (
-          <div className="space-y-4 py-2 text-center animate-in fade-in">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto shadow-inner ${
-              createdResult.mode === 'google' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
-            }`}>
-              <CheckCircle2 className="h-6 w-6" />
-            </div>
-            
-            <div>
-              <h4 className="text-base font-bold text-slate-900">
-                {createdResult.mode === 'google' ? 'Live Google Spreadsheet Created!' : 'Sandbox Mode Configured!'}
-              </h4>
-              <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                {createdResult.mode === 'google' 
-                  ? 'Your spreadsheet is live on Google Sheets and synchronized with your 10-stage workflow.' 
-                  : 'Your local sandbox workspace is active. All 10-stage lots, orders, and logs are running in local test mode.'}
+        {/* Top Tab Bar */}
+        <div className="flex items-center space-x-2 border-b border-slate-200 mb-4 pb-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('create')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              activeTab === 'create'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            <span>1. Link &amp; Sync Sheet</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('script')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              activeTab === 'script'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Code2 className="h-3.5 w-3.5 text-amber-400" />
+            <span>2. 📋 Apps Script Backend Code</span>
+            <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-400/20 text-amber-600 font-mono">
+              Ready to Copy
+            </span>
+          </button>
+        </div>
+
+        {/* TAB 2: APPS SCRIPT BACKEND CODE HELPER */}
+        {activeTab === 'script' && (
+          <div className="space-y-4 text-xs animate-in fade-in">
+            <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Code2 className="h-5 w-5 text-amber-700" />
+                  <span className="font-bold text-slate-900 text-sm">Google Apps Script Backend Code</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyScript}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all ${
+                    isCopied 
+                      ? 'bg-emerald-600 text-white' 
+                      : 'bg-slate-900 hover:bg-slate-800 text-white'
+                  }`}
+                >
+                  {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  <span>{isCopied ? 'Copied to Clipboard!' : 'Copy Script Code (1-Click)'}</span>
+                </button>
+              </div>
+              <p className="text-slate-600 leading-relaxed text-[11px]">
+                Employees don't need any coding tools or VS Code. Simply copy this script and paste it into your Google Spreadsheet's Apps Script editor.
               </p>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-1.5 font-mono">
-              <div className="text-slate-500 text-[11px] font-sans font-medium">Workspace Target:</div>
-              <div className="font-bold text-slate-800 truncate">{createdResult.title}</div>
-              {createdResult.mode === 'google' ? (
-                <>
-                  <div className="text-slate-500 text-[11px] font-sans font-medium pt-1">Collaborators Granted Writer Access:</div>
-                  <div className="text-[10px] text-slate-700 bg-white p-1.5 rounded border border-slate-200">
-                    • drlaljirpatel@gmail.com<br />
-                    • trishilbalar@gmail.com
+            {/* 4 Step Instructions */}
+            <div className="space-y-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+              <div className="font-bold text-slate-900 flex items-center space-x-1.5">
+                <HelpCircle className="h-4 w-4 text-blue-600" />
+                <span>Step-by-Step Guide for New Sheets:</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
+                  <div className="font-bold text-slate-800 flex items-center space-x-1">
+                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">1</span>
+                    <span>Create &amp; Open Apps Script</span>
                   </div>
-                </>
-              ) : (
-                <div className="text-[11px] text-slate-600 font-sans pt-1">
-                  💡 <b>Note:</b> Sandbox mode is completely isolated and does not create an external file on Google Drive.
+                  <p className="text-slate-500 text-[10px]">
+                    Open your Google Sheet (or <a href="https://sheets.new" target="_blank" rel="noreferrer" className="text-blue-600 underline font-bold">sheets.new</a>), then click <b>Extensions ➔ Apps Script</b>.
+                  </p>
                 </div>
-              )}
+
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
+                  <div className="font-bold text-slate-800 flex items-center space-x-1">
+                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">2</span>
+                    <span>Paste Backend Code</span>
+                  </div>
+                  <p className="text-slate-500 text-[10px]">
+                    Delete whatever is in <code>Code.gs</code>, click the button above, and paste (<code>Cmd+V</code> / <code>Ctrl+V</code>).
+                  </p>
+                </div>
+
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
+                  <div className="font-bold text-slate-800 flex items-center space-x-1">
+                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">3</span>
+                    <span>Deploy as Web App</span>
+                  </div>
+                  <p className="text-slate-500 text-[10px]">
+                    Click <b>Deploy ➔ New deployment</b>, select <b>Web app</b>, set Who has access to <b>"Anyone"</b>, and click Deploy.
+                  </p>
+                </div>
+
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200 space-y-1">
+                  <div className="font-bold text-slate-800 flex items-center space-x-1">
+                    <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">4</span>
+                    <span>Paste Link in Web App</span>
+                  </div>
+                  <p className="text-slate-500 text-[10px]">
+                    Switch to the <b>Link &amp; Sync Sheet</b> tab, paste your Google Sheet or Web App link, and click Connect!
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="pt-2 flex flex-col sm:flex-row gap-2">
-              {createdResult.mode === 'google' ? (
-                <a
-                  href={createdResult.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center space-x-1.5 transition-colors"
-                >
-                  <span>Open in Google Sheets</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              ) : (
+            {/* Code Snippet Preview Box */}
+            <div className="relative rounded-xl border border-slate-200 bg-slate-900 text-slate-300 p-3 font-mono text-[10px] max-h-48 overflow-y-auto">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-slate-400">
+                <span>GoogleAppsScript_Backend.js (1,410 lines)</span>
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition-colors"
+                  onClick={handleCopyScript}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white text-[10px]"
                 >
-                  Continue in Sandbox Mode
+                  {isCopied ? 'Copied' : 'Copy All'}
                 </button>
-              )}
+              </div>
+              <pre className="whitespace-pre overflow-x-auto text-[10px] text-slate-300">
+                {GOOGLE_APPS_SCRIPT_BACKEND_CODE.slice(0, 800)}
+                {'\n... (1,410 lines total - click Copy above to get entire file)'}
+              </pre>
+            </div>
 
+            <div className="pt-2 flex justify-end">
               <button
                 type="button"
-                onClick={onClose}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition-colors"
+                onClick={() => setActiveTab('create')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center space-x-1.5 shadow-sm"
               >
-                Done
+                <span>Proceed to Link Sheet</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
-        ) : (
-          /* Form View */
-          <form onSubmit={handleCreate} className="space-y-4 text-xs">
-            
-            {/* Target Title */}
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Spreadsheet Title</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 font-medium text-xs"
-                placeholder="e.g., Udhna Factory Master & 10-Stage Workflow"
-              />
-            </div>
+        )}
 
-            {/* Mode Select */}
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Creation Destination</label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCreationMode('google')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    creationMode === 'google'
-                      ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
-                      : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Auto Cloud Sheet</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-1 leading-snug">
-                    Auto-creates on Google Drive with 11 production tabs.
+        {/* TAB 1: CREATE / LINK SHEET WITH DATA RETENTION */}
+        {activeTab === 'create' && (
+          <>
+            {/* Success View */}
+            {createdResult ? (
+              <div className="space-y-4 py-2 text-center animate-in fade-in">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto shadow-inner ${
+                  createdResult.mode === 'google' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
+                }`}>
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                
+                <div>
+                  <h4 className="text-base font-bold text-slate-900">
+                    {createdResult.mode === 'google' ? 'Live Google Spreadsheet Linked!' : 'Sandbox Mode Configured!'}
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                    {createdResult.mode === 'google' 
+                      ? 'Your spreadsheet is live and synchronized across all company Google accounts in real time.' 
+                      : 'Your local sandbox workspace is active.'}
                   </p>
-                </button>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => setCreationMode('custom')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    creationMode === 'custom'
-                      ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
-                      : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
-                    <ExternalLink className="h-4 w-4 text-purple-600 shrink-0" />
-                    <span>Paste Sheet Link</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-1 leading-snug">
-                    Link any existing or newly created spreadsheet.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setCreationMode('sandbox')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    creationMode === 'sandbox'
-                      ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
-                      : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
-                    <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span>Sandbox Mode</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-1 leading-snug">
-                    Local in-memory testing without Google permissions.
-                  </p>
-                </button>
-              </div>
-            </div>
-
-            {/* Custom Sheet Link Input */}
-            {creationMode === 'custom' && (
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-700 text-xs">Google Spreadsheet URL or Sheet ID</label>
-                  <a
-                    href="https://sheets.new"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1"
-                  >
-                    <span>+ Open Blank sheets.new</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-                <input
-                  type="text"
-                  value={customSheetUrl}
-                  onChange={(e) => setCustomSheetUrl(e.target.value)}
-                  placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id/edit"
-                  required={creationMode === 'custom'}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-            )}
-
-            {/* Collaborator Sharing Notice */}
-            <div className="p-3 bg-purple-50/70 rounded-xl border border-purple-200 text-purple-950 text-[11px] space-y-1">
-              <div className="font-bold flex items-center space-x-1.5 text-purple-900">
-                <Users className="h-3.5 w-3.5 text-purple-600" />
-                <span>Automatic Access & Sharing Configured</span>
-              </div>
-              <p className="text-purple-800 leading-relaxed">
-                Editor access will automatically be granted to <b>drlaljirpatel@gmail.com</b> and <b>trishilbalar@gmail.com</b>.
-              </p>
-            </div>
-
-            {/* Generated Tabs Overview */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-              <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-blue-600" />
-                <span>11 Dedicated Workflow & Ops Tabs Created</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <ClipboardList className="h-3.5 w-3.5 text-purple-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">1. Master Order Slips</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <GitFork className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">2. 10-Stage Workflow</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <Tag className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">3. Piece Tracking</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <Grid3X3 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">4. Fabric & Color Matrix</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <Layers className="h-3.5 w-3.5 text-teal-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">5. Live Inventory</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <History className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">6. Stock Transactions</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <Truck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">7. Dispatch & Shipments</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <DollarSign className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">8. Party Invoices</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <Building2 className="h-3.5 w-3.5 text-rose-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">9. Supplier Payables</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80">
-                  <Users className="h-3.5 w-3.5 text-violet-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">10. Staff Payroll</span>
-                </div>
-                <div className="flex items-center space-x-1.5 p-1.5 rounded bg-white border border-slate-200/80 col-span-2">
-                  <Zap className="h-3.5 w-3.5 text-red-600 shrink-0" />
-                  <span className="font-medium text-slate-700 truncate">11. Expenses & Utilities (INR ₹)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Error Message & Interactive Fix */}
-            {errorMessage && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-2.5 animate-in fade-in">
-                <div className="flex items-start space-x-2">
-                  <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-bold text-rose-900">
-                      {isAuthError ? 'Google Authentication Required' : 'Creation Notice'}
-                    </p>
-                    <p className="text-[11px] text-rose-800 mt-0.5 leading-relaxed">
-                      {errorMessage}
-                    </p>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-1.5 font-mono">
+                  <div className="text-slate-500 text-[11px] font-sans font-medium">Workspace Target:</div>
+                  <div className="font-bold text-slate-800 truncate">{createdResult.title}</div>
+                  <div className="text-slate-500 text-[11px] font-sans font-medium pt-1">Data Retention Applied:</div>
+                  <div className="font-bold text-blue-700 font-sans text-xs">
+                    {dataTransferMode === 'fresh' ? '✨ Clean Blank Slate (Fresh start)' : (dataTransferMode === 'transfer_all' ? '📦 All existing data transferred' : `🎯 Selected (${selectedSlipIds.length}) order slips transferred`)}
                   </div>
                 </div>
 
-                {isAuthError && (
-                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  {createdResult.mode === 'google' ? (
+                    <a
+                      href={createdResult.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center space-x-1.5 transition-colors"
+                    >
+                      <span>Open in Google Sheets</span>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : (
                     <button
                       type="button"
-                      onClick={handlePromptGoogleAuthAndRetry}
-                      disabled={isAuthenticating || isCreating}
-                      className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs flex items-center justify-center space-x-1.5 transition-colors"
+                      onClick={onClose}
+                      className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-sm transition-colors"
                     >
-                      <LogIn className="h-3.5 w-3.5" />
-                      <span>{isAuthenticating ? 'Authorizing Google...' : 'Sign in with Google & Retry'}</span>
+                      Continue in Sandbox Mode
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Form View */
+              <form onSubmit={handleCreate} className="space-y-4 text-xs">
+                
+                {/* Target Title */}
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Spreadsheet Title</label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 font-medium text-xs"
+                    placeholder="e.g., Udhna Factory Master & 10-Stage Workflow"
+                  />
+                </div>
+
+                {/* Mode Select */}
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Connection Method</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCreationMode('custom')}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        creationMode === 'custom'
+                          ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
+                          : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
+                        <ExternalLink className="h-4 w-4 text-purple-600 shrink-0" />
+                        <span>Paste Sheet Link</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Link any new spreadsheet or Web App URL.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCreationMode('google')}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        creationMode === 'google'
+                          ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
+                          : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>Auto Cloud Sheet</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Auto-creates on Google Drive.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCreationMode('sandbox')}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        creationMode === 'sandbox'
+                          ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
+                          : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
+                        <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0" />
+                        <span>Sandbox Mode</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Local in-memory test mode.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Custom Sheet Link Input */}
+                {creationMode === 'custom' && (
+                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-slate-800 text-xs">Google Spreadsheet URL or Sheet ID</label>
+                      <a
+                        href="https://sheets.new"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1"
+                      >
+                        <span>+ Open Blank sheets.new</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <input
+                      type="text"
+                      value={customSheetUrl}
+                      onChange={(e) => setCustomSheetUrl(e.target.value)}
+                      placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id/edit"
+                      required={creationMode === 'custom'}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                )}
+
+                {/* DATA RETENTION SELECTION (Clean vs Transfer) */}
+                <div className="p-3.5 bg-blue-50/40 rounded-2xl border border-blue-200/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
+                      <FolderSync className="h-4 w-4 text-blue-600" />
+                      <span>Data Retention Choice for New Sheet</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium">Choose initial state</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDataTransferMode('fresh')}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        dataTransferMode === 'fresh'
+                          ? 'border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-2xs'
+                          : 'border-slate-200 bg-white/70 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
+                        <Trash2 className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                        <span>Fresh Blank Slate</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Erases old test orders so your new sheet starts completely clean.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDataTransferMode('transfer_all')}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        dataTransferMode === 'transfer_all'
+                          ? 'border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-2xs'
+                          : 'border-slate-200 bg-white/70 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
+                        <FolderSync className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>Transfer All Data</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Copies all {orderSlips.length} existing order slips &amp; lots into new sheet.
+                      </p>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => {
-                        createSandboxSheet(title);
+                        setDataTransferMode('transfer_selected');
+                        if (selectedSlipIds.length === 0 && orderSlips.length > 0) {
+                          setSelectedSlipIds([orderSlips[0].id]);
+                        }
                       }}
-                      className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs border border-slate-300 transition-colors"
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        dataTransferMode === 'transfer_selected'
+                          ? 'border-blue-600 bg-white ring-2 ring-blue-500/20 shadow-2xs'
+                          : 'border-slate-200 bg-white/70 hover:bg-white'
+                      }`}
                     >
-                      Create Sandbox Sheet
+                      <div className="flex items-center space-x-1.5 font-bold text-slate-900 text-xs">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                        <span>Select Slips</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+                        Pick specific order slips to keep and transfer.
+                      </p>
                     </button>
                   </div>
+
+                  {/* Selective Slip Picker if 'transfer_selected' is active */}
+                  {dataTransferMode === 'transfer_selected' && (
+                    <div className="pt-2 space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-700 block">Select Order Slips to Migrate:</label>
+                      {orderSlips.length === 0 ? (
+                        <p className="text-[10px] text-slate-500 italic">No existing order slips found in system.</p>
+                      ) : (
+                        <div className="max-h-32 overflow-y-auto space-y-1 bg-white p-2 rounded-xl border border-slate-200">
+                          {orderSlips.map(slip => (
+                            <label key={slip.id} className="flex items-center space-x-2 text-[11px] text-slate-800 hover:bg-slate-50 p-1 rounded cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedSlipIds.includes(slip.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSlipIds(prev => [...prev, slip.id]);
+                                  } else {
+                                    setSelectedSlipIds(prev => prev.filter(id => id !== slip.id));
+                                  }
+                                }}
+                                className="rounded text-blue-600"
+                              />
+                              <span className="font-bold">{slip.partyName}</span>
+                              <span className="text-slate-500 font-mono text-[10px]">(Job {slip.jobNo} • {slip.totalPcs || 0} pcs)</span>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Error Message & Interactive Fix */}
+                {errorMessage && (
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs space-y-2.5 animate-in fade-in">
+                    <div className="flex items-start space-x-2">
+                      <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-bold text-rose-900">
+                          {isAuthError ? 'Google Authentication Required' : 'Creation Notice'}
+                        </p>
+                        <p className="text-[11px] text-rose-800 mt-0.5 leading-relaxed">
+                          {errorMessage}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isAuthError && (
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handlePromptGoogleAuthAndRetry}
+                          disabled={isAuthenticating || isCreating}
+                          className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs flex items-center justify-center space-x-1.5 transition-colors"
+                        >
+                          <LogIn className="h-3.5 w-3.5" />
+                          <span>{isAuthenticating ? 'Authorizing Google...' : 'Sign in with Google & Retry'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            createSandboxSheet(title);
+                          }}
+                          className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg font-semibold text-xs border border-slate-300 transition-colors"
+                        >
+                          Create Sandbox Sheet
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
-              </div>
+
+                {/* Buttons */}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isCreating || isAuthenticating || !title.trim()}
+                    className="px-5 py-2.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    <span>
+                      {isAuthenticating 
+                        ? 'Authorizing Google...' 
+                        : isCreating 
+                          ? 'Linking Spreadsheet...' 
+                          : creationMode === 'google' 
+                            ? 'Create & Link Google Sheet' 
+                            : 'Connect & Sync Spreadsheet'
+                      }
+                    </span>
+                  </button>
+                </div>
+
+              </form>
             )}
-
-            {/* Buttons */}
-            <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={isCreating || isAuthenticating || !title.trim()}
-                className="px-5 py-2.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-sm flex items-center space-x-2 disabled:opacity-50"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                <span>
-                  {isAuthenticating 
-                    ? 'Authorizing Google...' 
-                    : isCreating 
-                      ? 'Creating Spreadsheet...' 
-                      : creationMode === 'google' 
-                        ? 'Create & Link Google Sheet' 
-                        : 'Create Sandbox Sheet'
-                  }
-                </span>
-              </button>
-            </div>
-
-          </form>
+          </>
         )}
 
       </div>

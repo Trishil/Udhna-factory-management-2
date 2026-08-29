@@ -1442,7 +1442,13 @@ export default function App() {
   };
 
   // Handle Brand-New Spreadsheet Creation & Global Company Distribution
-  const handleSpreadsheetCreated = (sheetId: string, sheetUrl: string, title: string) => {
+  const handleSpreadsheetCreated = (
+    sheetId: string, 
+    sheetUrl: string, 
+    title: string,
+    dataTransferMode: 'fresh' | 'transfer_all' | 'transfer_selected' = 'fresh',
+    selectedSlipIds: string[] = []
+  ) => {
     setStoredSheetId(sheetId);
     const newCfg: SyncConfig = {
       ...syncConfig,
@@ -1460,12 +1466,39 @@ export default function App() {
       deploymentId: syncConfig.deploymentId,
       ownerEmail: currentUser?.email || 'admin@udhna.com',
       title,
-      companyName: 'Udhna Factory'
+      companyName: 'Udhna Factory',
+      updatedAt: new Date().toISOString()
     });
+
+    let targetSlips: OrderSlip[] = [];
+    let targetItems: WorkflowItem[] = [];
+
+    if (dataTransferMode === 'fresh') {
+      targetSlips = [];
+      targetItems = [];
+      setWorkflowItems([]);
+      setOrderSlips([]);
+      setDispatchOrders([]);
+      saveStoredWorkflowItems([]);
+      saveStoredOrderSlips([]);
+      localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
+    } else if (dataTransferMode === 'transfer_selected') {
+      targetSlips = orderSlips.filter(s => selectedSlipIds.includes(s.id));
+      targetItems = workflowItems.filter(w => {
+        return targetSlips.some(s => s.id === w.orderSlipId || s.jobNo === w.jobNo);
+      });
+      setWorkflowItems(targetItems);
+      setOrderSlips(targetSlips);
+      saveStoredWorkflowItems(targetItems);
+      saveStoredOrderSlips(targetSlips);
+    } else {
+      targetSlips = orderSlips;
+      targetItems = workflowItems;
+    }
 
     // Populate all 11 tabs & Push full state immediately into the new sheet
     const allPieceUnits: IndividualPieceUnit[] = [];
-    workflowItems.forEach(w => {
+    targetItems.forEach(w => {
       const pList = (w.individualPieces && w.individualPieces.length > 0)
         ? w.individualPieces
         : getOrGenerateIndividualPieces(w);
@@ -1473,14 +1506,14 @@ export default function App() {
     });
 
     pushFullStateToAppsScript(newCfg, {
-      orderSlips,
-      workflow: workflowItems,
+      orderSlips: targetSlips,
+      workflow: targetItems,
       pieces: allPieceUnits,
       inventory: materials,
-      dispatch: dispatchOrders
+      dispatch: dataTransferMode === 'fresh' ? [] : dispatchOrders
     });
 
-    setLastAutoEntryNotice(`Created & linked company spreadsheet "${title}" across all devices`);
+    setLastAutoEntryNotice(`Created & linked company spreadsheet "${title}" across all devices (${dataTransferMode === 'fresh' ? 'Clean Slate' : 'Data Transferred'})`);
     setTimeout(() => setLastAutoEntryNotice(null), 5000);
   };
 
