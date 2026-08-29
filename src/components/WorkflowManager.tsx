@@ -75,6 +75,7 @@ interface WorkflowManagerProps {
   onTriggerSync?: () => void;
   orderSlips?: OrderSlip[];
   onSaveOrderSlip?: (slip: OrderSlip, generatedItems: WorkflowItem[]) => void;
+  onDeleteOrderSlip?: (slipId: string, jobNo?: string) => void;
   onClearAllOrders?: () => void;
 }
 
@@ -88,6 +89,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
   onTriggerSync,
   orderSlips: propOrderSlips,
   onSaveOrderSlip: propOnSaveOrderSlip,
+  onDeleteOrderSlip,
   onClearAllOrders
 }) => {
   // View mode tab: Matrix breakdown vs Individual Piece Tracker vs Kanban vs Party Slips
@@ -616,14 +618,32 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                         <span>Track Individual Pieces ({totalCalculated})</span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleOpenSlipEdit(slip)}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-xs flex items-center space-x-1.5 transition-colors shadow-xs"
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                        <span>Edit Slip Sheet</span>
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        {onDeleteOrderSlip && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete Order Slip "${slip.partyName} (Job ${slip.jobNo})"? This will also remove it from Google Sheets.`)) {
+                                onDeleteOrderSlip(slip.id, slip.jobNo);
+                              }
+                            }}
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white rounded-lg font-bold text-xs flex items-center space-x-1 transition-colors border border-rose-200"
+                            title="Delete this Order Slip and its lots from Google Sheets"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSlipEdit(slip)}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-xs flex items-center space-x-1.5 transition-colors shadow-xs"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                          <span>Edit Slip Sheet</span>
+                        </button>
+                      </div>
                     </div>
 
                   </div>
@@ -1268,6 +1288,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
         onSaveSlip={handleSaveSlip}
         existingSlip={editingSlip}
         items={items}
+        onDeleteSlip={onDeleteOrderSlip}
       />
 
       {/* Design Photo Capture & Metadata Modal */}

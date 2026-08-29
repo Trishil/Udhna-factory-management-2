@@ -456,6 +456,19 @@ function doGet(e) {
     }
   }
 
+  // 9b. Handle Order Slip Delete via GET query parameter
+  if (e && e.parameter && (e.parameter.action === "delete_order_slip" || e.parameter.action === "delete_slip") && (e.parameter.id || e.parameter.jobNo || e.parameter.data)) {
+    try {
+      const idOrJob = e.parameter.id || e.parameter.jobNo || e.parameter.data;
+      deleteOrderSlipFromSheet(ss, idOrJob);
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Order slip and related lots deleted" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // Standard fetch: return full dataset across all production & floor tabs
   let wfSheet = ss.getSheetByName("Fabric Design Workflow");
   let wfData = [];
@@ -610,6 +623,10 @@ function doPost(e) {
 
     if (body.action === "delete_material") {
       deleteMaterialFromSheet(ss, body.id || body.sku || body.data);
+    }
+
+    if (body.action === "delete_order_slip" || body.action === "delete_slip") {
+      deleteOrderSlipFromSheet(ss, body.id || body.jobNo || body.data);
     }
 
     if (body.action === "sync_all_full") {
@@ -1091,6 +1108,63 @@ function deleteMaterialFromSheet(ss, matIdOrSku) {
     if (rowSku === target || rowName === target) {
       sheet.deleteRow(i + 1);
       break;
+    }
+  }
+}
+
+/**
+ * Delete Order Slip and all related lot rows from Spreadsheet
+ */
+function deleteOrderSlipFromSheet(ss, slipIdOrJobNo) {
+  if (!slipIdOrJobNo) return;
+  const target = String(slipIdOrJobNo).trim().toLowerCase().replace(/^slip-/, '');
+
+  // 1. Delete from Master Order Slips
+  let slipSheet = ss.getSheetByName("Master Order Slips");
+  if (slipSheet) {
+    const slipData = slipSheet.getDataRange().getValues();
+    for (let i = slipData.length - 1; i >= 1; i--) {
+      const rowJob = String(slipData[i][0] || "").trim().toLowerCase().replace(/^slip-/, '');
+      if (rowJob === target || rowJob.includes(target) || target.includes(rowJob)) {
+        slipSheet.deleteRow(i + 1);
+      }
+    }
+  }
+
+  // 2. Delete matching rows from Fabric Design Workflow
+  let wfSheet = ss.getSheetByName("Fabric Design Workflow");
+  if (wfSheet) {
+    const wfData = wfSheet.getDataRange().getValues();
+    for (let i = wfData.length - 1; i >= 1; i--) {
+      const rowJob = String(wfData[i][0] || "").trim().toLowerCase().replace(/^slip-/, '');
+      const rowChalan = String(wfData[i][2] || "").trim().toLowerCase();
+      if (rowJob === target || rowJob.includes(target) || target.includes(rowJob) || rowChalan === target) {
+        wfSheet.deleteRow(i + 1);
+      }
+    }
+  }
+
+  // 3. Delete matching rows from Fabric & Color Matrix
+  let matrixSheet = ss.getSheetByName("Fabric & Color Matrix");
+  if (matrixSheet) {
+    const matData = matrixSheet.getDataRange().getValues();
+    for (let i = matData.length - 1; i >= 1; i--) {
+      const rowJob = String(matData[i][0] || "").trim().toLowerCase().replace(/^slip-/, '');
+      if (rowJob === target || rowJob.includes(target) || target.includes(rowJob)) {
+        matrixSheet.deleteRow(i + 1);
+      }
+    }
+  }
+
+  // 4. Delete matching rows from Piece-Level Tracking
+  let pieceSheet = ss.getSheetByName("Piece-Level Tracking");
+  if (pieceSheet) {
+    const pcData = pieceSheet.getDataRange().getValues();
+    for (let i = pcData.length - 1; i >= 1; i--) {
+      const rowJob = String(pcData[i][1] || "").trim().toLowerCase().replace(/^slip-/, '');
+      if (rowJob === target || rowJob.includes(target) || target.includes(rowJob)) {
+        pieceSheet.deleteRow(i + 1);
+      }
     }
   }
 }

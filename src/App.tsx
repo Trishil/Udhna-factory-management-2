@@ -44,6 +44,7 @@ import {
   pushStockTransactionToAppsScript,
   pushDispatchOrderToAppsScript,
   pushOrderSlipToAppsScript,
+  pushDeleteOrderSlipToAppsScript,
   pushPiecesToAppsScript,
   pushFullStateToAppsScript,
   mergeMaterials
@@ -1504,6 +1505,62 @@ export default function App() {
     }
   };
 
+  // Delete Order Slip and remove all associated lots from state, Firestore and Google Sheets
+  const handleDeleteOrderSlip = async (slipId: string, jobNo?: string) => {
+    const targetSlip = orderSlips.find(s => s.id === slipId);
+    const slipJob = (jobNo || targetSlip?.jobNo || slipId).trim().toLowerCase();
+
+    // 1. Remove slip from state & localStorage
+    const updatedSlips = orderSlips.filter(s => s.id !== slipId && s.jobNo !== jobNo);
+    setOrderSlips(updatedSlips);
+    saveStoredOrderSlips(updatedSlips);
+
+    // 2. Remove all workflow items matching this slip
+    const removedItemIds: string[] = [];
+    const updatedItems = workflowItems.filter(item => {
+      const itJob = (item.jobNo || item.lotNumber || '').trim().toLowerCase();
+      const itSlipId = item.orderSlipId;
+      const isMatch = (itSlipId && itSlipId === slipId) || (slipJob && (itJob === slipJob || itJob.includes(slipJob) || slipJob.includes(itJob)));
+      if (isMatch) {
+        removedItemIds.push(item.id);
+        return false;
+      }
+      return true;
+    });
+
+    setWorkflowItems(updatedItems);
+    saveStoredWorkflowItems(updatedItems);
+
+    // 3. Delete from Firestore in parallel
+    deleteOrderSlipFromFirestore(slipId).catch(() => {});
+    removedItemIds.forEach(id => {
+      deleteDesignFromFirestore(id).catch(() => {});
+    });
+
+    // 4. Delete from Google Apps Script Webhook
+    pushDeleteOrderSlipToAppsScript(syncConfig, jobNo || slipId).catch(() => {});
+
+    // 5. Also push updated overall state to ensure spreadsheet reflects deletion immediately
+    const remainingPieces: IndividualPieceUnit[] = [];
+    updatedItems.forEach(w => {
+      const pList = (w.individualPieces && w.individualPieces.length > 0)
+        ? w.individualPieces
+        : getOrGenerateIndividualPieces(w);
+      remainingPieces.push(...pList);
+    });
+
+    pushFullStateToAppsScript(syncConfig, {
+      orderSlips: updatedSlips,
+      workflow: updatedItems,
+      pieces: remainingPieces,
+      inventory: materials,
+      dispatch: dispatchOrders
+    }).catch(() => {});
+
+    setLastAutoEntryNotice(`Order Slip "${targetSlip?.partyName || ''} (Job ${jobNo || targetSlip?.jobNo || ''})" and all related lots deleted from system and Google Sheets.`);
+    setTimeout(() => setLastAutoEntryNotice(null), 4000);
+  };
+
   // Alerts
   const handleResolveAlert = (id: string) => {
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved: true } : a));
@@ -2692,6 +2749,7 @@ export default function App() {
             onTriggerSync={() => handlePerformSync(false)}
             orderSlips={orderSlips}
             onSaveOrderSlip={handleSaveOrderSlip}
+            onDeleteOrderSlip={handleDeleteOrderSlip}
             onClearAllOrders={handleClearAllOrders}
           />
         )}

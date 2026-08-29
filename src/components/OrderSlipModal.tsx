@@ -32,6 +32,7 @@ interface OrderSlipModalProps {
   onSaveSlip: (slip: OrderSlip, generatedItems: WorkflowItem[]) => void;
   existingSlip?: OrderSlip | null;
   items?: WorkflowItem[];
+  onDeleteSlip?: (slipId: string, jobNo?: string) => void;
 }
 
 export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
@@ -39,7 +40,8 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
   onClose,
   onSaveSlip,
   existingSlip,
-  items = []
+  items = [],
+  onDeleteSlip
 }) => {
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
@@ -903,13 +905,31 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
 
           {/* Modal Footer */}
           <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
-            >
-              Cancel
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+
+              {existingSlip && onDeleteSlip && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Are you sure you want to delete Order Slip "${partyName} (Job ${jobNo})"? This will remove the slip and all generated lots from the system and Google Sheets.`)) {
+                      onDeleteSlip(existingSlip.id, existingSlip.jobNo);
+                      onClose();
+                    }
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-rose-700 hover:text-white hover:bg-rose-600 bg-rose-50 border border-rose-200 rounded-xl transition-all flex items-center space-x-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete Slip</span>
+                </button>
+              )}
+            </div>
 
             <button
               type="submit"

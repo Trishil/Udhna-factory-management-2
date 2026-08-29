@@ -270,6 +270,30 @@ export async function pushPiecesToAppsScript(
   } catch (e) {}
 }
 
+export async function pushDeleteOrderSlipToAppsScript(
+  config: SyncConfig,
+  slipIdOrJobNo: string
+): Promise<void> {
+  const endpoint = config.scriptUrl || (config.deploymentId ? `https://script.google.com/macros/s/${config.deploymentId}/exec` : null);
+  if (!endpoint || !slipIdOrJobNo) return;
+
+  const url = `${endpoint}?action=delete_order_slip&sheetId=${encodeURIComponent(config.sheetId || '')}&id=${encodeURIComponent(slipIdOrJobNo)}`;
+  fetch(url, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+
+  try {
+    await fetch(endpoint, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'delete_order_slip',
+        sheetId: config.sheetId,
+        id: slipIdOrJobNo
+      })
+    });
+  } catch (e) {}
+}
+
 export async function pushFullStateToAppsScript(
   config: SyncConfig,
   fullData: {
