@@ -200,6 +200,7 @@ export interface CompanyWorkspace {
   name: string;
   code: string;
   sheetId: string;
+  sheetUrl?: string;
   scriptUrl?: string;
   isPrimary?: boolean;
   logo?: string;

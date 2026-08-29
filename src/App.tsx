@@ -32,7 +32,8 @@ import {
   AppTab,
   WorkflowItem,
   WorkflowStageId,
-  OrderSlip
+  OrderSlip,
+  IndividualPieceUnit
 } from './types';
 import { 
   syncWithAppsScript, 
