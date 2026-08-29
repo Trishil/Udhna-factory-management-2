@@ -257,36 +257,22 @@ export default function App() {
       localStorage.setItem('factory_finance_cleared_v2', 'true');
     }
 
-    // 1. Fetch latest data from Google Apps Script Webhook on startup & smartly merge
+    // 1. Fetch latest authoritative data from Google Apps Script Webhook on startup
     syncWithAppsScript(syncConfig).then(result => {
-      if (result.success) {
-        if (result.workflow && result.workflow.length > 0) {
-          setWorkflowItems(prev => {
-            const merged = mergeWorkflowItems(prev, result.workflow || []);
-            saveStoredWorkflowItems(merged);
-            return merged;
-          });
+      if (result && result.success) {
+        if (result.workflow) {
+          setWorkflowItems(result.workflow);
+          saveStoredWorkflowItems(result.workflow);
         }
-        if (result.orderSlips && result.orderSlips.length > 0) {
-          setOrderSlips(prev => {
-            const merged = mergeOrderSlips(prev, result.orderSlips || []);
-            saveStoredOrderSlips(merged);
-            return merged;
-          });
+        if (result.orderSlips) {
+          setOrderSlips(result.orderSlips);
+          saveStoredOrderSlips(result.orderSlips);
         }
         if (result.inventory && result.inventory.length > 0) {
-          setMaterials(prev => mergeMaterials(prev, result.inventory || []));
+          setMaterials(result.inventory);
         }
-        if (result.dispatchOrders && result.dispatchOrders.length > 0) {
-          setDispatchOrders(prev => {
-            const map = new Map<string, DispatchOrder>();
-            result.dispatchOrders!.forEach(d => map.set((d.dispatchNumber || d.id).toLowerCase(), d));
-            prev.forEach(d => {
-              const k = (d.dispatchNumber || d.id).toLowerCase();
-              if (!map.has(k)) map.set(k, d);
-            });
-            return Array.from(map.values());
-          });
+        if (result.dispatchOrders) {
+          setDispatchOrders(result.dispatchOrders);
         }
         if (result.partyInvoices && result.partyInvoices.length > 0) {
           setPartyInvoices(result.partyInvoices);
@@ -342,20 +328,37 @@ export default function App() {
     const unsubscribeCompanyConfig = subscribeToCompanySpreadsheetConfig((cloudCfg) => {
       if (cloudCfg && cloudCfg.sheetId) {
         setStoredSheetId(cloudCfg.sheetId);
-        setSyncConfig(prev => {
-          if (prev.sheetId !== cloudCfg.sheetId) {
-            return {
-              ...prev,
-              sheetId: cloudCfg.sheetId,
-              sheetUrl: cloudCfg.sheetUrl || `https://docs.google.com/spreadsheets/d/${cloudCfg.sheetId}/edit`,
-              scriptUrl: cloudCfg.scriptUrl || prev.scriptUrl,
-              deploymentId: cloudCfg.deploymentId || prev.deploymentId,
-              syncStatus: 'synced',
-              lastSyncTimestamp: new Date().toISOString()
-            };
+        const newSyncCfg: SyncConfig = {
+          ...syncConfig,
+          sheetId: cloudCfg.sheetId,
+          sheetUrl: cloudCfg.sheetUrl || `https://docs.google.com/spreadsheets/d/${cloudCfg.sheetId}/edit`,
+          scriptUrl: cloudCfg.scriptUrl || syncConfig.scriptUrl,
+          deploymentId: cloudCfg.deploymentId || syncConfig.deploymentId,
+          syncStatus: 'synced',
+          lastSyncTimestamp: new Date().toISOString()
+        };
+        setSyncConfig(newSyncCfg);
+        localStorage.setItem('factory_sync_config', JSON.stringify(newSyncCfg));
+
+        // Fetch authoritative data directly from this latest active spreadsheet!
+        syncWithAppsScript(newSyncCfg).then(result => {
+          if (result && result.success) {
+            if (result.workflow) {
+              setWorkflowItems(result.workflow);
+              saveStoredWorkflowItems(result.workflow);
+            }
+            if (result.orderSlips) {
+              setOrderSlips(result.orderSlips);
+              saveStoredOrderSlips(result.orderSlips);
+            }
+            if (result.inventory && result.inventory.length > 0) {
+              setMaterials(result.inventory);
+            }
+            if (result.dispatchOrders) {
+              setDispatchOrders(result.dispatchOrders);
+            }
           }
-          return prev;
-        });
+        }).catch(() => {});
       }
     });
 
