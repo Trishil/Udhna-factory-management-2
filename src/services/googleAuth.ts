@@ -374,7 +374,7 @@ export const TRISHARTH_TEAM_MEMBERS: Array<{
   },
   {
     name: 'Trishil Balar',
-    email: 'trishilbalar@trisharth.com',
+    email: 'trishilbalar@gmail.com',
     role: 'owner',
     jobTitle: 'Head of Plant & Production Ops',
     department: 'Plant Operations',
@@ -382,6 +382,17 @@ export const TRISHARTH_TEAM_MEMBERS: Array<{
     avatarText: 'TB',
     hasAccess: true,
     description: 'Production lead managing workflow stages, pieces, and schedule synchronization'
+  },
+  {
+    name: 'Dr. Lalji Patel',
+    email: 'drlaljirpatel@gmail.com',
+    role: 'owner',
+    jobTitle: 'Chairman & Chief Executive',
+    department: 'Executive Board',
+    badge: 'Executive Board',
+    avatarText: 'LP',
+    hasAccess: true,
+    description: 'Executive supervision, accounts, plant oversight and cloud governance'
   },
   {
     name: 'Floor Operations Supervisor',

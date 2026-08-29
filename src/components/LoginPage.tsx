@@ -148,57 +148,45 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     try {
       const profile = await authenticateWithGoogle();
-      setAuthStep(`Google verified (${profile.email}). Checking company registry...`);
+      setAuthStep(`Google verified (${profile.email}). Connecting to company...`);
 
-      // 1. Check if user typed a company code OR has an existing company registered with this email
-      let workspace: CompanyWorkspace | null = null;
+      // 1. Check if user specified custom company code or resolve to company workspace
+      let workspace: CompanyWorkspace = TRISHARTH_WORKSPACE;
       if (companyCode.trim()) {
-        workspace = await lookupCompanyByCode(companyCode.trim());
-      }
-      if (!workspace) {
-        workspace = findWorkspaceByEmail(profile.email);
-      }
-
-      if (workspace) {
-        // Existing Workspace found! Automatically log in
-        setRememberedCompanyCode(workspace.code);
-        const isKnownOwner = profile.email.toLowerCase().includes('atharvabalar') || 
-                             profile.email.toLowerCase().includes('atharva') ||
-                             profile.email.toLowerCase().includes('trishil') ||
-                             profile.email.toLowerCase() === workspace.ownerEmail?.toLowerCase();
-
-        const authUser: AuthUser = {
-          id: profile.uid || `g_${Date.now()}`,
-          email: profile.email,
-          name: profile.name,
-          picture: profile.picture,
-          role: isKnownOwner ? 'owner' : 'editor',
-          companyId: workspace.id,
-          companyName: workspace.name,
-          companyCode: workspace.code,
-          sheetAccessGranted: true,
-          sheetTitle: `${workspace.name} Operations Sheet`,
-          authMethod: 'google_oauth',
-          loginTimestamp: new Date().toISOString()
-        };
-
-        setAuthStep(`Welcome back, ${profile.name}! Launching ${workspace.name}...`);
-        setTimeout(() => {
-          onLoginSuccess(authUser, workspace.sheetId);
-        }, 350);
+        const found = await lookupCompanyByCode(companyCode.trim());
+        if (found) workspace = found;
       } else {
-        // First-time User: Redirect to Sign Up to choose Register Company or Join Company
-        setRegOwnerName(profile.name);
-        setRegOwnerEmail(profile.email);
-        setJoinEmployeeName(profile.name);
-        setJoinEmployeeEmail(profile.email);
-        
-        setAuthMode('signup');
-        setSignupType('choose');
-        setSuccessMessage(`Google account verified (${profile.email})! Please choose whether to register a new company or join an existing one.`);
-        setIsLoading(false);
-        setAuthStep('');
+        workspace = findWorkspaceByEmail(profile.email) || TRISHARTH_WORKSPACE;
       }
+
+      setRememberedCompanyCode(workspace.code);
+
+      const emailLower = profile.email.toLowerCase();
+      const isKnownOwner = emailLower.includes('atharva') || 
+                           emailLower.includes('trishil') ||
+                           emailLower.includes('lalji') ||
+                           emailLower.includes('drlaljirpatel') ||
+                           emailLower === (workspace.ownerEmail || '').toLowerCase();
+
+      const authUser: AuthUser = {
+        id: profile.uid || `g_${Date.now()}`,
+        email: profile.email,
+        name: profile.name || profile.email.split('@')[0],
+        picture: profile.picture,
+        role: isKnownOwner ? 'owner' : 'editor',
+        companyId: workspace.id,
+        companyName: workspace.name,
+        companyCode: workspace.code,
+        sheetAccessGranted: true,
+        sheetTitle: `${workspace.name} Operations Sheet`,
+        authMethod: 'google_oauth',
+        loginTimestamp: new Date().toISOString()
+      };
+
+      setAuthStep(`Welcome, ${authUser.name}! Launching ${workspace.name}...`);
+      setTimeout(() => {
+        onLoginSuccess(authUser, workspace.sheetId);
+      }, 350);
     } catch (err: any) {
       if (!err?.message?.includes('closed')) {
         setErrorMessage(err?.message || 'Google Sign-In failed.');
