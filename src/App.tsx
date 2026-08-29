@@ -228,8 +228,19 @@ export default function App() {
   const [machineToDelete, setMachineToDelete] = useState<{ id: string; name: string; model: string } | null>(null);
   const [materialToDelete, setMaterialToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // One-time cleanup for old mock finance records if they were saved in localStorage
+  // One-time cleanup for old mock records if they were saved in localStorage
   useEffect(() => {
+    const isOrdersCleared = localStorage.getItem('factory_demo_orders_cleared_v5');
+    if (!isOrdersCleared) {
+      setWorkflowItems([]);
+      setOrderSlips([]);
+      setDispatchOrders([]);
+      saveStoredWorkflowItems([]);
+      saveStoredOrderSlips([]);
+      localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
+      localStorage.setItem('factory_demo_orders_cleared_v5', 'true');
+    }
+
     const isCleared = localStorage.getItem('factory_finance_cleared_v2');
     if (!isCleared) {
       setEmployees([]);
@@ -1469,6 +1480,30 @@ export default function App() {
     setTimeout(() => setLastAutoEntryNotice(null), 5000);
   };
 
+  // Clear all demo orders and start completely fresh
+  const handleClearAllOrders = () => {
+    if (window.confirm('Are you sure you want to delete all demo orders, slips, and start completely fresh?')) {
+      setWorkflowItems([]);
+      setOrderSlips([]);
+      setDispatchOrders([]);
+      saveStoredWorkflowItems([]);
+      saveStoredOrderSlips([]);
+      localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
+
+      // Push cleared state to spreadsheet
+      pushFullStateToAppsScript(syncConfig, {
+        orderSlips: [],
+        workflow: [],
+        pieces: [],
+        inventory: materials,
+        dispatch: []
+      });
+
+      setLastAutoEntryNotice('All demo orders cleared! Floor is now completely blank and ready for fresh entry.');
+      setTimeout(() => setLastAutoEntryNotice(null), 4000);
+    }
+  };
+
   // Alerts
   const handleResolveAlert = (id: string) => {
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved: true } : a));
@@ -2657,6 +2692,7 @@ export default function App() {
             onTriggerSync={() => handlePerformSync(false)}
             orderSlips={orderSlips}
             onSaveOrderSlip={handleSaveOrderSlip}
+            onClearAllOrders={handleClearAllOrders}
           />
         )}
         

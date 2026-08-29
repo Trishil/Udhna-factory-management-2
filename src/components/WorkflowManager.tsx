@@ -75,6 +75,7 @@ interface WorkflowManagerProps {
   onTriggerSync?: () => void;
   orderSlips?: OrderSlip[];
   onSaveOrderSlip?: (slip: OrderSlip, generatedItems: WorkflowItem[]) => void;
+  onClearAllOrders?: () => void;
 }
 
 export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
@@ -86,7 +87,8 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
   onHandoverToDispatch,
   onTriggerSync,
   orderSlips: propOrderSlips,
-  onSaveOrderSlip: propOnSaveOrderSlip
+  onSaveOrderSlip: propOnSaveOrderSlip,
+  onClearAllOrders
 }) => {
   // View mode tab: Matrix breakdown vs Individual Piece Tracker vs Kanban vs Party Slips
   const [viewMode, setViewMode] = useState<'matrix' | 'pieces' | 'kanban' | 'slips'>('matrix');
@@ -404,6 +406,20 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
             <Download className="h-3.5 w-3.5 text-slate-500" />
             <span className="hidden sm:inline">Export</span>
           </button>
+
+          {/* Reset / Clear All Orders Button */}
+          {onClearAllOrders && (items.length > 0 || currentOrderSlips.length > 0) && (
+            <button
+              id="btn-clear-all-orders"
+              type="button"
+              onClick={onClearAllOrders}
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold transition-colors shadow-2xs"
+              title="Delete all demo orders and start completely fresh"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+              <span>Clear Orders</span>
+            </button>
+          )}
         </div>
       </div>
 
