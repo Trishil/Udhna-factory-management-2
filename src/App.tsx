@@ -65,7 +65,8 @@ import {
   mergeWorkflowItems,
   mergeOrderSlips,
   INITIAL_WORKFLOW_ITEMS,
-  DEFAULT_ORDER_SLIPS
+  DEFAULT_ORDER_SLIPS,
+  getOrGenerateIndividualPieces
 } from './utils/workflowData';
 import { 
   saveDesignToFirestore, 
