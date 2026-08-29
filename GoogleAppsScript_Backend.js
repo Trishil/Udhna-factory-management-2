@@ -32,29 +32,7 @@ function setupSpreadsheet() {
         'Assigned Operator', 'Delivery Chalan No.', 'Date of Delivery', 'Bill No.',
         'Pieces Completed', 'Firm Name', 'Notes / Photos'
       ],
-      sampleRows: [
-        [
-          'LOT-9035', 'Surat Bridal Couture', 'CHL-2026-881', '2026-08-23', 'DSG-104',
-          'Chiffon Saree Foil & Cording', 'Silk Georgette', 'Emerald Green', 45, '5. Embroidery Machine (25-Head)',
-          '=IFS(ISNUMBER(SEARCH("Fabric", J2)), 1, ISNUMBER(SEARCH("Chalan", J2)), 2, ISNUMBER(SEARCH("Insp-1", J2)), 3, ISNUMBER(SEARCH("Stitching", J2)), 4, ISNUMBER(SEARCH("Embroidery", J2)), 5, ISNUMBER(SEARCH("Dhaga", J2)), 6, ISNUMBER(SEARCH("Insp-2", J2)), 7, ISNUMBER(SEARCH("Altering", J2)), 8, ISNUMBER(SEARCH("Folding", J2)), 9, ISNUMBER(SEARCH("Dispatch", J2)), 10, TRUE, 1)',
-          'Embroidery: 45 pcs', 45, 0, 'HIGH', '2026-08-25', 'good', 'pending', '',
-          'Ramesh Kumar', '', '', '', 0, 'Udhna Textile', 'Zari tension uniform across 12 heads'
-        ],
-        [
-          'LOT-9036', 'Shreeji Silk Mills', 'CHL-2026-882', '2026-08-23', 'DSG-105',
-          'Peacock Jacquard Brocade', 'Pure Raw Silk', 'Royal Maroon', 35, '6. Dhaga Cutting',
-          '=IFS(ISNUMBER(SEARCH("Fabric", J3)), 1, ISNUMBER(SEARCH("Chalan", J3)), 2, ISNUMBER(SEARCH("Insp-1", J3)), 3, ISNUMBER(SEARCH("Stitching", J3)), 4, ISNUMBER(SEARCH("Embroidery", J3)), 5, ISNUMBER(SEARCH("Dhaga", J3)), 6, ISNUMBER(SEARCH("Insp-2", J3)), 7, ISNUMBER(SEARCH("Altering", J3)), 8, ISNUMBER(SEARCH("Folding", J3)), 9, ISNUMBER(SEARCH("Dispatch", J3)), 10, TRUE, 1)',
-          'Dhaga Cutting: 35 pcs', 35, 0, 'URGENT', '2026-08-28', 'good', 'pending', '',
-          'Vikas Sharma', '', '', '', 0, 'Udhna Textile', 'Thread trimming on back motifs'
-        ],
-        [
-          'LOT-9037', 'Kaveri Fashion House', 'CHL-2026-883', '2026-08-23', 'DSG-106',
-          'Velvet Foil Motif Cut', 'Micro Velvet 9000', 'Midnight Navy', 50, '7. Alter Inspection',
-          '=IFS(ISNUMBER(SEARCH("Fabric", J4)), 1, ISNUMBER(SEARCH("Chalan", J4)), 2, ISNUMBER(SEARCH("Insp-1", J4)), 3, ISNUMBER(SEARCH("Stitching", J4)), 4, ISNUMBER(SEARCH("Embroidery", J4)), 5, ISNUMBER(SEARCH("Dhaga", J4)), 6, ISNUMBER(SEARCH("Insp-2", J4)), 7, ISNUMBER(SEARCH("Altering", J4)), 8, ISNUMBER(SEARCH("Folding", J4)), 9, ISNUMBER(SEARCH("Dispatch", J4)), 10, TRUE, 1)',
-          'Alter Inspection: 50 pcs', 45, 5, 'HIGH', '2026-08-24', 'good', 'needs_alter', 'Foil lift on border',
-          'Anita Shah', '', '', '', 0, 'Udhna Textile', '5 pieces sent for heat press re-curing'
-        ]
-      ]
+      sampleRows: []
     },
     {
       name: "Piece-Level Tracking",
@@ -65,12 +43,7 @@ function setupSpreadsheet() {
         'Fabric Type', 'Fabric Color', 'Party Name', 'Current Stage', 'Stage Name',
         'Quality Status', 'Defect Reason', 'Alteration Notes', 'Assigned Operator', 'Chalan No.'
       ],
-      sampleRows: [
-        ['LOT-9035-P01', 'LOT-9035', 'LOT-9035', 1, 'DSG-104', 'Silk Georgette', 'Emerald Green', 'Surat Bridal Couture', 'EMBROIDERY', '5. Embroidery Machine', 'GOOD', '', '', 'Ramesh Kumar', 'CHL-2026-881'],
-        ['LOT-9035-P02', 'LOT-9035', 'LOT-9035', 2, 'DSG-104', 'Silk Georgette', 'Emerald Green', 'Surat Bridal Couture', 'EMBROIDERY', '5. Embroidery Machine', 'GOOD', '', '', 'Ramesh Kumar', 'CHL-2026-881'],
-        ['LOT-9037-P49', 'LOT-9037', 'LOT-9037-ALT', 49, 'DSG-106', 'Micro Velvet 9000', 'Midnight Navy', 'Kaveri Fashion House', 'ALTERING', '8. Altering / Rework', 'NEEDS_ALTER', 'Foil edge lift', 'Re-heat press foil', 'Anita Shah', 'CHL-2026-883'],
-        ['LOT-9037-P50', 'LOT-9037', 'LOT-9037-ALT', 50, 'DSG-106', 'Micro Velvet 9000', 'Midnight Navy', 'Kaveri Fashion House', 'ALTERING', '8. Altering / Rework', 'NEEDS_ALTER', 'Missing sequin fill', 'Hand stitch sequin fill', 'Anita Shah', 'CHL-2026-883']
-      ]
+      sampleRows: []
     },
     {
       name: "Fabric & Color Matrix",
@@ -82,11 +55,7 @@ function setupSpreadsheet() {
         '5. Embroidery', '6. Dhaga Cut', '7. Insp-2', '8. Altering', '9. Folding',
         '10. Dispatch', 'Completed Pcs', 'In-Progress Pcs', 'Completion %', 'Due Date'
       ],
-      sampleRows: [
-        ['LOT-9035', 'Surat Bridal Couture', 'DSG-104', 'Silk Georgette', 'Emerald Green', 45, 0, 0, 0, 0, 45, 0, 0, 0, 0, 0, '=P2', '=SUM(G2:O2)', '=IF(F2>0, Q2/F2, 0)', '2026-08-25'],
-        ['LOT-9036', 'Shreeji Silk Mills', 'DSG-105', 'Pure Raw Silk', 'Royal Maroon', 35, 0, 0, 0, 0, 0, 35, 0, 0, 0, 0, '=P3', '=SUM(G3:O3)', '=IF(F3>0, Q3/F3, 0)', '2026-08-28'],
-        ['LOT-9037', 'Kaveri Fashion House', 'DSG-106', 'Micro Velvet 9000', 'Midnight Navy', 50, 0, 0, 0, 0, 0, 0, 45, 5, 0, 0, '=P4', '=SUM(G4:O4)', '=IF(F4>0, Q4/F4, 0)', '2026-08-24']
-      ]
+      sampleRows: []
     },
     {
       name: "Master Order Slips",
@@ -97,11 +66,7 @@ function setupSpreadsheet() {
         'Fabric Columns', 'Color Variants Count', 'Breakdown Matrix Summary', 'Inward Notes', 'Calculation Notes',
         'Delivery Chalan No.', 'Delivery Date', 'Bill No.', 'Pieces Completed', 'Firm Name', 'Status'
       ],
-      sampleRows: [
-        ['JOB-2026-104', 'Surat Bridal Couture', 'CHL-2026-881', '2026-08-23', 45, 'Kali, Dupatta, Blouse Front', 1, '[Emerald Green: 45]', 'Full bridal lehanga set', 'Kali: 45 | Dupatta: 45', '', '', '', 0, 'Udhna Textile', 'ACTIVE'],
-        ['JOB-2026-105', 'Shreeji Silk Mills', 'CHL-2026-882', '2026-08-23', 35, 'Brocade Saree Roll', 1, '[Royal Maroon: 35]', 'Gold zari weaving pattern', '35 sarees @ 6.3m', '', '', '', 0, 'Udhna Textile', 'ACTIVE'],
-        ['JOB-2026-106', 'Kaveri Fashion House', 'CHL-2026-883', '2026-08-23', 50, 'Velvet Choli', 1, '[Midnight Navy: 50]', 'Micro velvet with foil border', '50 choli pieces', '', '', '', 0, 'Udhna Textile', 'ACTIVE']
-      ]
+      sampleRows: []
     },
     {
       name: "Live Inventory & Materials",
@@ -1389,18 +1354,51 @@ function saveFabricColorMatrixToSheet(ss, item) {
  * Full state synchronization from web/mobile app
  */
 function saveFullBatchStateToSheet(ss, payload) {
+  // 1. Sync Master Order Slips tab
   if (payload.orderSlips && Array.isArray(payload.orderSlips)) {
-    payload.orderSlips.forEach(function(s) { saveOrderSlipToSheet(ss, s); });
+    let slipSheet = ss.getSheetByName("Master Order Slips");
+    if (slipSheet) {
+      const lastRow = slipSheet.getLastRow();
+      if (lastRow > 1) {
+        slipSheet.getRange(2, 1, lastRow - 1, slipSheet.getLastColumn() || 16).clearContent();
+      }
+      payload.orderSlips.forEach(function(s) { saveOrderSlipToSheet(ss, s); });
+    }
   }
+
+  // 2. Sync Fabric Design Workflow tab
   if (payload.workflow && Array.isArray(payload.workflow)) {
-    payload.workflow.forEach(function(w) { saveWorkflowItemToSheet(ss, w); });
+    let wfSheet = ss.getSheetByName("Fabric Design Workflow");
+    if (wfSheet) {
+      const lastRow = wfSheet.getLastRow();
+      if (lastRow > 1) {
+        wfSheet.getRange(2, 1, lastRow - 1, wfSheet.getLastColumn() || 26).clearContent();
+      }
+      payload.workflow.forEach(function(w) { saveWorkflowItemToSheet(ss, w); });
+    }
+
+    // Also sync Fabric & Color Matrix
+    let matSheet = ss.getSheetByName("Fabric & Color Matrix");
+    if (matSheet) {
+      const lastRow = matSheet.getLastRow();
+      if (lastRow > 1) {
+        matSheet.getRange(2, 1, lastRow - 1, matSheet.getLastColumn() || 20).clearContent();
+      }
+      payload.workflow.forEach(function(w) { saveFabricColorMatrixRowToSheet(ss, w); });
+    }
   }
+
+  // 3. Sync Piece-Level Tracking tab
   if (payload.pieces && Array.isArray(payload.pieces)) {
     savePieceUnitsToSheet(ss, payload.pieces);
   }
+
+  // 4. Sync Inventory
   if (payload.inventory && Array.isArray(payload.inventory)) {
     payload.inventory.forEach(function(m) { saveMaterialToSheet(ss, m); });
   }
+
+  // 5. Sync Dispatch
   if (payload.dispatch && Array.isArray(payload.dispatch)) {
     payload.dispatch.forEach(function(d) { saveDispatchOrderToSheet(ss, d); });
   }

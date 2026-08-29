@@ -86,6 +86,7 @@ import {
   attachStoragePhotosToWorkflowItems,
   saveCompanySpreadsheetConfig,
   subscribeToCompanySpreadsheetConfig,
+  clearAllFirestoreOrders,
   CompanySpreadsheetConfig
 } from './services/firebaseService';
 
@@ -1468,6 +1469,9 @@ export default function App() {
       saveStoredWorkflowItems([]);
       saveStoredOrderSlips([]);
       localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
+
+      // Wipe Firestore so old designs and slips are deleted permanently from cloud
+      clearAllFirestoreOrders().catch(() => {});
     } else if (dataTransferMode === 'transfer_selected') {
       targetSlips = orderSlips.filter(s => selectedSlipIds.includes(s.id));
       targetItems = workflowItems.filter(w => {
@@ -1477,6 +1481,12 @@ export default function App() {
       setOrderSlips(targetSlips);
       saveStoredWorkflowItems(targetItems);
       saveStoredOrderSlips(targetSlips);
+
+      // Clean Firestore
+      clearAllFirestoreOrders().then(() => {
+        targetSlips.forEach(s => saveOrderSlipToFirestore(s));
+        targetItems.forEach(w => saveDesignToFirestore(w));
+      }).catch(() => {});
     } else {
       targetSlips = orderSlips;
       targetItems = workflowItems;
@@ -1512,6 +1522,9 @@ export default function App() {
       saveStoredWorkflowItems([]);
       saveStoredOrderSlips([]);
       localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
+
+      // Wipe Firestore collections so cloud listeners don't resurrect them
+      clearAllFirestoreOrders().catch(() => {});
 
       // Push cleared state to spreadsheet
       pushFullStateToAppsScript(syncConfig, {
@@ -1577,9 +1590,9 @@ export default function App() {
       pieces: remainingPieces,
       inventory: materials,
       dispatch: dispatchOrders
-    }).catch(() => {});
+    });
 
-    setLastAutoEntryNotice(`Order Slip "${targetSlip?.partyName || ''} (Job ${jobNo || targetSlip?.jobNo || ''})" and all related lots deleted from system and Google Sheets.`);
+    setLastAutoEntryNotice(`Order Slip "${targetSlip?.partyName || slipJob.toUpperCase()}" (Job ${jobNo || targetSlip?.jobNo || ''}) deleted successfully`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
   };
 

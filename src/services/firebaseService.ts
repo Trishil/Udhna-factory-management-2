@@ -8,7 +8,8 @@ import {
   deleteDoc, 
   onSnapshot, 
   serverTimestamp,
-  getDocFromServer
+  getDocFromServer,
+  getDocs
 } from 'firebase/firestore';
 import { 
   getStorage, 
@@ -380,6 +381,24 @@ export async function deleteOrderSlipFromFirestore(slipId: string): Promise<void
     await deleteDoc(docRef);
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${ORDER_SLIPS_COLLECTION}/${slipId}`);
+  }
+}
+
+/**
+ * Wipes all existing order slips and workflow designs from Firestore
+ * (Used when starting fresh or clearing all orders)
+ */
+export async function clearAllFirestoreOrders(): Promise<void> {
+  try {
+    const slipSnap = await getDocs(collection(db, ORDER_SLIPS_COLLECTION));
+    const deleteSlipPromises = slipSnap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deleteSlipPromises);
+
+    const designSnap = await getDocs(collection(db, WORKFLOW_COLLECTION));
+    const deleteDesignPromises = designSnap.docs.map(d => deleteDoc(d.ref));
+    await Promise.all(deleteDesignPromises);
+  } catch (error) {
+    console.warn('Error clearing Firestore orders:', error);
   }
 }
 
