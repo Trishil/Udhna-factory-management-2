@@ -116,7 +116,7 @@ export interface Machine {
   currentMaterialId?: string; // assigned primary material (legacy/quick ref)
   secondaryMaterialId?: string; // optional secondary feed
   activeTask?: MachineTask; // active multi-material task running on machine
-  activeJobName: string;
+  activeJobName?: string;
   rpm: number;
   maxRpm: number;
   outputCount: number;
@@ -558,7 +558,7 @@ export interface PartyInvoice {
     date: string;
     amount: number;
     paymentMode: string;
-    transactionRef: string;
+    transactionRef?: string;
     notes?: string;
   }[];
   contactPerson?: string;

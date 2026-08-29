@@ -200,18 +200,21 @@ function doGet(e) {
     let ss = null;
     const targetSheetId = (e && e.parameter && e.parameter.sheetId) ? e.parameter.sheetId.trim() : null;
     if (targetSheetId) {
-      try { ss = SpreadsheetApp.openById(targetSheetId); } catch (openErr) {}
-    }
-    if (!ss) {
+      try { 
+        ss = SpreadsheetApp.openById(targetSheetId); 
+      } catch (openErr) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "error",
+          message: "Could not open specified spreadsheet (" + targetSheetId + "). Please ensure the spreadsheet is shared with Editor permissions."
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    } else {
       try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (activeErr) {}
-    }
-    if (!ss) {
-      try { ss = SpreadsheetApp.openById("1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU"); } catch (fallbackErr) {}
     }
     if (!ss) {
       return ContentService.createTextOutput(JSON.stringify({
         status: "error",
-        message: "Spreadsheet not found or access denied. Please verify sheetId."
+        message: "Spreadsheet not found or access denied."
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
@@ -538,10 +541,19 @@ function doPost(e) {
         body = JSON.parse(e.postData.contents);
       } catch (parseErr) {}
     }
-    let ss = SpreadsheetApp.getActiveSpreadsheet();
+    let ss = null;
     const targetSheetId = (body && body.sheetId) || (e && e.parameter && e.parameter.sheetId);
     if (targetSheetId) {
       try { ss = SpreadsheetApp.openById(targetSheetId); } catch (e) {}
+    }
+    if (!ss) {
+      try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) {}
+    }
+    if (!ss) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Spreadsheet target not found or access denied."
+      })).setMimeType(ContentService.MimeType.JSON);
     }
     
     if (body.action === "upload_photo") {

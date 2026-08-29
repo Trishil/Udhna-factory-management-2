@@ -31,8 +31,10 @@ signInAnonymously(auth).catch((err) => {
   console.warn('Website Firebase anonymous auth notice:', err);
 });
 
-// Initialize Firestore with explicit databaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+// Initialize Firestore with optional explicit databaseId
+export const db = firebaseConfig.firestoreDatabaseId 
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
 
 // Initialize Firebase Storage
 export const storage = getStorage(app);
@@ -292,7 +294,7 @@ export function mapFirestoreDocToWorkflowItem(data: any, docId: string): Workflo
     qualityStatus: h.qualityStatus
   })) : [];
 
-  const cleanPhotos = photos.filter(p => p.url && p.url.startsWith('http'));
+  const cleanPhotos = photos.filter((p: any) => p && p.url && String(p.url).startsWith('http'));
   const rawDesignImg = formatDirectImageUrl(data.designImage || '');
   const cleanDesignImg = (rawDesignImg && rawDesignImg.startsWith('http')) ? rawDesignImg : (cleanPhotos[0]?.url || undefined);
 

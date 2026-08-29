@@ -261,24 +261,24 @@ export default function App() {
     // 1. Fetch latest authoritative data from Google Apps Script Webhook on startup
     syncWithAppsScript(syncConfig).then(result => {
       if (result && result.success) {
-        if (result.workflow) {
+        if (Array.isArray(result.workflow)) {
           setWorkflowItems(result.workflow);
           saveStoredWorkflowItems(result.workflow);
         }
-        if (result.orderSlips) {
+        if (Array.isArray(result.orderSlips)) {
           setOrderSlips(result.orderSlips);
           saveStoredOrderSlips(result.orderSlips);
         }
-        if (result.inventory && result.inventory.length > 0) {
+        if (Array.isArray(result.inventory) && result.inventory.length > 0) {
           setMaterials(result.inventory);
         }
-        if (result.dispatchOrders) {
+        if (Array.isArray(result.dispatchOrders)) {
           setDispatchOrders(result.dispatchOrders);
         }
-        if (result.partyInvoices && result.partyInvoices.length > 0) {
+        if (Array.isArray(result.partyInvoices) && result.partyInvoices.length > 0) {
           setPartyInvoices(result.partyInvoices);
         }
-        if (result.supplierPayables && result.supplierPayables.length > 0) {
+        if (Array.isArray(result.supplierPayables) && result.supplierPayables.length > 0) {
           setSupplierPayables(result.supplierPayables);
         }
       }
@@ -330,18 +330,18 @@ export default function App() {
         // Fetch authoritative data directly from this latest active spreadsheet!
         syncWithAppsScript(newSyncCfg).then(result => {
           if (result && result.success) {
-            if (result.workflow) {
+            if (Array.isArray(result.workflow)) {
               setWorkflowItems(result.workflow);
               saveStoredWorkflowItems(result.workflow);
             }
-            if (result.orderSlips) {
+            if (Array.isArray(result.orderSlips)) {
               setOrderSlips(result.orderSlips);
               saveStoredOrderSlips(result.orderSlips);
             }
-            if (result.inventory && result.inventory.length > 0) {
+            if (Array.isArray(result.inventory) && result.inventory.length > 0) {
               setMaterials(result.inventory);
             }
-            if (result.dispatchOrders) {
+            if (Array.isArray(result.dispatchOrders)) {
               setDispatchOrders(result.dispatchOrders);
             }
           }
@@ -1371,7 +1371,7 @@ export default function App() {
               id: `tx-refund-${Date.now()}-${taskMat.materialId}`,
               timestamp: new Date().toISOString(),
               materialId: taskMat.materialId,
-              materialName: taskMat.materialName,
+              materialName: taskMat.materialName || mat.name,
               type: 'restock',
               quantity: refundQty,
               unit: taskMat.unit,

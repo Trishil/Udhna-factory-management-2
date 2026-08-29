@@ -837,15 +837,15 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
 
     return {
       success: true,
-      inventory: parsedInventory.length > 0 ? parsedInventory : undefined,
-      workflow: parsedWorkflow.length > 0 ? parsedWorkflow : undefined,
-      orderSlips: parsedOrderSlips.length > 0 ? parsedOrderSlips : undefined,
-      pieces: parsedPieces.length > 0 ? parsedPieces : undefined,
-      dispatchOrders: parsedDispatch.length > 0 ? parsedDispatch : undefined,
-      partyInvoices: parsedPartyInvoices.length > 0 ? parsedPartyInvoices : undefined,
-      supplierPayables: parsedPayables.length > 0 ? parsedPayables : undefined,
-      employees: parsedEmployees.length > 0 ? parsedEmployees : undefined,
-      expenses: parsedExpenses.length > 0 ? parsedExpenses : undefined,
+      inventory: parsedInventory,
+      workflow: parsedWorkflow,
+      orderSlips: parsedOrderSlips,
+      pieces: parsedPieces,
+      dispatchOrders: parsedDispatch,
+      partyInvoices: parsedPartyInvoices,
+      supplierPayables: parsedPayables,
+      employees: parsedEmployees,
+      expenses: parsedExpenses,
       message: `Successfully synchronized from Google Apps Script (${parsedWorkflow.length} lots, ${parsedInventory.length} materials, ${parsedDispatch.length} dispatch orders, ${parsedPartyInvoices.length} invoices).`,
       timestamp
     };
