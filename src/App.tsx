@@ -285,42 +285,28 @@ export default function App() {
 
     // 2. Live real-time bidirectional photo & design sync with Android Mobile app & Firebase
     const unsubscribeDesigns = subscribeToDesigns((firestoreItems) => {
-      if (firestoreItems && firestoreItems.length > 0) {
-        setWorkflowItems((prev) => {
-          const merged = mergeWorkflowItems(prev, firestoreItems);
-          saveStoredWorkflowItems(merged);
-          return merged;
-        });
+      if (Array.isArray(firestoreItems)) {
+        setWorkflowItems(firestoreItems);
+        saveStoredWorkflowItems(firestoreItems);
       }
     });
 
     const unsubscribeSlips = subscribeToOrderSlips((firestoreSlips) => {
-      if (firestoreSlips && firestoreSlips.length > 0) {
-        setOrderSlips((prev) => {
-          const merged = mergeOrderSlips(prev, firestoreSlips);
-          saveStoredOrderSlips(merged);
-          return merged;
-        });
+      if (Array.isArray(firestoreSlips)) {
+        setOrderSlips(firestoreSlips);
+        saveStoredOrderSlips(firestoreSlips);
       }
     });
 
     const unsubscribeMaterials = subscribeToMaterials((firestoreMats) => {
-      if (firestoreMats && firestoreMats.length > 0) {
-        setMaterials((prev) => mergeMaterials(prev, firestoreMats));
+      if (Array.isArray(firestoreMats) && firestoreMats.length > 0) {
+        setMaterials(firestoreMats);
       }
     });
 
     const unsubscribeDispatches = subscribeToDispatchOrders((firestoreDispatches) => {
-      if (firestoreDispatches && firestoreDispatches.length > 0) {
-        setDispatchOrders((prev) => {
-          const map = new Map<string, DispatchOrder>();
-          firestoreDispatches.forEach(d => map.set((d.dispatchNumber || d.id).toLowerCase(), d));
-          prev.forEach(d => {
-            const k = (d.dispatchNumber || d.id).toLowerCase();
-            if (!map.has(k)) map.set(k, d);
-          });
-          return Array.from(map.values());
-        });
+      if (Array.isArray(firestoreDispatches)) {
+        setDispatchOrders(firestoreDispatches);
       }
     });
 

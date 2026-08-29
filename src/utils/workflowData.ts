@@ -618,7 +618,7 @@ export function saveStoredWorkflowItems(items: WorkflowItem[]): void {
 }
 
 export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowItem[]): WorkflowItem[] {
-  if (!incoming || incoming.length === 0) return current || [];
+  if (!incoming || !Array.isArray(incoming)) return current || [];
 
   const currentMap = new Map<string, WorkflowItem>();
   for (const item of (current || [])) {
@@ -626,12 +626,10 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
     if (key) currentMap.set(key, item);
   }
 
-  const seenKeys = new Set<string>();
   const mergedList: WorkflowItem[] = [];
 
   for (const sheetItem of incoming) {
     const key = (sheetItem.lotNumber || sheetItem.jobNo || sheetItem.id || '').trim().toLowerCase();
-    seenKeys.add(key);
 
     if (currentMap.has(key)) {
       const existing = currentMap.get(key)!;
@@ -661,30 +659,12 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
     }
   }
 
-  // Preserve any local/Firestore item created recently that hasn't appeared in the Google Sheet fetch yet
-  for (const item of (current || [])) {
-    const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
-    if (key && !seenKeys.has(key)) {
-      mergedList.push(item);
-    }
-  }
-
   return mergedList;
 }
 
 export function mergeOrderSlips(current: OrderSlip[], incoming: OrderSlip[]): OrderSlip[] {
-  const map = new Map<string, OrderSlip>();
-  for (const slip of incoming) {
-    const key = (slip.jobNo || slip.id || '').trim().toLowerCase();
-    if (key) map.set(key, slip);
-  }
-  for (const slip of current) {
-    const key = (slip.jobNo || slip.id || '').trim().toLowerCase();
-    if (key && !map.has(key)) {
-      map.set(key, slip);
-    }
-  }
-  return Array.from(map.values());
+  if (!incoming || !Array.isArray(incoming)) return current || [];
+  return incoming;
 }
 
 export function getNextStage(currentStage: WorkflowStageId): WorkflowStageId | null {
