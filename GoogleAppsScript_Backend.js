@@ -286,6 +286,15 @@ function doGet(e) {
       // Create a brand new Google Spreadsheet on Drive
       const newSs = SpreadsheetApp.create(compName + " — 10-Stage Production Master");
       
+      // Format all 11 production tabs on the new sheet
+      setupSpreadsheet(newSs);
+
+      // Make the spreadsheet accessible to all company employees
+      try {
+        const file = DriveApp.getFileById(newSs.getId());
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
+      } catch (shareErr) {}
+
       // Share with owner if email provided
       if (ownerEmail && ownerEmail.indexOf("@") > -1) {
         try {
@@ -293,10 +302,11 @@ function doGet(e) {
         } catch(shareErr) {}
       }
 
-      // Also share with admins
+      // Also share with company admins
       try {
         newSs.addEditor("drlaljirpatel@gmail.com");
         newSs.addEditor("trishilbalar@gmail.com");
+        newSs.addEditor("atharvabalar6@gmail.com");
       } catch(adminShareErr) {}
 
       // Register into Company Master Registry
