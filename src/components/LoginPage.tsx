@@ -32,6 +32,7 @@ import {
   OAUTH_CLIENT_ID,
   FIREBASE_OAUTH_CLIENT_ID
 } from '../services/googleAuth';
+import { logEmployeeLoginToMaster } from '../services/masterRegistryService';
 
 interface LoginPageProps {
   onLoginSuccess: (user: AuthUser, sheetId: string) => void;
@@ -183,6 +184,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         loginTimestamp: new Date().toISOString()
       };
 
+      logEmployeeLoginToMaster({
+        email: authUser.email,
+        name: authUser.name,
+        role: authUser.role,
+        companyCode: workspace.code
+      }).catch(() => {});
+
       setAuthStep(`Welcome, ${authUser.name}! Launching ${workspace.name}...`);
       setTimeout(() => {
         onLoginSuccess(authUser, workspace.sheetId);
@@ -216,6 +224,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         regOwnerEmail,
         regSheetId
       );
+
+      logEmployeeLoginToMaster({
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        companyCode: workspace.code
+      }).catch(() => {});
 
       setCompanyCode(workspace.code);
       setRememberedCompanyCode(workspace.code);
@@ -257,6 +272,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         setAuthStep('');
         return;
       }
+
+      logEmployeeLoginToMaster({
+        email: result.user.email,
+        name: result.user.name,
+        role: result.user.role,
+        companyCode: result.workspace.code
+      }).catch(() => {});
 
       setCompanyCode(result.workspace.code);
       setRememberedCompanyCode(result.workspace.code);
