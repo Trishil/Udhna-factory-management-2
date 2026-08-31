@@ -64,7 +64,8 @@ interface CreateNewSheetModalProps {
     sheetUrl: string, 
     title: string, 
     dataTransferMode?: 'fresh' | 'transfer_all' | 'transfer_selected',
-    selectedSlipIds?: string[]
+    selectedSlipIds?: string[],
+    customScriptUrl?: string
   ) => void;
   onUpdateCurrentUser?: (user: AuthUser) => void;
 }
@@ -118,6 +119,8 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
     return clean;
   };
 
+  const [customScriptUrl, setCustomScriptUrl] = useState('');
+
   const handleLinkCustomSheet = (sheetInput: string, customTitle: string) => {
     const sheetId = extractSheetId(sheetInput);
     if (!sheetId) {
@@ -125,10 +128,12 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
       return;
     }
     const fullUrl = sheetInput.includes('https://') ? sheetInput.trim() : `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
-    
+    const cleanScriptUrl = customScriptUrl.trim() || undefined;
+
     // Automatically trigger 11-tab generation in background on Google Drive
     try {
-      const populateUrl = `${DEFAULT_APPS_SCRIPT_URL}?action=populate_sheet_tabs&sheetId=${encodeURIComponent(sheetId)}`;
+      const endpoint = cleanScriptUrl || DEFAULT_APPS_SCRIPT_URL;
+      const populateUrl = `${endpoint}?action=populate_sheet_tabs&sheetId=${encodeURIComponent(sheetId)}`;
       fetch(populateUrl, { method: 'GET', mode: 'no-cors' }).catch(() => {});
     } catch (e) {}
 
@@ -139,7 +144,7 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
       mode: 'google'
     });
 
-    onSpreadsheetCreated(sheetId, fullUrl, customTitle, dataTransferMode, selectedSlipIds);
+    onSpreadsheetCreated(sheetId, fullUrl, customTitle, dataTransferMode, selectedSlipIds, cleanScriptUrl);
     confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
   };
 
@@ -625,6 +630,27 @@ export const CreateNewSheetModal: React.FC<CreateNewSheetModalProps> = ({
                       required={creationMode === 'custom'}
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
+
+                    <div className="pt-2 border-t border-slate-200/80">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="font-semibold text-slate-700 text-[11px]">Apps Script Web App URL <span className="text-slate-400 font-normal">(Optional)</span></label>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('script')}
+                          className="text-[10px] text-blue-600 hover:underline flex items-center space-x-1"
+                        >
+                          <Code2 className="h-3 w-3" />
+                          <span>Get Script Code</span>
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={customScriptUrl}
+                        onChange={(e) => setCustomScriptUrl(e.target.value)}
+                        placeholder="https://script.google.com/macros/s/.../exec (leave blank to use cloud webhook)"
+                        className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </div>
                   </div>
                 )}
 

@@ -140,9 +140,11 @@ export default function App() {
   const [syncConfig, setSyncConfig] = useState<SyncConfig>(() => {
     const saved = localStorage.getItem('factory_sync_config');
     const storedId = getStoredSheetId();
-    const base = saved ? JSON.parse(saved) : INITIAL_SYNC_CONFIG;
-    base.scriptUrl = INITIAL_SYNC_CONFIG.scriptUrl;
-    base.deploymentId = INITIAL_SYNC_CONFIG.deploymentId;
+    const base = saved ? JSON.parse(saved) : { ...INITIAL_SYNC_CONFIG };
+    if (!base.scriptUrl) {
+      base.scriptUrl = INITIAL_SYNC_CONFIG.scriptUrl;
+      base.deploymentId = INITIAL_SYNC_CONFIG.deploymentId;
+    }
     if (storedId) {
       base.sheetId = storedId;
       base.sheetUrl = `https://docs.google.com/spreadsheets/d/${storedId}/edit`;
@@ -1429,27 +1431,31 @@ export default function App() {
   };
 
   // Handle Brand-New Spreadsheet Creation & Global Company Distribution
+  // Handle Brand-New Spreadsheet Creation & Global Company Distribution
   const handleSpreadsheetCreated = (
     sheetId: string, 
     sheetUrl: string, 
     title: string,
     dataTransferMode: 'fresh' | 'transfer_all' | 'transfer_selected' = 'fresh',
-    selectedSlipIds: string[] = []
+    selectedSlipIds: string[] = [],
+    customScriptUrl?: string
   ) => {
     setStoredSheetId(sheetId);
     const newCfg: SyncConfig = {
       ...syncConfig,
       sheetId,
       sheetUrl,
+      scriptUrl: customScriptUrl || syncConfig.scriptUrl,
       syncStatus: 'synced',
       lastSyncTimestamp: new Date().toISOString()
     };
     setSyncConfig(newCfg);
+    localStorage.setItem('factory_sync_config', JSON.stringify(newCfg));
 
     saveCompanySpreadsheetConfig({
       sheetId,
       sheetUrl,
-      scriptUrl: syncConfig.scriptUrl,
+      scriptUrl: customScriptUrl || syncConfig.scriptUrl,
       deploymentId: syncConfig.deploymentId,
       ownerEmail: currentUser?.email || 'admin@udhna.com',
       title,
@@ -1469,6 +1475,7 @@ export default function App() {
       saveStoredWorkflowItems([]);
       saveStoredOrderSlips([]);
       localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
+      localStorage.setItem('factory_demo_orders_cleared_v5', 'true');
 
       // Wipe Firestore so old designs and slips are deleted permanently from cloud
       clearAllFirestoreOrders().catch(() => {});
@@ -1522,6 +1529,7 @@ export default function App() {
       saveStoredWorkflowItems([]);
       saveStoredOrderSlips([]);
       localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
+      localStorage.setItem('factory_demo_orders_cleared_v5', 'true');
 
       // Wipe Firestore collections so cloud listeners don't resurrect them
       clearAllFirestoreOrders().catch(() => {});
