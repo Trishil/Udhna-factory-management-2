@@ -460,6 +460,13 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
   }
+
+  // 11. Handle Explicit Clear Orders
+  if (e && e.parameter && (e.parameter.action === "clear_all_orders" || e.parameter.action === "wipe_orders")) {
+    clearOrdersFromSheets(ss);
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Orders cleared successfully" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
   // 9. Handle Material Delete via GET query parameter
   if (e && e.parameter && (e.parameter.action === "delete_material") && (e.parameter.id || e.parameter.sku || e.parameter.data)) {
     try {
@@ -1592,57 +1599,64 @@ function saveFabricColorMatrixToSheet(ss, item) {
 }
 
 /**
- * Full state synchronization from web/mobile app
+ * Atomic in-place state synchronization (No clearContent, No disappearing rows!)
  */
 function saveFullBatchStateToSheet(ss, payload) {
-  // 1. Sync Master Order Slips tab
-  if (payload.orderSlips && Array.isArray(payload.orderSlips)) {
+  // 1. In-place upsert Master Order Slips tab
+  if (payload.orderSlips && Array.isArray(payload.orderSlips) && payload.orderSlips.length > 0) {
     let slipSheet = ss.getSheetByName("Master Order Slips");
+    if (!slipSheet) {
+      setupSpreadsheet();
+      slipSheet = ss.getSheetByName("Master Order Slips");
+    }
     if (slipSheet) {
-      const lastRow = slipSheet.getLastRow();
-      if (lastRow > 1) {
-        slipSheet.getRange(2, 1, lastRow - 1, slipSheet.getLastColumn() || 16).clearContent();
-      }
-      payload.orderSlips.forEach(function(s) { saveOrderSlipToSheet(ss, s); });
+      payload.orderSlips.forEach(function(slip) {
+        saveOrderSlipToSheet(ss, slip);
+      });
     }
   }
 
-  // 2. Sync Fabric Design Workflow tab
-  if (payload.workflow && Array.isArray(payload.workflow)) {
+  // 2. In-place upsert Fabric Design Workflow tab
+  if (payload.workflow && Array.isArray(payload.workflow) && payload.workflow.length > 0) {
     let wfSheet = ss.getSheetByName("Fabric Design Workflow");
-    if (wfSheet) {
-      const lastRow = wfSheet.getLastRow();
-      if (lastRow > 1) {
-        wfSheet.getRange(2, 1, lastRow - 1, wfSheet.getLastColumn() || 26).clearContent();
-      }
-      payload.workflow.forEach(function(w) { saveWorkflowItemToSheet(ss, w); });
+    if (!wfSheet) {
+      setupSpreadsheet();
+      wfSheet = ss.getSheetByName("Fabric Design Workflow");
     }
-
-    // Also sync Fabric & Color Matrix
-    let matSheet = ss.getSheetByName("Fabric & Color Matrix");
-    if (matSheet) {
-      const lastRow = matSheet.getLastRow();
-      if (lastRow > 1) {
-        matSheet.getRange(2, 1, lastRow - 1, matSheet.getLastColumn() || 20).clearContent();
-      }
-      payload.workflow.forEach(function(w) { saveFabricColorMatrixRowToSheet(ss, w); });
+    if (wfSheet) {
+      payload.workflow.forEach(function(item) {
+        saveWorkflowItemToSheet(ss, item);
+      });
     }
   }
 
-  // 3. Sync Piece-Level Tracking tab
-  if (payload.pieces && Array.isArray(payload.pieces)) {
+  // 3. In-place upsert Piece-Level Tracking tab
+  if (payload.pieces && Array.isArray(payload.pieces) && payload.pieces.length > 0) {
     savePieceUnitsToSheet(ss, payload.pieces);
   }
 
-  // 4. Sync Inventory
-  if (payload.inventory && Array.isArray(payload.inventory)) {
+  // 4. In-place upsert Inventory
+  if (payload.inventory && Array.isArray(payload.inventory) && payload.inventory.length > 0) {
     payload.inventory.forEach(function(m) { saveMaterialToSheet(ss, m); });
   }
 
-  // 5. Sync Dispatch
-  if (payload.dispatch && Array.isArray(payload.dispatch)) {
+  // 5. In-place upsert Dispatch
+  if (payload.dispatch && Array.isArray(payload.dispatch) && payload.dispatch.length > 0) {
     payload.dispatch.forEach(function(d) { saveDispatchOrderToSheet(ss, d); });
   }
+}
+
+function clearOrdersFromSheets(ss) {
+  const tabs = ["Fabric Design Workflow", "Piece-Level Tracking", "Fabric & Color Matrix", "Master Order Slips"];
+  tabs.forEach(function(tabName) {
+    const sheet = ss.getSheetByName(tabName);
+    if (sheet) {
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn() || 26).clearContent();
+      }
+    }
+  });
 }
 
 

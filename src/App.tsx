@@ -1599,14 +1599,11 @@ export default function App() {
       // Wipe Firestore collections so cloud listeners don't resurrect them
       clearAllFirestoreOrders().catch(() => {});
 
-      // Push cleared state to spreadsheet
-      pushFullStateToAppsScript(syncConfig, {
-        orderSlips: [],
-        workflow: [],
-        pieces: [],
-        inventory: materials,
-        dispatch: []
-      });
+      // Send explicit clear command to spreadsheet
+      const endpoint = syncConfig.scriptUrl || (syncConfig.deploymentId ? `https://script.google.com/macros/s/${syncConfig.deploymentId}/exec` : null);
+      if (endpoint && syncConfig.sheetId) {
+        fetch(`${endpoint}?action=clear_all_orders&sheetId=${encodeURIComponent(syncConfig.sheetId)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+      }
 
       setLastAutoEntryNotice('All demo orders cleared! Floor is now completely blank and ready for fresh entry.');
       setTimeout(() => setLastAutoEntryNotice(null), 4000);
