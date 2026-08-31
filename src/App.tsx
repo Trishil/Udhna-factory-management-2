@@ -59,6 +59,11 @@ import {
 } from './services/googleSheetsApi';
 import { getStoredAuthUser, saveStoredAuthUser, getStoredSheetId, setStoredSheetId, getActiveWorkspace } from './services/googleAuth';
 import { 
+  fetchActiveMasterWorkspace, 
+  publishActiveWorkspaceToMaster, 
+  logEmployeeLoginToMaster 
+} from './services/masterRegistryService';
+import { 
   getStoredWorkflowItems, 
   saveStoredWorkflowItems, 
   getStoredOrderSlips, 
@@ -260,31 +265,63 @@ export default function App() {
       localStorage.setItem('factory_finance_cleared_v2', 'true');
     }
 
-    // 1. Fetch latest authoritative data from Google Apps Script Webhook on startup
-    syncWithAppsScript(syncConfig).then(result => {
-      if (result && result.success) {
-        if (Array.isArray(result.workflow)) {
-          setWorkflowItems(result.workflow);
-          saveStoredWorkflowItems(result.workflow);
-        }
-        if (Array.isArray(result.orderSlips)) {
-          setOrderSlips(result.orderSlips);
-          saveStoredOrderSlips(result.orderSlips);
-        }
-        if (Array.isArray(result.inventory) && result.inventory.length > 0) {
-          setMaterials(result.inventory);
-        }
-        if (Array.isArray(result.dispatchOrders)) {
-          setDispatchOrders(result.dispatchOrders);
-        }
-        if (Array.isArray(result.partyInvoices) && result.partyInvoices.length > 0) {
-          setPartyInvoices(result.partyInvoices);
-        }
-        if (Array.isArray(result.supplierPayables) && result.supplierPayables.length > 0) {
-          setSupplierPayables(result.supplierPayables);
-        }
+    // 1. Fetch latest authoritative data from Master Registry & Google Apps Script Webhook on startup
+    fetchActiveMasterWorkspace('TRISHARTH-HQ').then(masterWs => {
+      const activeSheetId = masterWs?.sheetId || syncConfig.sheetId;
+      const targetCfg: SyncConfig = masterWs?.sheetId ? {
+        ...syncConfig,
+        sheetId: masterWs.sheetId,
+        sheetUrl: masterWs.sheetUrl || `https://docs.google.com/spreadsheets/d/${masterWs.sheetId}/edit`,
+        scriptUrl: masterWs.scriptUrl || syncConfig.scriptUrl,
+        deploymentId: masterWs.deploymentId || syncConfig.deploymentId,
+        syncStatus: 'synced',
+        lastSyncTimestamp: new Date().toISOString()
+      } : syncConfig;
+
+      if (masterWs?.sheetId) {
+        setStoredSheetId(masterWs.sheetId);
+        setSyncConfig(targetCfg);
+        localStorage.setItem('factory_sync_config', JSON.stringify(targetCfg));
       }
-    }).catch(() => {});
+
+      syncWithAppsScript(targetCfg).then(result => {
+        if (result && result.success) {
+          if (Array.isArray(result.workflow)) {
+            setWorkflowItems(result.workflow);
+            saveStoredWorkflowItems(result.workflow);
+          }
+          if (Array.isArray(result.orderSlips)) {
+            setOrderSlips(result.orderSlips);
+            saveStoredOrderSlips(result.orderSlips);
+          }
+          if (Array.isArray(result.inventory) && result.inventory.length > 0) {
+            setMaterials(result.inventory);
+          }
+          if (Array.isArray(result.dispatchOrders)) {
+            setDispatchOrders(result.dispatchOrders);
+          }
+          if (Array.isArray(result.partyInvoices) && result.partyInvoices.length > 0) {
+            setPartyInvoices(result.partyInvoices);
+          }
+          if (Array.isArray(result.supplierPayables) && result.supplierPayables.length > 0) {
+            setSupplierPayables(result.supplierPayables);
+          }
+        }
+      }).catch(() => {});
+    }).catch(() => {
+      syncWithAppsScript(syncConfig).then(result => {
+        if (result && result.success) {
+          if (Array.isArray(result.workflow)) {
+            setWorkflowItems(result.workflow);
+            saveStoredWorkflowItems(result.workflow);
+          }
+          if (Array.isArray(result.orderSlips)) {
+            setOrderSlips(result.orderSlips);
+            saveStoredOrderSlips(result.orderSlips);
+          }
+        }
+      }).catch(() => {});
+    });
 
     // 2. Live real-time bidirectional photo & design sync with Android Mobile app & Firebase
     const unsubscribeDesigns = subscribeToDesigns((firestoreItems) => {
@@ -411,6 +448,14 @@ export default function App() {
     saveStoredAuthUser(user);
     setStoredSheetId(sheetId);
     
+    // Log user login to Master Registry Spreadsheet (1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ)
+    logEmployeeLoginToMaster({
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      companyCode: user.companyCode || 'TRISHARTH-HQ'
+    }).catch(() => {});
+
     const activeWs = getActiveWorkspace();
     const scriptUrl = activeWs.scriptUrl || syncConfig.scriptUrl;
 
@@ -1462,6 +1507,17 @@ export default function App() {
       companyName: 'Udhna Factory',
       updatedAt: new Date().toISOString()
     });
+
+    // Automatically publish to Universal Master Registry Spreadsheet (1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ)
+    publishActiveWorkspaceToMaster({
+      code: 'TRISHARTH-HQ',
+      name: title || 'Trisharth',
+      sheetId,
+      sheetUrl,
+      scriptUrl: customScriptUrl || syncConfig.scriptUrl,
+      deploymentId: syncConfig.deploymentId,
+      updatedBy: currentUser?.email || 'admin@trisharth.com'
+    }).catch(() => {});
 
     let targetSlips: OrderSlip[] = [];
     let targetItems: WorkflowItem[] = [];

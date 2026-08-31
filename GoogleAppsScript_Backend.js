@@ -218,6 +218,40 @@ function doGet(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
+    // 0. Master Registry Lookup (Single Universal Directory: 1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ)
+    if (e && e.parameter && (e.parameter.action === "get_master_workspace" || e.parameter.action === "get_active_workspace")) {
+      const code = (e.parameter.companyCode || e.parameter.code || "TRISHARTH-HQ").trim().toUpperCase();
+      const ws = lookupMasterWorkspace(code);
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", workspace: ws }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 0.1 Master Registry Save / Update Workspace
+    if (e && e.parameter && (e.parameter.action === "register_master_workspace" || e.parameter.action === "update_master_workspace") && e.parameter.data) {
+      try {
+        const wsData = JSON.parse(decodeURIComponent(e.parameter.data));
+        registerMasterWorkspace(wsData);
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Master workspace updated" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch(err) {
+        return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // 0.2 Master Registry Log Employee Login
+    if (e && e.parameter && e.parameter.action === "register_master_employee" && e.parameter.data) {
+      try {
+        const empData = JSON.parse(decodeURIComponent(e.parameter.data));
+        registerMasterEmployee(empData);
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Employee registered in master sheet" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch(err) {
+        return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
     // 1. Company Code Lookup
     if (e && e.parameter && e.parameter.action === "get_company" && e.parameter.code) {
       const code = e.parameter.code.trim().toUpperCase();
@@ -556,6 +590,18 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
     
+    if (body.action === "register_master_workspace" || body.action === "update_master_workspace") {
+      registerMasterWorkspace(body.workspace || body.data || body);
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Master workspace updated" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (body.action === "register_master_employee") {
+      registerMasterEmployee(body.employee || body.data || body);
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Employee registered in master sheet" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     if (body.action === "upload_photo") {
       const publicUrl = uploadPhotoToDrive(body.lotNumber, body.base64 || body.imageBase64, body.mimeType, body.stage);
       if (body.lotNumber && publicUrl) {
@@ -794,6 +840,174 @@ function getStepNumber(stage) {
     'inspection_alter': 7, 'altering': 8, 'folding': 9, 'prepare_dispatch': 10
   };
   return map[String(stage).toLowerCase()] || 1;
+}
+
+/**
+ * =========================================================================
+ * UNIVERSAL MASTER DIRECTORY (Spreadsheet ID: 1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ)
+ * Automatically keeps all employees & devices connected to the latest active sheet.
+ * =========================================================================
+ */
+const MASTER_REGISTRY_SPREADSHEET_ID = "1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ";
+
+function getMasterRegistrySS() {
+  try {
+    return SpreadsheetApp.openById(MASTER_REGISTRY_SPREADSHEET_ID);
+  } catch (e) {
+    try { return SpreadsheetApp.getActiveSpreadsheet(); } catch (err) { return null; }
+  }
+}
+
+/**
+ * Reads active workspace configuration from Master Registry (1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ)
+ */
+function lookupMasterWorkspace(companyCode) {
+  const cleanCode = String(companyCode || "TRISHARTH-HQ").trim().toUpperCase();
+  const masterSS = getMasterRegistrySS();
+  if (!masterSS) {
+    return {
+      name: "Trisharth",
+      code: "TRISHARTH-HQ",
+      sheetId: "1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU",
+      sheetUrl: "https://docs.google.com/spreadsheets/d/1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU/edit",
+      scriptUrl: "https://script.google.com/macros/s/AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q/exec",
+      deploymentId: "AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q"
+    };
+  }
+
+  let wsSheet = masterSS.getSheetByName("Company_Workspaces") || masterSS.getSheetByName("Sheet1");
+  if (!wsSheet) {
+    try {
+      wsSheet = masterSS.insertSheet("Company_Workspaces");
+      wsSheet.appendRow([
+        'Company Code', 'Company Name', 'Active Sheet ID', 'Active Sheet URL',
+        'Script Webhook URL', 'Deployment ID', 'Last Updated', 'Updated By Email'
+      ]);
+    } catch(e) {
+      wsSheet = masterSS.getSheets()[0];
+    }
+  }
+
+  const data = wsSheet.getDataRange().getValues();
+  if (data.length > 1) {
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowCode = String(row[0] || "").trim().toUpperCase();
+      if (rowCode === cleanCode || (cleanCode.includes("TRISHARTH") && rowCode.includes("TRISHARTH"))) {
+        return {
+          code: rowCode,
+          name: String(row[1] || "Trisharth"),
+          sheetId: String(row[2] || ""),
+          sheetUrl: String(row[3] || (row[2] ? `https://docs.google.com/spreadsheets/d/${row[2]}/edit` : "")),
+          scriptUrl: String(row[4] || ""),
+          deploymentId: String(row[5] || ""),
+          lastUpdated: String(row[6] || new Date().toISOString()),
+          updatedBy: String(row[7] || "")
+        };
+      }
+    }
+  }
+
+  return {
+    name: "Trisharth",
+    code: cleanCode,
+    sheetId: "1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU",
+    sheetUrl: "https://docs.google.com/spreadsheets/d/1EmktCF7d0DjqxnF04Eh1AiQJd6RHOy5GoAMpNvz0sFU/edit",
+    scriptUrl: "https://script.google.com/macros/s/AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q/exec",
+    deploymentId: "AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q"
+  };
+}
+
+/**
+ * Saves/Registers active workspace configuration to Master Registry (1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ)
+ */
+function registerMasterWorkspace(workspaceData) {
+  const masterSS = getMasterRegistrySS();
+  if (!masterSS) return false;
+
+  let wsSheet = masterSS.getSheetByName("Company_Workspaces");
+  if (!wsSheet) {
+    try {
+      wsSheet = masterSS.insertSheet("Company_Workspaces");
+      wsSheet.appendRow([
+        'Company Code', 'Company Name', 'Active Sheet ID', 'Active Sheet URL',
+        'Script Webhook URL', 'Deployment ID', 'Last Updated', 'Updated By Email'
+      ]);
+    } catch(e) {
+      wsSheet = masterSS.getSheets()[0];
+    }
+  }
+
+  const code = String(workspaceData.companyCode || workspaceData.code || "TRISHARTH-HQ").trim().toUpperCase();
+  const name = workspaceData.companyName || workspaceData.name || "Trisharth";
+  const sheetId = String(workspaceData.sheetId || "").trim();
+  const sheetUrl = workspaceData.sheetUrl || (sheetId ? `https://docs.google.com/spreadsheets/d/${sheetId}/edit` : "");
+  const scriptUrl = workspaceData.scriptUrl || "";
+  const deploymentId = workspaceData.deploymentId || "";
+  const lastUpdated = new Date().toISOString();
+  const updatedBy = workspaceData.updatedBy || workspaceData.ownerEmail || "";
+
+  const data = wsSheet.getDataRange().getValues();
+  let foundRowIdx = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || "").trim().toUpperCase() === code) {
+      foundRowIdx = i + 1;
+      break;
+    }
+  }
+
+  const rowValues = [code, name, sheetId, sheetUrl, scriptUrl, deploymentId, lastUpdated, updatedBy];
+  if (foundRowIdx > 0) {
+    wsSheet.getRange(foundRowIdx, 1, 1, rowValues.length).setValues([rowValues]);
+  } else {
+    wsSheet.appendRow(rowValues);
+  }
+  return true;
+}
+
+/**
+ * Logs an employee sign-in or registration into Master Registry (1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ)
+ */
+function registerMasterEmployee(empData) {
+  const masterSS = getMasterRegistrySS();
+  if (!masterSS) return false;
+
+  let empSheet = masterSS.getSheetByName("Registered_Employees");
+  if (!empSheet) {
+    try {
+      empSheet = masterSS.insertSheet("Registered_Employees");
+      empSheet.appendRow([
+        'Email', 'Full Name', 'Role', 'Company Code', 'Last Login Timestamp', 'Platform'
+      ]);
+    } catch(e) {
+      empSheet = masterSS.getSheets()[0];
+    }
+  }
+
+  const email = String(empData.email || "").trim().toLowerCase();
+  if (!email) return false;
+  const name = empData.name || empData.fullName || email.split('@')[0];
+  const role = empData.role || "Employee";
+  const code = String(empData.companyCode || "TRISHARTH-HQ").trim().toUpperCase();
+  const timestamp = new Date().toISOString();
+  const platform = empData.platform || "Web / Mobile";
+
+  const data = empSheet.getDataRange().getValues();
+  let foundRowIdx = -1;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0] || "").trim().toLowerCase() === email) {
+      foundRowIdx = i + 1;
+      break;
+    }
+  }
+
+  const rowValues = [email, name, role, code, timestamp, platform];
+  if (foundRowIdx > 0) {
+    empSheet.getRange(foundRowIdx, 1, 1, rowValues.length).setValues([rowValues]);
+  } else {
+    empSheet.appendRow(rowValues);
+  }
+  return true;
 }
 
 /**
