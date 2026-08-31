@@ -339,16 +339,20 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
 
     // Generate individual workflow items for each cell with quantity > 0
     const generatedItems: WorkflowItem[] = [];
+    const jobClean = jobNo.trim().replace(/[^a-zA-Z0-9]/g, '_');
+    
     colorRows.forEach((row, rIdx) => {
       fabricColumns.forEach((colName, cIdx) => {
         const qty = Number(row.fabricQuantities[colName]) || 0;
         if (qty > 0) {
+          const colClean = colName.trim().replace(/[^a-zA-Z0-9]/g, '');
           const itemId = `wf-${slipId}-${rIdx}-${cIdx}`;
           const itemDNo = row.designNumber || 'DSG-101';
+          const lotNum = `LOT-${jobClean}-${colClean}-${rIdx + 1}`;
           
           const newItem: WorkflowItem = {
             id: itemId,
-            lotNumber: `LOT-${jobNo}-${rIdx + 1}`,
+            lotNumber: lotNum,
             jobNo: jobNo,
             designNumber: itemDNo,
             designName: `${partyName} ${colName} (${row.colorName})`,
