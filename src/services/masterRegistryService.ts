@@ -6,7 +6,8 @@
 
 export const MASTER_REGISTRY_SPREADSHEET_ID = "1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ";
 export const MASTER_REGISTRY_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1t3kPLZw_SKIxt-fEdYGR_Mdl8qA8gDTFBCGFU5hsSoQ/edit";
-export const MASTER_REGISTRY_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxlA7_cP7FeIuXjJrqgj9TdVvtu5ok0WRlRU-n5JaS2OS2d16xVVW9QMG500Atqlwxc2Q/exec";
+export const MASTER_REGISTRY_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxsRItplGQYqm4_v_exT4Xe9nyPRIhRk4CSz2Dosnxt4hmNUmA4cKlJCW33Ff_yXuBh/exec";
+export const MASTER_REGISTRY_DEPLOYMENT_ID = "AKfycbxsRItplGQYqm4_v_exT4Xe9nyPRIhRk4CSz2Dosnxt4hmNUmA4cKlJCW33Ff_yXuBh";
 
 export interface MasterWorkspaceConfig {
   code: string;
