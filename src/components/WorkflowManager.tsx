@@ -135,7 +135,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
   };
 
   const effectiveItems = useMemo(() => {
-    return (items && items.length > 0) ? items : INITIAL_WORKFLOW_ITEMS;
+    return items || [];
   }, [items]);
 
   // Filter items

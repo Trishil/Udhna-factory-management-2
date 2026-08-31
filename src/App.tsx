@@ -325,16 +325,25 @@ export default function App() {
 
     // 2. Live real-time bidirectional photo & design sync with Android Mobile app & Firebase
     const unsubscribeDesigns = subscribeToDesigns((firestoreItems) => {
-      if (Array.isArray(firestoreItems)) {
-        setWorkflowItems(firestoreItems);
-        saveStoredWorkflowItems(firestoreItems);
+      if (Array.isArray(firestoreItems) && firestoreItems.length > 0) {
+        setWorkflowItems(prev => {
+          const merged = mergeWorkflowItems(prev, firestoreItems);
+          saveStoredWorkflowItems(merged);
+          return merged;
+        });
       }
     });
 
     const unsubscribeSlips = subscribeToOrderSlips((firestoreSlips) => {
-      if (Array.isArray(firestoreSlips)) {
-        setOrderSlips(firestoreSlips);
-        saveStoredOrderSlips(firestoreSlips);
+      if (Array.isArray(firestoreSlips) && firestoreSlips.length > 0) {
+        setOrderSlips(prev => {
+          const map = new Map<string, OrderSlip>();
+          prev.forEach(s => map.set((s.jobNo || s.id).trim().toLowerCase(), s));
+          firestoreSlips.forEach(s => map.set((s.jobNo || s.id).trim().toLowerCase(), s));
+          const merged = Array.from(map.values());
+          saveStoredOrderSlips(merged);
+          return merged;
+        });
       }
     });
 

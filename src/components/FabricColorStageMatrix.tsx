@@ -58,11 +58,11 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
   const [completionFilter, setCompletionFilter] = useState<'all' | 'remaining' | 'completed' | 'altering'>('all');
 
   const effectiveItems = useMemo(() => {
-    return (items && items.length > 0) ? items : INITIAL_WORKFLOW_ITEMS;
+    return items || [];
   }, [items]);
 
   const effectiveSlips = useMemo(() => {
-    return (orderSlips && orderSlips.length > 0) ? orderSlips : DEFAULT_ORDER_SLIPS;
+    return orderSlips || [];
   }, [orderSlips]);
 
   // Move pieces / Stage update modal state

@@ -99,16 +99,19 @@ function doGet(e) {
     if (action === "register_master_workspace" || action === "update_master_workspace" || action === "set_active_sheet") {
       let data = {};
       if (e && e.parameter && e.parameter.data) {
-        data = JSON.parse(decodeURIComponent(e.parameter.data));
-      } else if (e && e.parameter) {
-        data = {
-          companyCode: e.parameter.companyCode || e.parameter.code,
-          sheetId: e.parameter.sheetId,
-          sheetUrl: e.parameter.sheetUrl,
-          scriptUrl: e.parameter.scriptUrl,
-          deploymentId: e.parameter.deploymentId,
-          updatedBy: e.parameter.updatedBy || e.parameter.email
-        };
+        try {
+          data = JSON.parse(e.parameter.data);
+        } catch (err1) {
+          try { data = JSON.parse(decodeURIComponent(e.parameter.data)); } catch (err2) { data = {}; }
+        }
+      }
+      if (!data.sheetId && e && e.parameter && e.parameter.sheetId) {
+        data.sheetId = e.parameter.sheetId;
+        data.sheetUrl = e.parameter.sheetUrl;
+        data.scriptUrl = e.parameter.scriptUrl;
+        data.deploymentId = e.parameter.deploymentId;
+        data.companyCode = e.parameter.companyCode || e.parameter.code;
+        data.updatedBy = e.parameter.updatedBy;
       }
       const updated = saveWorkspaceRecord(ss, data);
       return createJsonResponse({ status: "success", workspace: updated, message: "Active workspace updated in master registry" });
@@ -118,15 +121,18 @@ function doGet(e) {
     if (action === "register_master_employee" || action === "log_employee") {
       let emp = {};
       if (e && e.parameter && e.parameter.data) {
-        emp = JSON.parse(decodeURIComponent(e.parameter.data));
-      } else if (e && e.parameter) {
-        emp = {
-          email: e.parameter.email,
-          name: e.parameter.name,
-          role: e.parameter.role,
-          companyCode: e.parameter.companyCode,
-          platform: e.parameter.platform
-        };
+        try {
+          emp = JSON.parse(e.parameter.data);
+        } catch (err1) {
+          try { emp = JSON.parse(decodeURIComponent(e.parameter.data)); } catch (err2) { emp = {}; }
+        }
+      }
+      if (!emp.email && e && e.parameter && e.parameter.email) {
+        emp.email = e.parameter.email;
+        emp.name = e.parameter.name;
+        emp.role = e.parameter.role;
+        emp.companyCode = e.parameter.companyCode;
+        emp.platform = e.parameter.platform;
       }
       saveEmployeeRecord(ss, emp);
       return createJsonResponse({ status: "success", message: "Employee logged in master registry" });
