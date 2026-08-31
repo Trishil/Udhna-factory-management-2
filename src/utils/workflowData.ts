@@ -626,10 +626,12 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
     if (key) currentMap.set(key, item);
   }
 
+  const seenKeys = new Set<string>();
   const mergedList: WorkflowItem[] = [];
 
   for (const sheetItem of incoming) {
     const key = (sheetItem.lotNumber || sheetItem.jobNo || sheetItem.id || '').trim().toLowerCase();
+    if (key) seenKeys.add(key);
 
     if (currentMap.has(key)) {
       const existing = currentMap.get(key)!;
@@ -646,8 +648,9 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
       const chosenImage = validSheetImage || validExistingImage || combinedPhotos[0]?.url || undefined;
 
       mergedList.push({
+        ...existing,
         ...sheetItem,
-        photos: combinedPhotos,
+        photos: combinedPhotos.length > 0 ? combinedPhotos : existing.photos,
         designImage: chosenImage,
         stageHistory: (sheetItem.stageHistory && sheetItem.stageHistory.length >= (existing.stageHistory?.length || 0))
           ? sheetItem.stageHistory
@@ -659,12 +662,37 @@ export function mergeWorkflowItems(current: WorkflowItem[], incoming: WorkflowIt
     }
   }
 
+  // Retain freshly created local items that have not yet synced to Google Sheets
+  for (const item of (current || [])) {
+    const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
+    if (key && !seenKeys.has(key)) {
+      mergedList.push(item);
+    }
+  }
+
   return mergedList;
 }
 
 export function mergeOrderSlips(current: OrderSlip[], incoming: OrderSlip[]): OrderSlip[] {
   if (!incoming || !Array.isArray(incoming)) return current || [];
-  return incoming;
+  const map = new Map<string, OrderSlip>();
+  
+  // 1. Put existing slips from local memory
+  (current || []).forEach(s => {
+    const key = (s.jobNo || s.id || '').trim().toLowerCase();
+    if (key) map.set(key, s);
+  });
+
+  // 2. Merge incoming slips
+  incoming.forEach(s => {
+    const key = (s.jobNo || s.id || '').trim().toLowerCase();
+    if (key) {
+      const existing = map.get(key);
+      map.set(key, { ...(existing || {}), ...s });
+    }
+  });
+
+  return Array.from(map.values());
 }
 
 export function getNextStage(currentStage: WorkflowStageId): WorkflowStageId | null {

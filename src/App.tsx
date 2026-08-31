@@ -2459,7 +2459,7 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // Workflow Handlers & Realtime Firestore sync with Android App
+  // Workflow Handlers & Realtime storage persistence
   useEffect(() => {
     saveStoredWorkflowItems(workflowItems);
   }, [workflowItems]);
@@ -2467,90 +2467,6 @@ export default function App() {
   useEffect(() => {
     saveStoredOrderSlips(orderSlips);
   }, [orderSlips]);
-
-  useEffect(() => {
-    const unsubDesigns = subscribeToDesigns(async (remoteDesigns) => {
-      if (remoteDesigns && remoteDesigns.length > 0) {
-        let mergedList: WorkflowItem[] = [];
-        setWorkflowItems((prev) => {
-          const map = new Map<string, WorkflowItem>();
-          
-          // 1. Put current items keyed by lot / id
-          (prev || []).forEach(item => {
-            const key = (item.lotNumber || item.jobNo || item.id || '').trim().toLowerCase();
-            if (key) map.set(key, item);
-          });
-
-          // 2. Merge remote Firestore items
-          remoteDesigns.forEach(remote => {
-            const key = (remote.lotNumber || remote.jobNo || remote.id || '').trim().toLowerCase();
-            if (key) {
-              const existing = map.get(key);
-              if (existing) {
-                const validRemotePhotos = (remote.photos || []).filter(p => p.url && p.url.startsWith('http'));
-                const validExistingPhotos = (existing.photos || []).filter(p => p.url && p.url.startsWith('http'));
-                const validRemoteImage = (remote.designImage && remote.designImage.startsWith('http') && !remote.designImage.includes('unsplash.com')) ? remote.designImage : undefined;
-                const validExistingImage = (existing.designImage && existing.designImage.startsWith('http') && !existing.designImage.includes('unsplash.com')) ? existing.designImage : undefined;
-
-                map.set(key, {
-                  ...existing,
-                  ...remote,
-                  photos: validRemotePhotos.length > 0 ? validRemotePhotos : validExistingPhotos,
-                  designImage: validRemoteImage || validExistingImage || (validRemotePhotos[0]?.url) || (validExistingPhotos[0]?.url) || undefined,
-                  stageHistory: (remote.stageHistory && remote.stageHistory.length > 0) ? remote.stageHistory : (existing.stageHistory || [])
-                });
-              } else {
-                map.set(key, remote);
-              }
-            }
-          });
-
-          mergedList = Array.from(map.values());
-          if (mergedList.length > 0) {
-            saveStoredWorkflowItems(mergedList);
-            return mergedList;
-          }
-          return prev;
-        });
-
-        if (mergedList.length > 0) {
-          try {
-            const withPhotos = await attachStoragePhotosToWorkflowItems(mergedList);
-            if (withPhotos && withPhotos.length > 0) {
-              setWorkflowItems(withPhotos);
-              saveStoredWorkflowItems(withPhotos);
-            }
-          } catch (e) {}
-        }
-      }
-    });
-
-    const unsubSlips = subscribeToOrderSlips((remoteSlips) => {
-      if (remoteSlips && remoteSlips.length > 0) {
-        setOrderSlips((prev) => {
-          const map = new Map<string, OrderSlip>();
-          prev.forEach(slip => {
-            const key = (slip.jobNo || slip.id || '').trim().toLowerCase();
-            if (key) map.set(key, slip);
-          });
-          remoteSlips.forEach(slip => {
-            const key = (slip.jobNo || slip.id || '').trim().toLowerCase();
-            if (key) {
-              map.set(key, { ...(map.get(key) || {}), ...slip });
-            }
-          });
-          const merged = Array.from(map.values());
-          saveStoredOrderSlips(merged);
-          return merged;
-        });
-      }
-    });
-
-    return () => {
-      if (unsubDesigns) unsubDesigns();
-      if (unsubSlips) unsubSlips();
-    };
-  }, []);
 
   const handleUpdateWorkflowStage = (
     itemId: string, 
