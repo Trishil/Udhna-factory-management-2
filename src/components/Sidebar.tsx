@@ -213,37 +213,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Quick Utilities Section */}
+        {/* Real-time Cloud Status */}
         {!isCollapsed && (
-          <div className="px-3 pt-3 space-y-2 border-t border-slate-200/80 mx-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono px-1">
-              Data &amp; Cloud Sync
+          <div className="px-3 pt-3 mx-2 border-t border-slate-200/80">
+            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50/60 border border-emerald-200/70 text-xs">
+              <div className="flex items-center space-x-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[11px] font-semibold text-slate-700">Cloud DB Active</span>
+              </div>
+              <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-100/90 px-1.5 py-0.5 rounded">REAL-TIME</span>
             </div>
-
-            {onOpenSyncModal && (
-              <button
-                type="button"
-                onClick={onOpenSyncModal}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors border border-slate-200/80"
-              >
-                <div className="flex items-center space-x-2">
-                  <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                  <span className="text-[11px]">Google Sheets Sync</span>
-                </div>
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              </button>
-            )}
-
-            {onOpenCreateSheet && (
-              <button
-                type="button"
-                onClick={onOpenCreateSheet}
-                className="w-full flex items-center space-x-2 px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors border border-slate-200/80"
-              >
-                <Sparkles className="h-4 w-4 text-slate-500" />
-                <span className="text-[11px]">+ New Auto Sheet</span>
-              </button>
-            )}
           </div>
         )}
       </div>

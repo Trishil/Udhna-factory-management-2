@@ -1,5 +1,16 @@
 import * as XLSX from 'xlsx';
-import { WorkflowItem, OrderSlip, RawMaterial, DispatchOrder, IndividualPieceUnit } from '../types';
+import { 
+  WorkflowItem, 
+  OrderSlip, 
+  RawMaterial, 
+  DispatchOrder, 
+  IndividualPieceUnit,
+  PartyInvoice,
+  SupplierPayable,
+  OperationalExpense,
+  EmployeeRecord,
+  ElectricityUsageRecord
+} from '../types';
 
 export interface ExportDataPayload {
   workflowItems: WorkflowItem[];
@@ -7,6 +18,11 @@ export interface ExportDataPayload {
   materials?: RawMaterial[];
   dispatchOrders?: DispatchOrder[];
   pieces?: IndividualPieceUnit[];
+  partyInvoices?: PartyInvoice[];
+  supplierPayables?: SupplierPayable[];
+  expenses?: OperationalExpense[];
+  employees?: EmployeeRecord[];
+  electricityRecords?: ElectricityUsageRecord[];
   companyName?: string;
 }
 
@@ -19,6 +35,11 @@ export function exportFactoryDataToExcel({
   materials = [],
   dispatchOrders = [],
   pieces = [],
+  partyInvoices = [],
+  supplierPayables = [],
+  expenses = [],
+  employees = [],
+  electricityRecords = [],
   companyName = 'Trisharth'
 }: ExportDataPayload) {
   const wb = XLSX.utils.book_new();
@@ -131,6 +152,81 @@ export function exportFactoryDataToExcel({
   }));
   const wsDispatch = XLSX.utils.json_to_sheet(dispatchRows.length > 0 ? dispatchRows : [{ 'Notice': 'No dispatch orders' }]);
   XLSX.utils.book_append_sheet(wb, wsDispatch, 'Dispatch Logistics');
+
+  // 6. Sheet: Party Invoices (Receivables)
+  if (partyInvoices && partyInvoices.length > 0) {
+    const invoiceRows = partyInvoices.map(inv => ({
+      'Invoice No': inv.invoiceNumber,
+      'Party Name': inv.partyName,
+      'Contact Person': inv.contactPerson || '',
+      'Order Description': inv.orderDescription,
+      'Total Amount (INR)': inv.totalAmount,
+      'Amount Received (INR)': inv.amountReceived,
+      'Balance Due (INR)': inv.balanceDue,
+      'Status': inv.status,
+      'Issue Date': inv.issueDate,
+      'Due Date': inv.dueDate
+    }));
+    const wsInvoices = XLSX.utils.json_to_sheet(invoiceRows);
+    XLSX.utils.book_append_sheet(wb, wsInvoices, 'Party Invoices');
+  }
+
+  // 7. Sheet: Supplier Payables
+  if (supplierPayables && supplierPayables.length > 0) {
+    const payableRows = supplierPayables.map(sp => ({
+      'PO Code': sp.purchaseOrderCode,
+      'Supplier Name': sp.supplierName,
+      'Material / Description': sp.materialNameOrDescription,
+      'Quantity': sp.quantityImported || 0,
+      'Unit': sp.unit || '',
+      'Unit Price': sp.unitPrice || 0,
+      'Total Bill (INR)': sp.totalBillAmount,
+      'Amount Paid (INR)': sp.amountPaid,
+      'Balance Owed (INR)': sp.balanceOwed,
+      'Purchase Date': sp.purchaseDate,
+      'Due Date': sp.paymentDueDate,
+      'Status': sp.status
+    }));
+    const wsPayables = XLSX.utils.json_to_sheet(payableRows);
+    XLSX.utils.book_append_sheet(wb, wsPayables, 'Supplier Payables');
+  }
+
+  // 8. Sheet: Operational Expenses
+  if (expenses && expenses.length > 0) {
+    const expenseRows = expenses.map(exp => ({
+      'Expense Code': exp.expenseCode,
+      'Date': exp.date,
+      'Category': exp.category,
+      'Title': exp.title,
+      'Amount (INR)': exp.amount,
+      'Vendor / Payee': exp.vendorOrPayee,
+      'Payment Method': exp.paymentMethod,
+      'Status': exp.paymentStatus,
+      'Receipt / Invoice': exp.receiptInvoiceNo || '',
+      'Recorded By': exp.recordedBy || ''
+    }));
+    const wsExpenses = XLSX.utils.json_to_sheet(expenseRows);
+    XLSX.utils.book_append_sheet(wb, wsExpenses, 'Expenses Ledger');
+  }
+
+  // 9. Sheet: Employees & Staff
+  if (employees && employees.length > 0) {
+    const employeeRows = employees.map(emp => ({
+      'Employee Code': emp.employeeCode,
+      'Name': emp.name,
+      'Role': emp.role,
+      'Department': emp.department,
+      'Phone': emp.phone,
+      'Base Wage / Salary (INR)': emp.baseSalary,
+      'Bonus / OT (INR)': emp.bonusOrOvertime || 0,
+      'Deductions (INR)': emp.deductions || 0,
+      'Net Payable (INR)': emp.netPayable,
+      'Payment Status': emp.paymentStatus,
+      'Last Paid Date': emp.lastPaidDate || ''
+    }));
+    const wsEmployees = XLSX.utils.json_to_sheet(employeeRows);
+    XLSX.utils.book_append_sheet(wb, wsEmployees, 'Staff & Wages');
+  }
 
   // Generate File Name with Date
   const dateStr = new Date().toISOString().split('T')[0];

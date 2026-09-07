@@ -73,9 +73,14 @@ import {
   subscribeToCloudInventory,
   saveCloudMaterial,
   deleteCloudMaterial,
+  saveCloudMaterials,
   subscribeToCloudDispatch,
   saveCloudDispatchOrder,
   deleteCloudDispatchOrder,
+  saveCloudDispatchOrders,
+  subscribeToCloudFinance,
+  saveCloudFinance,
+  clearAllCloudFinance,
   clearAllCloudProductionOrders
 } from './services/cloudDbService';
 import { exportFactoryDataToExcel } from './services/excelExportService';
@@ -127,8 +132,6 @@ import { AddMaterialModal, InitialBatchFinancialOption } from './components/AddM
 import { StockAdjustModal, RestockFinancialLink } from './components/StockAdjustModal';
 import { MaterialAssignModal } from './components/MaterialAssignModal';
 import { MachineDetailModal } from './components/MachineDetailModal';
-import { SheetIntegrationModal } from './components/SheetIntegrationModal';
-import { CreateNewSheetModal } from './components/CreateNewSheetModal';
 import { JobPlannerModal } from './components/JobPlannerModal';
 import { FinishTaskModal, TaskCompletionSummary, TaskDiscardOptions } from './components/FinishTaskModal';
 import { AlertsDrawer } from './components/AlertsDrawer';
@@ -243,8 +246,6 @@ export default function App() {
   const [isMachineDetailOpen, setIsMachineDetailOpen] = useState(false);
   const [selectedMachineForDetail, setSelectedMachineForDetail] = useState<Machine | null>(null);
 
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
   const [isJobPlannerOpen, setIsJobPlannerOpen] = useState(false);
   const [jobPlannerMachineId, setJobPlannerMachineId] = useState<string | undefined>(undefined);
   const [isFinishTaskOpen, setIsFinishTaskOpen] = useState(false);
@@ -298,7 +299,7 @@ export default function App() {
     });
 
     const unsubscribeMaterials = subscribeToCloudInventory((cloudMats) => {
-      if (Array.isArray(cloudMats) && cloudMats.length > 0) {
+      if (Array.isArray(cloudMats)) {
         setMaterials(cloudMats);
         localStorage.setItem('factory_materials', JSON.stringify(cloudMats));
       }
@@ -311,7 +312,34 @@ export default function App() {
       }
     });
 
-    // 3. Centralized Company Google Spreadsheet configuration listener (incognito & multi-device sync)
+    const unsubscribeFinance = subscribeToCloudFinance((cloudFin) => {
+      if (Array.isArray(cloudFin.employees)) {
+        setEmployees(cloudFin.employees);
+        localStorage.setItem('factory_employees', JSON.stringify(cloudFin.employees));
+      }
+      if (Array.isArray(cloudFin.electricityRecords)) {
+        setElectricityRecords(cloudFin.electricityRecords);
+        localStorage.setItem('factory_electricity', JSON.stringify(cloudFin.electricityRecords));
+      }
+      if (Array.isArray(cloudFin.expenses)) {
+        setExpenses(cloudFin.expenses);
+        localStorage.setItem('factory_expenses', JSON.stringify(cloudFin.expenses));
+      }
+      if (Array.isArray(cloudFin.partyInvoices)) {
+        setPartyInvoices(cloudFin.partyInvoices);
+        localStorage.setItem('factory_party_invoices', JSON.stringify(cloudFin.partyInvoices));
+      }
+      if (Array.isArray(cloudFin.supplierPayables)) {
+        setSupplierPayables(cloudFin.supplierPayables);
+        localStorage.setItem('factory_supplier_payables', JSON.stringify(cloudFin.supplierPayables));
+      }
+      if (Array.isArray(cloudFin.transactions)) {
+        setTransactions(cloudFin.transactions);
+        localStorage.setItem('factory_transactions', JSON.stringify(cloudFin.transactions));
+      }
+    });
+
+    // 3. Centralized Company Google Spreadsheet configuration listener (sync status & audit metadata)
     const unsubscribeCompanyConfig = subscribeToCompanySpreadsheetConfig((cloudCfg) => {
       if (cloudCfg && cloudCfg.sheetId) {
         setStoredSheetId(cloudCfg.sheetId);
@@ -326,26 +354,6 @@ export default function App() {
         };
         setSyncConfig(newSyncCfg);
         localStorage.setItem('factory_sync_config', JSON.stringify(newSyncCfg));
-
-        // Fetch authoritative data directly from this latest active spreadsheet!
-        syncWithAppsScript(newSyncCfg).then(result => {
-          if (result && result.success) {
-            if (Array.isArray(result.workflow)) {
-              setWorkflowItems(result.workflow);
-              saveStoredWorkflowItems(result.workflow);
-            }
-            if (Array.isArray(result.orderSlips)) {
-              setOrderSlips(result.orderSlips);
-              saveStoredOrderSlips(result.orderSlips);
-            }
-            if (Array.isArray(result.inventory) && result.inventory.length > 0) {
-              setMaterials(result.inventory);
-            }
-            if (Array.isArray(result.dispatchOrders)) {
-              setDispatchOrders(result.dispatchOrders);
-            }
-          }
-        }).catch(() => {});
       }
     });
 
@@ -354,6 +362,7 @@ export default function App() {
       if (unsubscribeSlips) unsubscribeSlips();
       if (unsubscribeMaterials) unsubscribeMaterials();
       if (unsubscribeDispatches) unsubscribeDispatches();
+      if (unsubscribeFinance) unsubscribeFinance();
       if (unsubscribeCompanyConfig) unsubscribeCompanyConfig();
     };
   }, []);
@@ -657,7 +666,33 @@ export default function App() {
       allPieceUnits.push(...pList);
     });
 
-    // 1. Always push to active sheet via Google Apps Script Webhook
+    // 1. Authoritative Cloud Database Synchronizer (Firebase Firestore)
+    // Synchronizes sub-second to active_inventory, active_dispatches, active_finance across all clients
+    if (overrides?.materialsList) {
+      saveCloudMaterials(overrides.materialsList).catch(() => {});
+    }
+    if (overrides?.dispatchOrdersList) {
+      saveCloudDispatchOrders(overrides.dispatchOrdersList).catch(() => {});
+    }
+    if (
+      overrides?.employeesList !== undefined || 
+      overrides?.electricityList !== undefined || 
+      overrides?.expensesList !== undefined || 
+      overrides?.partyInvoicesList !== undefined || 
+      overrides?.payablesList !== undefined || 
+      overrides?.transactionsList !== undefined
+    ) {
+      saveCloudFinance({
+        employees: overrides.employeesList ?? employees,
+        electricityRecords: overrides.electricityList ?? electricityRecords,
+        expenses: overrides.expensesList ?? expenses,
+        partyInvoices: overrides.partyInvoicesList ?? partyInvoices,
+        supplierPayables: overrides.payablesList ?? supplierPayables,
+        transactions: overrides.transactionsList ?? transactions
+      }).catch(() => {});
+    }
+
+    // 2. Always push to active sheet via Google Apps Script Webhook
     pushFullStateToAppsScript(syncConfig, {
       orderSlips: targetSlips,
       workflow: targetWf,
@@ -959,6 +994,8 @@ export default function App() {
 
     const targetMat = ('id' in materialData) ? (materialData as RawMaterial) : updatedList[0];
     saveMaterialToFirestore(targetMat);
+    saveCloudMaterial(targetMat).catch(() => {});
+    saveCloudMaterials(updatedList).catch(() => {});
     pushMaterialToAppsScript(syncConfig, targetMat);
     if (newTxList.length > transactions.length) {
       pushStockTransactionToAppsScript(syncConfig, newTxList[0], targetMat);
@@ -1009,9 +1046,11 @@ export default function App() {
     setEditingMaterial(null);
 
     deleteMaterialFromFirestore(materialId);
+    deleteCloudMaterial(materialId).catch(() => {});
+    saveCloudMaterials(updatedList).catch(() => {});
     pushDeleteMaterialToAppsScript(syncConfig, materialId);
     syncFullStateToGoogleSheets({ materialsList: updatedList, machinesList: updatedMachs });
-    setLastAutoEntryNotice(`Deleted "${mat?.name || 'Material'}" from inventory & Google Sheet`);
+    setLastAutoEntryNotice(`Deleted "${mat?.name || 'Material'}" from inventory`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
   };
 
@@ -1093,20 +1132,23 @@ export default function App() {
     const targetMat = updatedMaterials.find(m => m.id === txData.materialId);
     if (targetMat) {
       saveMaterialToFirestore(targetMat);
+      saveCloudMaterial(targetMat).catch(() => {});
       pushStockTransactionToAppsScript(syncConfig, newTx, targetMat);
     }
+    saveCloudMaterials(updatedMaterials).catch(() => {});
+
+    syncFullStateToGoogleSheets({
+      materialsList: updatedMaterials,
+      payablesList: createdPayable ? [createdPayable, ...supplierPayables] : supplierPayables,
+      expensesList: createdExpense ? [createdExpense, ...expenses] : expenses,
+      transactionsList: updatedTxList
+    });
 
     // AUTO-RECORD INTO GOOGLE SHEETS VIA DIRECT OAUTH IF LOGGED IN
     if (currentUser?.accessToken && syncConfig.sheetId) {
       appendTransactionToGoogleSheet(currentUser.accessToken, syncConfig.sheetId, newTx, newStock);
-      syncFullStateToGoogleSheets({
-        materialsList: updatedMaterials,
-        payablesList: createdPayable ? [createdPayable, ...supplierPayables] : supplierPayables,
-        expensesList: createdExpense ? [createdExpense, ...expenses] : expenses,
-        transactionsList: updatedTxList
-      });
     }
-    setLastAutoEntryNotice(`Auto-recorded ${newTx.type.toUpperCase()} transaction & synced Google Sheet`);
+    setLastAutoEntryNotice(`Auto-recorded ${newTx.type.toUpperCase()} transaction & synced across system`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
   };
 
@@ -2122,6 +2164,8 @@ export default function App() {
     setTimeout(() => setLastAutoEntryNotice(null), 5000);
 
     saveDispatchOrderToFirestore(newDispatch).catch(() => {});
+    saveCloudDispatchOrder(newDispatch).catch(() => {});
+    saveCloudDispatchOrders(updatedDispatches).catch(() => {});
     pushDispatchOrderToAppsScript(syncConfig, newDispatch);
 
     syncFullStateToGoogleSheets({
@@ -2153,8 +2197,10 @@ export default function App() {
     const updatedTarget = updated.find(d => d.id === order.id);
     if (updatedTarget) {
       saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
+      saveCloudDispatchOrder(updatedTarget).catch(() => {});
       pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
     }
+    saveCloudDispatchOrders(updated).catch(() => {});
 
     setLastAutoEntryNotice(`Updated Dispatch Order ${order.dispatchNumber}`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
@@ -2195,8 +2241,10 @@ export default function App() {
     const updatedTarget = updated.find(d => d.id === orderId);
     if (updatedTarget) {
       saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
+      saveCloudDispatchOrder(updatedTarget).catch(() => {});
       pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
     }
+    saveCloudDispatchOrders(updated).catch(() => {});
 
     confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
     setLastAutoEntryNotice(`Order ${order.dispatchNumber} marked as DISPATCHED via ${dispatchData.transporterName}`);
@@ -2241,8 +2289,10 @@ export default function App() {
     const updatedTarget = updatedOrders.find(d => d.id === dispatchId);
     if (updatedTarget) {
       saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
+      saveCloudDispatchOrder(updatedTarget).catch(() => {});
       pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
     }
+    saveCloudDispatchOrders(updatedOrders).catch(() => {});
 
     // Sync into matching party invoice in Finance tab
     let updatedInvoices = [...partyInvoices];
@@ -2283,6 +2333,8 @@ export default function App() {
     const updated = dispatchOrders.filter(d => d.id !== orderId);
     setDispatchOrders(updated);
     deleteDispatchOrderFromFirestore(orderId).catch(() => {});
+    deleteCloudDispatchOrder(orderId).catch(() => {});
+    saveCloudDispatchOrders(updated).catch(() => {});
     setDispatchOrders(updated);
 
     // Also remove linked party invoice if present
@@ -2316,6 +2368,8 @@ export default function App() {
     localStorage.removeItem('factory_supplier_payables');
     localStorage.setItem('factory_finance_cleared_v2', 'true');
 
+    clearAllCloudFinance().catch(() => {});
+
     setLastAutoEntryNotice('All financial ledger data deleted. Starting fresh with clean slate.');
     setTimeout(() => setLastAutoEntryNotice(null), 5000);
 
@@ -2335,6 +2389,11 @@ export default function App() {
       orderSlips,
       materials,
       dispatchOrders,
+      partyInvoices,
+      supplierPayables,
+      expenses,
+      employees,
+      electricityRecords,
       companyName: currentUser?.companyName || 'Trisharth'
     });
     setLastAutoEntryNotice('Exported full factory production data to Excel (.xlsx) successfully!');
@@ -2598,8 +2657,6 @@ export default function App() {
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
         currentUser={currentUser}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
-        onOpenCreateSheet={() => setIsCreateSheetOpen(true)}
       />
 
       {/* Main Column (Navbar + Main Content + Footer) */}
@@ -2619,8 +2676,8 @@ export default function App() {
           onToggleSidebar={handleToggleSidebar}
           onTabChange={setActiveMainTab}
           onToggleSimulation={() => setIsSimulating(!isSimulating)}
-          onOpenSyncModal={() => setIsSyncModalOpen(true)}
-          onOpenCreateSheet={() => setIsCreateSheetOpen(true)}
+          onOpenSyncModal={() => {}}
+          onOpenCreateSheet={() => {}}
           onOpenAddMachine={() => setIsAddMachineOpen(true)}
           onOpenAddMaterial={() => {
             setEditingMaterial(null);
@@ -2829,8 +2886,6 @@ export default function App() {
             onDeletePartyInvoice={handleDeletePartyInvoice}
             onDeleteSupplierPayable={handleDeleteSupplierPayable}
             onClearAllFinanceData={handleClearAllFinanceData}
-            onOpenSyncModal={() => setIsSyncModalOpen(true)}
-            onOpenCreateSheet={() => setIsCreateSheetOpen(true)}
             syncConfig={syncConfig}
           />
         )}
@@ -2844,18 +2899,9 @@ export default function App() {
             <CheckCircle2 className="h-4 w-4" />
           </div>
           <div>
-            <span className="font-bold text-white block">Auto-Entry Synchronized</span>
+            <span className="font-bold text-white block">Cloud Synchronized</span>
             <span className="text-slate-300 text-[11px]">{lastAutoEntryNotice}</span>
           </div>
-          <a
-            href={syncConfig.sheetUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="p-1 text-slate-400 hover:text-white transition-colors"
-            title="Open Google Sheet"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
         </div>
       )}
 
@@ -3057,44 +3103,6 @@ export default function App() {
         onOpenFinishTask={(mach) => {
           setMachineForFinishTask(mach);
           setIsFinishTaskOpen(true);
-        }}
-      />
-
-      <SheetIntegrationModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-        syncConfig={syncConfig}
-        materials={materials}
-        machines={machines}
-        workflowItems={workflowItems}
-        orderSlips={orderSlips}
-        dispatchOrders={dispatchOrders}
-        onUpdateSyncConfig={setSyncConfig}
-        onTriggerSync={() => handlePerformSync(false)}
-        onOpenCreateSheet={() => setIsCreateSheetOpen(true)}
-        onImportData={(imported) => {
-          if (imported.materials) setMaterials(imported.materials);
-        }}
-      />
-
-      <CreateNewSheetModal
-        isOpen={isCreateSheetOpen}
-        onClose={() => setIsCreateSheetOpen(false)}
-        currentUser={currentUser}
-        materials={materials}
-        machines={machines}
-        workflowItems={workflowItems}
-        orderSlips={orderSlips}
-        dispatchOrders={dispatchOrders}
-        partyInvoices={partyInvoices}
-        supplierPayables={supplierPayables}
-        employees={employees}
-        expenses={expenses}
-        transactions={transactions}
-        onSpreadsheetCreated={handleSpreadsheetCreated}
-        onUpdateCurrentUser={(user) => {
-          setCurrentUser(user);
-          saveStoredAuthUser(user);
         }}
       />
 

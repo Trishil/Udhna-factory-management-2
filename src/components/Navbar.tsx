@@ -281,35 +281,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <span className="text-[11px] text-slate-900 font-mono font-bold">{currentUser?.companyName || 'Trisharth'}</span>
                     </div>
                     <div className="flex justify-between items-center py-0.5">
-                      <span>Google Sheet:</span>
-                      <span className="text-[11px] text-emerald-700 font-mono font-bold">READY</span>
+                      <span>Cloud Database:</span>
+                      <span className="text-[11px] text-emerald-700 font-mono font-bold flex items-center space-x-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1"></span>
+                        LIVE
+                      </span>
                     </div>
                     <div className="flex justify-between items-center py-0.5">
-                      <span>Sheet ID:</span>
-                      <span className="text-[11px] text-slate-500 font-mono">{syncConfig.sheetId ? `${syncConfig.sheetId.slice(0, 8)}...` : 'None'}</span>
+                      <span>Cross-Device Sync:</span>
+                      <span className="text-[11px] text-emerald-700 font-mono font-bold">SUB-SECOND</span>
                     </div>
                   </div>
 
                   <div className="pt-2 space-y-1">
                     <button
+                      id="btn-navbar-menu-export-excel"
                       onClick={() => {
                         setIsUserMenuOpen(false);
-                        onOpenSyncModal();
+                        if (onExportExcel) onExportExcel();
                       }}
-                      className="w-full flex items-center space-x-2 px-2.5 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors font-medium"
+                      className="w-full flex items-center space-x-2 px-2.5 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors font-medium cursor-pointer"
                     >
                       <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-                      <span>Spreadsheet Connection Settings</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        onOpenCreateSheet();
-                      }}
-                      className="w-full flex items-center space-x-2 px-2.5 py-2 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors font-medium text-left"
-                    >
-                      <Sparkles className="h-4 w-4 text-slate-500" />
-                      <span>Create New Factory Sheet</span>
+                      <span>Export Full Excel (.xlsx)</span>
                     </button>
                     <button
                       onClick={() => {

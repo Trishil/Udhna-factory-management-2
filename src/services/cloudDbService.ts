@@ -7,12 +7,23 @@ import {
 } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { db, auth, WORKFLOW_COLLECTION, ORDER_SLIPS_COLLECTION, INVENTORY_COLLECTION, DISPATCH_COLLECTION } from './firebaseService';
-import { WorkflowItem, OrderSlip, RawMaterial, DispatchOrder } from '../types';
+import { 
+  WorkflowItem, 
+  OrderSlip, 
+  RawMaterial, 
+  DispatchOrder,
+  EmployeeRecord,
+  ElectricityUsageRecord,
+  OperationalExpense,
+  PartyInvoice,
+  SupplierPayable,
+  StockTransaction
+} from '../types';
 
 /**
  * PURE REAL-TIME CLOUD DATABASE ENGINE (Firebase Firestore)
  * 
- * Uses authoritative document snapshot listeners ('active_pipeline', 'active_slips', etc.)
+ * Uses authoritative document snapshot listeners ('active_pipeline', 'active_slips', 'active_finance', etc.)
  * which are guaranteed full read/write permissions by Firestore security rules.
  * Propagates sub-second updates across all computers, incognito windows, and mobile devices.
  */
@@ -22,12 +33,31 @@ const WORKFLOW_DOC_ID = 'active_pipeline';
 const ORDER_SLIPS_DOC_ID = 'active_slips';
 const INVENTORY_DOC_ID = 'active_inventory';
 const DISPATCH_DOC_ID = 'active_dispatches';
+export const FINANCE_COLLECTION = 'factory_finance';
+export const FINANCE_DOC_ID = 'active_finance';
+
+export interface CloudFinanceData {
+  employees: EmployeeRecord[];
+  electricityRecords: ElectricityUsageRecord[];
+  expenses: OperationalExpense[];
+  partyInvoices: PartyInvoice[];
+  supplierPayables: SupplierPayable[];
+  transactions: StockTransaction[];
+}
 
 // Local synchronized memory caches
 let memoryWorkflow: WorkflowItem[] = [];
 let memorySlips: OrderSlip[] = [];
 let memoryMaterials: RawMaterial[] = [];
 let memoryDispatches: DispatchOrder[] = [];
+let memoryFinance: CloudFinanceData = {
+  employees: [],
+  electricityRecords: [],
+  expenses: [],
+  partyInvoices: [],
+  supplierPayables: [],
+  transactions: []
+};
 
 // Ensure Firebase Auth is ready before any operation
 let authPromise: Promise<any> | null = null;
@@ -295,6 +325,17 @@ export async function deleteCloudMaterial(materialId: string): Promise<void> {
   });
 }
 
+export async function saveCloudMaterials(materials: RawMaterial[]): Promise<void> {
+  if (!Array.isArray(materials)) return;
+  await ensureAuthReady();
+  memoryMaterials = materials;
+  const invRef = doc(db, INVENTORY_COLLECTION, INVENTORY_DOC_ID);
+  await setDoc(invRef, {
+    materials: JSON.parse(JSON.stringify(materials)),
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+}
+
 // ================= 4. DISPATCH ORDERS =================
 
 export function subscribeToCloudDispatch(
@@ -372,7 +413,105 @@ export async function deleteCloudDispatchOrder(orderId: string): Promise<void> {
   });
 }
 
-// ================= 5. RESET / CLEAR ORDERS =================
+export async function saveCloudDispatchOrders(orders: DispatchOrder[]): Promise<void> {
+  if (!Array.isArray(orders)) return;
+  await ensureAuthReady();
+  memoryDispatches = orders;
+  const dspRef = doc(db, DISPATCH_COLLECTION, DISPATCH_DOC_ID);
+  await setDoc(dspRef, {
+    orders: JSON.parse(JSON.stringify(orders)),
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+}
+
+// ================= 5. FINANCE & ACCOUNTS =================
+
+export function subscribeToCloudFinance(
+  onUpdate: (data: Partial<CloudFinanceData>) => void,
+  onError?: (err: any) => void
+) {
+  let unsubListener: (() => void) | null = null;
+  let isCancelled = false;
+
+  ensureAuthReady().then(() => {
+    if (isCancelled) return;
+    const docRef = doc(db, FINANCE_COLLECTION, FINANCE_DOC_ID);
+
+    unsubListener = onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as any;
+          if (data) {
+            if (Array.isArray(data.employees)) memoryFinance.employees = data.employees;
+            if (Array.isArray(data.electricityRecords)) memoryFinance.electricityRecords = data.electricityRecords;
+            if (Array.isArray(data.expenses)) memoryFinance.expenses = data.expenses;
+            if (Array.isArray(data.partyInvoices)) memoryFinance.partyInvoices = data.partyInvoices;
+            if (Array.isArray(data.supplierPayables)) memoryFinance.supplierPayables = data.supplierPayables;
+            if (Array.isArray(data.transactions)) memoryFinance.transactions = data.transactions;
+
+            onUpdate({
+              employees: Array.isArray(data.employees) ? data.employees : undefined,
+              electricityRecords: Array.isArray(data.electricityRecords) ? data.electricityRecords : undefined,
+              expenses: Array.isArray(data.expenses) ? data.expenses : undefined,
+              partyInvoices: Array.isArray(data.partyInvoices) ? data.partyInvoices : undefined,
+              supplierPayables: Array.isArray(data.supplierPayables) ? data.supplierPayables : undefined,
+              transactions: Array.isArray(data.transactions) ? data.transactions : undefined,
+            });
+          }
+        }
+      },
+      (err) => {
+        console.warn('Cloud Finance snapshot listener error:', err);
+        if (onError) onError(err);
+      }
+    );
+  });
+
+  return () => {
+    isCancelled = true;
+    if (unsubListener) unsubListener();
+  };
+}
+
+export async function saveCloudFinance(data: Partial<CloudFinanceData>): Promise<void> {
+  await ensureAuthReady();
+  memoryFinance = {
+    ...memoryFinance,
+    ...data
+  };
+  const finRef = doc(db, FINANCE_COLLECTION, FINANCE_DOC_ID);
+  const cleanData: any = {
+    updatedAt: new Date().toISOString()
+  };
+  if (data.employees !== undefined) cleanData.employees = JSON.parse(JSON.stringify(data.employees));
+  if (data.electricityRecords !== undefined) cleanData.electricityRecords = JSON.parse(JSON.stringify(data.electricityRecords));
+  if (data.expenses !== undefined) cleanData.expenses = JSON.parse(JSON.stringify(data.expenses));
+  if (data.partyInvoices !== undefined) cleanData.partyInvoices = JSON.parse(JSON.stringify(data.partyInvoices));
+  if (data.supplierPayables !== undefined) cleanData.supplierPayables = JSON.parse(JSON.stringify(data.supplierPayables));
+  if (data.transactions !== undefined) cleanData.transactions = JSON.parse(JSON.stringify(data.transactions));
+
+  await setDoc(finRef, cleanData, { merge: true });
+}
+
+export async function clearAllCloudFinance(): Promise<void> {
+  await ensureAuthReady();
+  memoryFinance = {
+    employees: [],
+    electricityRecords: [],
+    expenses: [],
+    partyInvoices: [],
+    supplierPayables: [],
+    transactions: []
+  };
+  const finRef = doc(db, FINANCE_COLLECTION, FINANCE_DOC_ID);
+  await setDoc(finRef, {
+    ...memoryFinance,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+// ================= 6. RESET / CLEAR ORDERS =================
 
 export async function clearAllCloudProductionOrders(): Promise<void> {
   await ensureAuthReady();

@@ -386,20 +386,6 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
             <span>+ New Order &amp; Design</span>
           </button>
 
-          {/* Sync with Google Sheets Button */}
-          {onTriggerSync && (
-            <button
-              id="btn-sync-workflow-sheets"
-              type="button"
-              onClick={onTriggerSync}
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 border border-slate-200 transition-all shadow-2xs"
-              title="Sync All Workflow Designs to Google Sheets"
-            >
-              <RefreshCw className="h-3.5 w-3.5 text-slate-600" />
-              <span>Sync Sheets</span>
-            </button>
-          )}
-
           <button
             id="btn-export-wf-excel"
             type="button"
