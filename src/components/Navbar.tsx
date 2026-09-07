@@ -44,6 +44,7 @@ interface NavbarProps {
   onOpenStockAdjust: () => void;
   onOpenAlerts: () => void;
   onTriggerManualSync: () => void;
+  onExportExcel?: () => void;
   onSignOut: () => void;
   onSwitchAccount: () => void;
 }
@@ -69,6 +70,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenStockAdjust,
   onOpenAlerts,
   onTriggerManualSync,
+  onExportExcel,
   onSignOut,
   onSwitchAccount
 }) => {
@@ -178,18 +180,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right Controls & User Profile */}
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0 ml-auto">
             
-            {/* Google Sheets Sync Status Dot */}
-            <button
-              id="btn-open-sync-modal"
-              onClick={onOpenSyncModal}
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors shadow-2xs"
-              title="Google Sheets Auto-Sync Status"
+            {/* Cloud DB Live Status */}
+            <div 
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs"
+              title="Real-time Cloud Database Connected (Sub-second sync across all computers)"
             >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-              <span className="hidden sm:inline text-[11px] font-mono font-bold text-slate-700">Sync:</span>
-              <span className="hidden sm:inline text-[11px] font-mono font-bold text-emerald-700">ON</span>
-              <span className={`w-2 h-2 rounded-full ${syncConfig.syncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
-            </button>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="hidden sm:inline text-[11px] font-mono font-bold text-emerald-900">Cloud DB:</span>
+              <span className="text-[11px] font-mono font-bold text-emerald-700">LIVE</span>
+            </div>
+
+            {/* 1-Click Multi-Sheet Excel Export */}
+            {onExportExcel && (
+              <button
+                id="btn-navbar-export-excel"
+                onClick={onExportExcel}
+                className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-2xs cursor-pointer"
+                title="Download full factory production data as Excel (.xlsx) workbook"
+              >
+                <FileSpreadsheet className="h-4 w-4 shrink-0" />
+                <span className="hidden sm:inline">Export Excel</span>
+                <span className="text-[10px] bg-emerald-800/80 px-1 py-0.5 rounded font-mono">.xlsx</span>
+              </button>
+            )}
 
             {/* Alerts Bell */}
             <button

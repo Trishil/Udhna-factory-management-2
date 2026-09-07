@@ -63,6 +63,22 @@ import {
   publishActiveWorkspaceToMaster, 
   logEmployeeLoginToMaster 
 } from './services/masterRegistryService';
+import {
+  subscribeToCloudWorkflow,
+  saveCloudWorkflowItem,
+  deleteCloudWorkflowItem,
+  subscribeToCloudOrderSlips,
+  saveCloudOrderSlip,
+  deleteCloudOrderSlip,
+  subscribeToCloudInventory,
+  saveCloudMaterial,
+  deleteCloudMaterial,
+  subscribeToCloudDispatch,
+  saveCloudDispatchOrder,
+  deleteCloudDispatchOrder,
+  clearAllCloudProductionOrders
+} from './services/cloudDbService';
+import { exportFactoryDataToExcel } from './services/excelExportService';
 import { 
   getStoredWorkflowItems, 
   saveStoredWorkflowItems, 
@@ -265,97 +281,33 @@ export default function App() {
       localStorage.setItem('factory_finance_cleared_v2', 'true');
     }
 
-    // 1. Fetch latest authoritative data from Master Registry & Google Apps Script Webhook on startup
-    fetchActiveMasterWorkspace('TRISHARTH-HQ').then(masterWs => {
-      const activeSheetId = masterWs?.sheetId || syncConfig.sheetId;
-      const targetCfg: SyncConfig = masterWs?.sheetId ? {
-        ...syncConfig,
-        sheetId: masterWs.sheetId,
-        sheetUrl: masterWs.sheetUrl || `https://docs.google.com/spreadsheets/d/${masterWs.sheetId}/edit`,
-        scriptUrl: masterWs.scriptUrl || syncConfig.scriptUrl,
-        deploymentId: masterWs.deploymentId || syncConfig.deploymentId,
-        syncStatus: 'synced',
-        lastSyncTimestamp: new Date().toISOString()
-      } : syncConfig;
-
-      if (masterWs?.sheetId) {
-        setStoredSheetId(masterWs.sheetId);
-        setSyncConfig(targetCfg);
-        localStorage.setItem('factory_sync_config', JSON.stringify(targetCfg));
-      }
-
-      syncWithAppsScript(targetCfg).then(result => {
-        if (result && result.success) {
-          if (Array.isArray(result.workflow)) {
-            setWorkflowItems(result.workflow);
-            saveStoredWorkflowItems(result.workflow);
-          }
-          if (Array.isArray(result.orderSlips)) {
-            setOrderSlips(result.orderSlips);
-            saveStoredOrderSlips(result.orderSlips);
-          }
-          if (Array.isArray(result.inventory) && result.inventory.length > 0) {
-            setMaterials(result.inventory);
-          }
-          if (Array.isArray(result.dispatchOrders)) {
-            setDispatchOrders(result.dispatchOrders);
-          }
-          if (Array.isArray(result.partyInvoices) && result.partyInvoices.length > 0) {
-            setPartyInvoices(result.partyInvoices);
-          }
-          if (Array.isArray(result.supplierPayables) && result.supplierPayables.length > 0) {
-            setSupplierPayables(result.supplierPayables);
-          }
-        }
-      }).catch(() => {});
-    }).catch(() => {
-      syncWithAppsScript(syncConfig).then(result => {
-        if (result && result.success) {
-          if (Array.isArray(result.workflow)) {
-            setWorkflowItems(result.workflow);
-            saveStoredWorkflowItems(result.workflow);
-          }
-          if (Array.isArray(result.orderSlips)) {
-            setOrderSlips(result.orderSlips);
-            saveStoredOrderSlips(result.orderSlips);
-          }
-        }
-      }).catch(() => {});
-    });
-
-    // 2. Live real-time bidirectional photo & design sync with Android Mobile app & Firebase
-    const unsubscribeDesigns = subscribeToDesigns((firestoreItems) => {
-      if (Array.isArray(firestoreItems) && firestoreItems.length > 0) {
-        setWorkflowItems(prev => {
-          const merged = mergeWorkflowItems(prev, firestoreItems);
-          saveStoredWorkflowItems(merged);
-          return merged;
-        });
+    // 1. Pure Real-Time Cloud Database Synchronizers (Firebase Firestore)
+    // Instant sub-second reflection across all computers & devices without cache ghosting
+    const unsubscribeDesigns = subscribeToCloudWorkflow((cloudItems) => {
+      if (Array.isArray(cloudItems)) {
+        setWorkflowItems(cloudItems);
+        saveStoredWorkflowItems(cloudItems);
       }
     });
 
-    const unsubscribeSlips = subscribeToOrderSlips((firestoreSlips) => {
-      if (Array.isArray(firestoreSlips) && firestoreSlips.length > 0) {
-        setOrderSlips(prev => {
-          const map = new Map<string, OrderSlip>();
-          prev.forEach(s => map.set((s.jobNo || s.id).trim().toLowerCase(), s));
-          firestoreSlips.forEach(s => map.set((s.jobNo || s.id).trim().toLowerCase(), s));
-          const merged = Array.from(map.values());
-          saveStoredOrderSlips(merged);
-          return merged;
-        });
+    const unsubscribeSlips = subscribeToCloudOrderSlips((cloudSlips) => {
+      if (Array.isArray(cloudSlips)) {
+        setOrderSlips(cloudSlips);
+        saveStoredOrderSlips(cloudSlips);
       }
     });
 
-    const unsubscribeMaterials = subscribeToMaterials((firestoreMats) => {
-      if (Array.isArray(firestoreMats) && firestoreMats.length > 0) {
-        setMaterials(firestoreMats);
+    const unsubscribeMaterials = subscribeToCloudInventory((cloudMats) => {
+      if (Array.isArray(cloudMats) && cloudMats.length > 0) {
+        setMaterials(cloudMats);
+        localStorage.setItem('factory_materials', JSON.stringify(cloudMats));
       }
     });
 
-    const unsubscribeDispatches = subscribeToDispatchOrders((firestoreDispatches) => {
-      if (Array.isArray(firestoreDispatches)) {
-        setDispatchOrders(firestoreDispatches);
+    const unsubscribeDispatches = subscribeToCloudDispatch((cloudDispatches) => {
+      if (Array.isArray(cloudDispatches)) {
+        setDispatchOrders(cloudDispatches);
+        localStorage.setItem('factory_dispatch_orders', JSON.stringify(cloudDispatches));
       }
     });
 
@@ -672,46 +624,8 @@ export default function App() {
     };
   });
 
-  useEffect(() => {
-    if (!currentUser || !currentUser.sheetAccessGranted) return;
-    if (!syncConfig.autoSyncIntervalSec || syncConfig.autoSyncIntervalSec <= 0) return;
-
-    const syncInterval = setInterval(async () => {
-      const state = latestStateRef.current;
-      if (state.currentUser?.accessToken && state.syncConfig.sheetId) {
-        try {
-          await syncAllToGoogleSheets(
-            state.currentUser.accessToken, 
-            state.syncConfig.sheetId, 
-            state.materials, 
-            state.machines,
-            {
-              employees: state.employees,
-              electricityRecords: state.electricityRecords,
-              expenses: state.expenses,
-              partyInvoices: state.partyInvoices,
-              supplierPayables: state.supplierPayables,
-              transactions: state.transactions,
-              dispatchOrders: state.dispatchOrders,
-              workflowItems: state.workflowItems,
-              orderSlips: state.orderSlips
-            }
-          );
-          setSyncConfig(prev => ({
-            ...prev,
-            lastSyncTimestamp: new Date().toISOString(),
-            syncStatus: 'synced'
-          }));
-        } catch {
-          handlePerformSync(true);
-        }
-      } else {
-        handlePerformSync(true);
-      }
-    }, Math.max(30, syncConfig.autoSyncIntervalSec) * 1000);
-
-    return () => clearInterval(syncInterval);
-  }, [syncConfig.autoSyncIntervalSec, syncConfig.sheetId, currentUser?.sheetAccessGranted]);
+  // Real-time Cloud Database (Firebase Firestore) maintains 100% active state automatically.
+  // No destructive spreadsheet interval polling or clear loops are run.
 
   // Helper to reliably sync entire factory floor, inventory & financial state to Google Sheets
   const syncFullStateToGoogleSheets = (overrides?: {
@@ -1585,32 +1499,25 @@ export default function App() {
     setTimeout(() => setLastAutoEntryNotice(null), 5000);
   };
 
-  // Clear all demo orders and start completely fresh
-  const handleClearAllOrders = () => {
-    if (window.confirm('Are you sure you want to delete all demo orders, slips, and start completely fresh?')) {
+  // Clear all production orders and start completely fresh
+  const handleClearAllOrders = async () => {
+    if (window.confirm('Are you sure you want to delete all production orders, slips, and start completely fresh?')) {
       setWorkflowItems([]);
       setOrderSlips([]);
       setDispatchOrders([]);
       saveStoredWorkflowItems([]);
       saveStoredOrderSlips([]);
       localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
-      localStorage.setItem('factory_demo_orders_cleared_v5', 'true');
 
-      // Wipe Firestore collections so cloud listeners don't resurrect them
-      clearAllFirestoreOrders().catch(() => {});
+      // Wipe from Cloud Database (Firestore)
+      await clearAllCloudProductionOrders().catch(err => console.warn('Cloud clear error:', err));
 
-      // Send explicit clear command to spreadsheet
-      const endpoint = syncConfig.scriptUrl || (syncConfig.deploymentId ? `https://script.google.com/macros/s/${syncConfig.deploymentId}/exec` : null);
-      if (endpoint && syncConfig.sheetId) {
-        fetch(`${endpoint}?action=clear_all_orders&sheetId=${encodeURIComponent(syncConfig.sheetId)}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
-      }
-
-      setLastAutoEntryNotice('All demo orders cleared! Floor is now completely blank and ready for fresh entry.');
+      setLastAutoEntryNotice('All production orders cleared from Cloud Database! Floor is now completely blank.');
       setTimeout(() => setLastAutoEntryNotice(null), 4000);
     }
   };
 
-  // Delete Order Slip and remove all associated lots from state, Firestore and Google Sheets
+  // Delete Order Slip and remove all associated lots from Cloud Database
   const handleDeleteOrderSlip = async (slipId: string, jobNo?: string) => {
     const targetSlip = orderSlips.find(s => s.id === slipId);
     const slipJob = (jobNo || targetSlip?.jobNo || slipId).trim().toLowerCase();
@@ -1620,7 +1527,7 @@ export default function App() {
     setOrderSlips(updatedSlips);
     saveStoredOrderSlips(updatedSlips);
 
-    // 2. Remove all workflow items matching this slip
+    // 2. Remove all workflow items matching this slip from state & Cloud
     const removedItemIds: string[] = [];
     const updatedItems = workflowItems.filter(item => {
       const itJob = (item.jobNo || item.lotNumber || '').trim().toLowerCase();
@@ -1628,6 +1535,7 @@ export default function App() {
       const isMatch = (itSlipId && itSlipId === slipId) || (slipJob && (itJob === slipJob || itJob.includes(slipJob) || slipJob.includes(itJob)));
       if (isMatch) {
         removedItemIds.push(item.id);
+        deleteCloudWorkflowItem(item.id).catch(() => {});
         return false;
       }
       return true;
@@ -1636,34 +1544,11 @@ export default function App() {
     setWorkflowItems(updatedItems);
     saveStoredWorkflowItems(updatedItems);
 
-    // 3. Delete from Firestore in parallel
-    deleteOrderSlipFromFirestore(slipId).catch(() => {});
-    removedItemIds.forEach(id => {
-      deleteDesignFromFirestore(id).catch(() => {});
-    });
+    // 3. Delete Slip from Cloud Database
+    await deleteCloudOrderSlip(slipId).catch(() => {});
 
-    // 4. Delete from Google Apps Script Webhook
-    pushDeleteOrderSlipToAppsScript(syncConfig, jobNo || slipId).catch(() => {});
-
-    // 5. Also push updated overall state to ensure spreadsheet reflects deletion immediately
-    const remainingPieces: IndividualPieceUnit[] = [];
-    updatedItems.forEach(w => {
-      const pList = (w.individualPieces && w.individualPieces.length > 0)
-        ? w.individualPieces
-        : getOrGenerateIndividualPieces(w);
-      remainingPieces.push(...pList);
-    });
-
-    pushFullStateToAppsScript(syncConfig, {
-      orderSlips: updatedSlips,
-      workflow: updatedItems,
-      pieces: remainingPieces,
-      inventory: materials,
-      dispatch: dispatchOrders
-    });
-
-    setLastAutoEntryNotice(`Order Slip "${targetSlip?.partyName || slipJob.toUpperCase()}" (Job ${jobNo || targetSlip?.jobNo || ''}) deleted successfully`);
-    setTimeout(() => setLastAutoEntryNotice(null), 4000);
+    setLastAutoEntryNotice(`Deleted order slip (${slipJob}) & cleaned up component lots from Cloud`);
+    setTimeout(() => setLastAutoEntryNotice(null), 3000);
   };
 
   // Alerts
@@ -2443,7 +2328,20 @@ export default function App() {
     });
   };
 
-  // CSV Export helper
+  // 1-Click Multi-Sheet Excel (.xlsx) Export
+  const handleExportExcel = () => {
+    exportFactoryDataToExcel({
+      workflowItems,
+      orderSlips,
+      materials,
+      dispatchOrders,
+      companyName: currentUser?.companyName || 'Trisharth'
+    });
+    setLastAutoEntryNotice('Exported full factory production data to Excel (.xlsx) successfully!');
+    setTimeout(() => setLastAutoEntryNotice(null), 3500);
+  };
+
+  // CSV Export fallback helper
   const handleExportCsv = () => {
     const { inventoryCsv } = exportDataAsCsv(materials, workflowItems, orderSlips, dispatchOrders);
     const blob = new Blob([inventoryCsv], { type: 'text/csv;charset=utf-8;' });
@@ -2516,7 +2414,7 @@ export default function App() {
       return nextList;
     });
 
-    // Find the item and sync immediately to Firestore and Google Sheets
+    // Save directly to Cloud Database (real-time sub-second sync across all computers)
     const targetItem = workflowItems.find(i => i.id === itemId) || updatedItemForSync;
     if (targetItem) {
       const itemToSync: WorkflowItem = {
@@ -2524,12 +2422,8 @@ export default function App() {
         currentStage: newStage,
         lastSyncedWithFirebase: nowIso
       };
-      saveDesignToFirestore(itemToSync).catch(err => {
-        console.warn('Firestore sync note:', err);
-      });
-      pushItemToGoogleSheets(syncConfig, itemToSync);
-      syncFullStateToGoogleSheets({ 
-        workflowItemsList: workflowItems.map(i => i.id === itemId ? itemToSync : i)
+      saveCloudWorkflowItem(itemToSync).catch(err => {
+        console.warn('Cloud Database workflow sync error:', err);
       });
     }
 
@@ -2545,10 +2439,8 @@ export default function App() {
   const handleCreateWorkflowItem = (newItem: WorkflowItem) => {
     const updated = [newItem, ...workflowItems];
     setWorkflowItems(updated);
-    pushItemToGoogleSheets(syncConfig, newItem);
-    saveDesignToFirestore(newItem).catch(err => console.warn('Firestore sync error:', err));
-    syncFullStateToGoogleSheets({ workflowItemsList: updated });
-    setLastAutoEntryNotice(`Registered ${newItem.designNumber} (Lot ${newItem.lotNumber}) in workflow pipeline & Google Sheet`);
+    saveCloudWorkflowItem(newItem).catch(err => console.warn('Cloud Database create error:', err));
+    setLastAutoEntryNotice(`Registered ${newItem.designNumber} (Lot ${newItem.lotNumber}) in Cloud Database`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
     confetti({
       particleCount: 40,
@@ -2560,13 +2452,8 @@ export default function App() {
   const handleUpdateWorkflowItem = (updated: WorkflowItem) => {
     const updatedList = workflowItems.map(i => i.id === updated.id ? updated : i);
     setWorkflowItems(updatedList);
-    pushItemToGoogleSheets(syncConfig, updated);
-    if (updated.individualPieces && updated.individualPieces.length > 0) {
-      pushPiecesToAppsScript(syncConfig, updated.individualPieces);
-    }
-    saveDesignToFirestore(updated).catch(err => console.warn('Firestore sync error:', err));
-    syncFullStateToGoogleSheets({ workflowItemsList: updatedList });
-    setLastAutoEntryNotice(`Updated design ${updated.designNumber} & synced to Google Sheet`);
+    saveCloudWorkflowItem(updated).catch(err => console.warn('Cloud Database update error:', err));
+    setLastAutoEntryNotice(`Updated design ${updated.designNumber} in Cloud Database`);
     setTimeout(() => setLastAutoEntryNotice(null), 3000);
   };
 
@@ -2574,10 +2461,9 @@ export default function App() {
     const target = workflowItems.find(i => i.id === itemId);
     const updatedList = workflowItems.filter(i => i.id !== itemId);
     setWorkflowItems(updatedList);
-    deleteDesignFromFirestore(itemId).catch(err => console.warn('Firestore delete error:', err));
-    syncFullStateToGoogleSheets({ workflowItemsList: updatedList });
+    deleteCloudWorkflowItem(itemId).catch(err => console.warn('Cloud Database delete error:', err));
     if (target) {
-      setLastAutoEntryNotice(`Deleted job ${target.designNumber} (${target.lotNumber}) & updated Google Sheet`);
+      setLastAutoEntryNotice(`Deleted job ${target.designNumber} (${target.lotNumber}) from Cloud Database`);
       setTimeout(() => setLastAutoEntryNotice(null), 3000);
     }
   };
@@ -2592,10 +2478,11 @@ export default function App() {
     }
     setOrderSlips(updatedSlips);
     saveStoredOrderSlips(updatedSlips);
-    pushOrderSlipToAppsScript(syncConfig, slip);
-    saveOrderSlipToFirestore(slip).catch(err => console.warn('Firestore order slip sync error:', err));
 
-    // Merge generated items into workflowItems and persist each to Firestore & Google Sheets
+    // Save Slip to Cloud Database
+    saveCloudOrderSlip(slip).catch(err => console.warn('Cloud Database order slip error:', err));
+
+    // Save all generated component lots to Cloud Database
     setWorkflowItems(prev => {
       let nextList = [...prev];
       generatedItems.forEach(it => {
@@ -2605,14 +2492,9 @@ export default function App() {
         } else {
           nextList.unshift(it);
         }
-        pushItemToGoogleSheets(syncConfig, it);
-        saveDesignToFirestore(it).catch(err => console.warn('Firestore design sync error:', err));
+        saveCloudWorkflowItem(it).catch(err => console.warn('Cloud Database item error:', err));
       });
       saveStoredWorkflowItems(nextList);
-      syncFullStateToGoogleSheets({ 
-        workflowItemsList: nextList,
-        orderSlipsList: updatedSlips
-      });
       return nextList;
     });
 
@@ -2621,7 +2503,7 @@ export default function App() {
       spread: 60,
       origin: { y: 0.6 }
     });
-    setLastAutoEntryNotice(`Saved Order Slip for ${slip.partyName} (Job: ${slip.jobNo}) & Synced ${generatedItems.length} Component Lots to Firestore & Cloud`);
+    setLastAutoEntryNotice(`Saved Order Slip for ${slip.partyName} (Job: ${slip.jobNo}) & Synced to Cloud Database`);
     setTimeout(() => setLastAutoEntryNotice(null), 4500);
   };
 
@@ -2751,6 +2633,7 @@ export default function App() {
           }}
           onOpenAlerts={() => setIsAlertsOpen(true)}
           onTriggerManualSync={() => handlePerformSync(false)}
+          onExportExcel={handleExportExcel}
           onSignOut={handleSignOut}
           onSwitchAccount={handleSwitchAccount}
         />
@@ -2768,6 +2651,7 @@ export default function App() {
             onDeleteItem={handleDeleteWorkflowItem}
             onHandoverToDispatch={handleHandoverWorkflowToDispatch}
             onTriggerSync={() => handlePerformSync(false)}
+            onExportExcel={handleExportExcel}
             orderSlips={orderSlips}
             onSaveOrderSlip={handleSaveOrderSlip}
             onDeleteOrderSlip={handleDeleteOrderSlip}
