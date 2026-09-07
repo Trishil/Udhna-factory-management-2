@@ -1267,17 +1267,20 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
       />
 
       {/* S V ART & CREATION Party Order Slip Modal */}
-      <OrderSlipModal
-        isOpen={isOrderSlipModalOpen}
-        onClose={() => {
-          setIsOrderSlipModalOpen(false);
-          setEditingSlip(null);
-        }}
-        onSaveSlip={handleSaveSlip}
-        existingSlip={editingSlip}
-        items={items}
-        onDeleteSlip={onDeleteOrderSlip}
-      />
+      {isOrderSlipModalOpen && (
+        <OrderSlipModal
+          key={editingSlip ? editingSlip.id : 'new-slip'}
+          isOpen={isOrderSlipModalOpen}
+          onClose={() => {
+            setIsOrderSlipModalOpen(false);
+            setEditingSlip(null);
+          }}
+          onSaveSlip={handleSaveSlip}
+          existingSlip={editingSlip}
+          items={items}
+          onDeleteSlip={onDeleteOrderSlip}
+        />
+      )}
 
       {/* Design Photo Capture & Metadata Modal */}
       <DesignPhotoModal

@@ -205,11 +205,11 @@ export async function saveCloudOrderSlip(slip: OrderSlip): Promise<void> {
   if (!slip || (!slip.id && !slip.jobNo)) return;
   await ensureAuthReady();
 
-  const id = slip.id || `slip-${slip.jobNo}`;
+  const id = slip.id || `slip-${Date.now()}`;
   const slipWithId = { ...slip, id };
 
-  // 1. Update memory
-  const idx = memorySlips.findIndex(s => s.id === id || s.jobNo === slip.jobNo);
+  // 1. Update memory strictly by slip ID
+  const idx = memorySlips.findIndex(s => s.id === id);
   if (idx >= 0) {
     memorySlips[idx] = slipWithId;
   } else {
@@ -234,8 +234,8 @@ export async function deleteCloudOrderSlip(slipId: string): Promise<void> {
   if (!slipId) return;
   await ensureAuthReady();
 
-  // 1. Update memory
-  memorySlips = memorySlips.filter(s => s.id !== slipId && s.jobNo !== slipId);
+  // 1. Update memory strictly by slip ID
+  memorySlips = memorySlips.filter(s => s.id !== slipId);
 
   // 2. Delete individual document
   const safeId = String(slipId).replace(/[\/\s#?]/g, '_');

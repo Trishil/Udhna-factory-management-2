@@ -47,10 +47,10 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
   const todayStr = now.toISOString().split('T')[0];
 
   // Slip Header states
-  const [jobNo, setJobNo] = useState(existingSlip?.jobNo || '06/05');
+  const [jobNo, setJobNo] = useState(existingSlip?.jobNo || '');
   const [date, setDate] = useState(existingSlip?.date || todayStr);
-  const [chalanNo, setChalanNo] = useState(existingSlip?.chalanNo || '227');
-  const [partyName, setPartyName] = useState(existingSlip?.partyName || 'Jaishri');
+  const [chalanNo, setChalanNo] = useState(existingSlip?.chalanNo || '');
+  const [partyName, setPartyName] = useState(existingSlip?.partyName || '');
   const [firmName, setFirmName] = useState(existingSlip?.firmName || 'Trisharth');
 
   // Columns: Fabric types in the slip matrix

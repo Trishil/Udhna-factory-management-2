@@ -1565,16 +1565,15 @@ export default function App() {
     const slipJob = (jobNo || targetSlip?.jobNo || slipId).trim().toLowerCase();
 
     // 1. Remove slip from state & localStorage
-    const updatedSlips = orderSlips.filter(s => s.id !== slipId && s.jobNo !== jobNo);
+    const updatedSlips = orderSlips.filter(s => s.id !== slipId);
     setOrderSlips(updatedSlips);
     saveStoredOrderSlips(updatedSlips);
 
     // 2. Remove all workflow items matching this slip from state & Cloud
     const removedItemIds: string[] = [];
     const updatedItems = workflowItems.filter(item => {
-      const itJob = (item.jobNo || item.lotNumber || '').trim().toLowerCase();
       const itSlipId = item.orderSlipId;
-      const isMatch = (itSlipId && itSlipId === slipId) || (slipJob && (itJob === slipJob || itJob.includes(slipJob) || slipJob.includes(itJob)));
+      const isMatch = itSlipId ? itSlipId === slipId : (Boolean(jobNo) && item.jobNo === jobNo);
       if (isMatch) {
         removedItemIds.push(item.id);
         deleteCloudWorkflowItem(item.id).catch(() => {});
