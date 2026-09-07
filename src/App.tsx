@@ -69,6 +69,7 @@ import {
   saveCloudWorkflowItems,
   deleteCloudWorkflowItem,
   deleteCloudWorkflowItemsBySlipId,
+  replaceCloudWorkflowItemsForSlip,
   subscribeToCloudOrderSlips,
   saveCloudOrderSlip,
   deleteCloudOrderSlip,
@@ -2538,21 +2539,29 @@ export default function App() {
     // Save Slip to Cloud Database
     saveCloudOrderSlip(slip).catch(err => console.warn('Cloud Database order slip error:', err));
 
-    // Save all generated component lots to Cloud Database in ONE atomic batch call
+    // Replace all workflow items for this slip with generatedItems, preserving stage progress for matching items
     setWorkflowItems(prev => {
-      let nextList = [...prev];
-      generatedItems.forEach(it => {
-        const idx = nextList.findIndex(existing => existing.id === it.id);
-        if (idx >= 0) {
-          nextList[idx] = it;
-        } else {
-          nextList.unshift(it);
+      const remainingItems = prev.filter(item => item.orderSlipId !== slip.id);
+      const enrichedItems = generatedItems.map(newItem => {
+        const existing = prev.find(p => p.id === newItem.id);
+        if (existing) {
+          return {
+            ...newItem,
+            currentStage: existing.currentStage || newItem.currentStage,
+            stageHistory: existing.stageHistory && existing.stageHistory.length > 0 ? existing.stageHistory : newItem.stageHistory,
+            piecesCompleted: existing.piecesCompleted || newItem.piecesCompleted
+          };
         }
+        return newItem;
       });
+
+      const nextList = [...enrichedItems, ...remainingItems];
       saveStoredWorkflowItems(nextList);
       return nextList;
     });
-    saveCloudWorkflowItems(generatedItems).catch(err => console.warn('Cloud Database batch error:', err));
+
+    // Atomically replace workflow items for this slip in Cloud Database
+    replaceCloudWorkflowItemsForSlip(slip.id, generatedItems).catch(err => console.warn('Cloud Database replace error:', err));
 
     confetti({
       particleCount: 50,

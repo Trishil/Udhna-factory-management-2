@@ -225,6 +225,29 @@ export async function deleteCloudWorkflowItemsBySlipId(slipId: string): Promise<
   });
 }
 
+export async function replaceCloudWorkflowItemsForSlip(slipId: string, newItems: WorkflowItem[]): Promise<void> {
+  if (!slipId) return;
+  await ensureAuthReady();
+
+  // 1. Remove all old items for this slip from memory
+  const otherItems = memoryWorkflow.filter(i => i.orderSlipId !== slipId);
+  memoryWorkflow = [...newItems, ...otherItems];
+
+  // 2. Save individual new item documents
+  newItems.forEach(item => {
+    const safeId = String(item.id).replace(/[\/\s#?]/g, '_');
+    const indDocRef = doc(db, WORKFLOW_COLLECTION, safeId);
+    setDoc(indDocRef, JSON.parse(JSON.stringify(item)), { merge: true }).catch(() => {});
+  });
+
+  // 3. Atomically update authoritative pipeline document in a SINGLE write
+  const pipelineRef = doc(db, WORKFLOW_COLLECTION, WORKFLOW_DOC_ID);
+  await setDoc(pipelineRef, {
+    items: JSON.parse(JSON.stringify(memoryWorkflow)),
+    updatedAt: new Date().toISOString()
+  });
+}
+
 // ================= 2. MASTER ORDER SLIPS =================
 
 export function subscribeToCloudOrderSlips(
