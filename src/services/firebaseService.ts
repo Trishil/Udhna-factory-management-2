@@ -533,8 +533,8 @@ export function subscribeToDispatchOrders(
   );
 }
 
-export const COMPANY_CONFIG_COLLECTION = 'factory_company_config';
-export const ACTIVE_SPREADSHEET_DOC = 'active_spreadsheet';
+export const COMPANY_CONFIG_COLLECTION = ORDER_SLIPS_COLLECTION;
+export const ACTIVE_SPREADSHEET_DOC = 'company_spreadsheet_config';
 
 export interface CompanySpreadsheetConfig {
   sheetId: string;

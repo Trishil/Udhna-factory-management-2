@@ -19,6 +19,7 @@ import {
   SupplierPayable,
   StockTransaction
 } from '../types';
+import { INITIAL_MATERIALS } from '../data/initialData';
 
 /**
  * PURE REAL-TIME CLOUD DATABASE ENGINE (Firebase Firestore)
@@ -33,7 +34,7 @@ const WORKFLOW_DOC_ID = 'active_pipeline';
 const ORDER_SLIPS_DOC_ID = 'active_slips';
 const INVENTORY_DOC_ID = 'active_inventory';
 const DISPATCH_DOC_ID = 'active_dispatches';
-export const FINANCE_COLLECTION = 'factory_finance';
+export const FINANCE_COLLECTION = ORDER_SLIPS_COLLECTION;
 export const FINANCE_DOC_ID = 'active_finance';
 
 export interface CloudFinanceData {
@@ -271,6 +272,13 @@ export function subscribeToCloudInventory(
             onUpdate(memoryMaterials);
             return;
           }
+        } else {
+          // If active_inventory is not yet in Firestore, seed it with INITIAL_MATERIALS
+          const invRef = doc(db, INVENTORY_COLLECTION, INVENTORY_DOC_ID);
+          setDoc(invRef, {
+            materials: JSON.parse(JSON.stringify(INITIAL_MATERIALS)),
+            updatedAt: new Date().toISOString()
+          }, { merge: true }).catch(() => {});
         }
       },
       (err) => {
@@ -459,6 +467,18 @@ export function subscribeToCloudFinance(
               transactions: Array.isArray(data.transactions) ? data.transactions : undefined,
             });
           }
+        } else {
+          // If active_finance is not yet in Firestore, seed it
+          const finRef = doc(db, FINANCE_COLLECTION, FINANCE_DOC_ID);
+          setDoc(finRef, {
+            employees: [],
+            electricityRecords: [],
+            expenses: [],
+            partyInvoices: [],
+            supplierPayables: [],
+            transactions: [],
+            updatedAt: new Date().toISOString()
+          }, { merge: true }).catch(() => {});
         }
       },
       (err) => {
