@@ -23,7 +23,8 @@ import {
   addNewFabricType, 
   getOrGenerateIndividualPieces, 
   getOrderSlipCompletedPieces,
-  getOrderSlipStageDistribution 
+  getOrderSlipStageDistribution,
+  generateWorkflowItemsFromSlip
 } from '../utils/workflowData';
 
 interface OrderSlipModalProps {
@@ -338,76 +339,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
     };
 
     // Generate individual workflow items for each cell with quantity > 0
-    const generatedItems: WorkflowItem[] = [];
-    const jobClean = jobNo.trim().replace(/[^a-zA-Z0-9]/g, '_');
-    
-    colorRows.forEach((row, rIdx) => {
-      fabricColumns.forEach((colName, cIdx) => {
-        const qty = Number(row.fabricQuantities[colName]) || 0;
-        if (qty > 0) {
-          const colClean = colName.trim().replace(/[^a-zA-Z0-9]/g, '');
-          const itemId = `wf-${slipId}-${rIdx}-${cIdx}`;
-          const itemDNo = row.designNumber || 'DSG-101';
-          const lotNum = `LOT-${jobClean}-${colClean}-${rIdx + 1}`;
-          
-          const newItem: WorkflowItem = {
-            id: itemId,
-            lotNumber: lotNum,
-            jobNo: jobNo,
-            designNumber: itemDNo,
-            designName: `${partyName} ${colName} (${row.colorName})`,
-            fabricType: colName,
-            fabricColor: row.colorName,
-            colorSwatchHex: row.colorHex,
-            partyOrClientName: partyName,
-            partyName: partyName,
-            date: date,
-            createdDate: date,
-            chalanNumber: chalanNo,
-            pieces: qty,
-            quantity: qty,
-            unit: 'pieces',
-            currentStage: 'embroidery',
-            priority: 'normal',
-            initialInspectionResult: 'good',
-            assignedOperator: 'Floor Supervisor',
-            notes: row.notes || calculationNotes || 'Generated from S V ART & CREATION slip',
-            deliveryChalanNumber: deliveryChalanNo,
-            deliveryDate: deliveryDate,
-            billNumber: billNo,
-            piecesCompleted: piecesCompleted > 0 ? Math.min(qty, Math.round((piecesCompleted / totalOrderedPcs) * qty)) : 0,
-            firmName: firmName,
-            orderSlipId: slipId,
-            orderCalculationNotes: calculationNotes,
-            challanBreakdownNotes: inwardChallanNotes,
-            stageHistory: [
-              {
-                stageId: 'fabric',
-                stageName: '1. Fabric',
-                enteredAt: new Date().toISOString(),
-                notes: `Inward recorded from Slip ${chalanNo}`
-              },
-              {
-                stageId: 'chalan',
-                stageName: '2. Chalan (Slip)',
-                enteredAt: new Date().toISOString(),
-                notes: `Order Slip issued with ${qty} pcs`
-              },
-              {
-                stageId: 'embroidery',
-                stageName: '5. Embroidery',
-                enteredAt: new Date().toISOString(),
-                notes: 'Active in production matrix'
-              }
-            ]
-          };
-
-          // Generate individual piece units connected to this slip
-          newItem.individualPieces = getOrGenerateIndividualPieces(newItem);
-          generatedItems.push(newItem);
-        }
-      });
-    });
+    const generatedItems = generateWorkflowItemsFromSlip(slipObj);
 
     onSaveSlip(slipObj, generatedItems);
     onClose();

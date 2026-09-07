@@ -20,6 +20,7 @@ import {
   StockTransaction
 } from '../types';
 import { INITIAL_MATERIALS } from '../data/initialData';
+import { generateWorkflowItemsFromSlip } from '../utils/workflowData';
 
 /**
  * PURE REAL-TIME CLOUD DATABASE ENGINE (Firebase Firestore)
@@ -60,23 +61,35 @@ let memoryFinance: CloudFinanceData = {
   transactions: []
 };
 
-// Ensure Firebase Auth is ready before any operation
-let authPromise: Promise<any> | null = null;
-export function ensureAuthReady(): Promise<any> {
-  if (auth.currentUser) return Promise.resolve(auth.currentUser);
-  if (!authPromise) {
-    authPromise = new Promise((resolve) => {
-      const unsub = onAuthStateChanged(auth, (user) => {
-        if (user) {
-          unsub();
-          resolve(user);
-        }
-      });
-      signInAnonymously(auth).catch((err) => {
-        console.warn('Anonymous auth initialization note:', err);
-      });
+// Ready gate: ensures anonymous authentication completes before any Firestore request
+let authReady = false;
+let authPromise: Promise<void> | null = null;
+
+export function ensureAuthReady(): Promise<void> {
+  if (authReady) return Promise.resolve();
+  if (authPromise) return authPromise;
+
+  authPromise = new Promise((resolve) => {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        authReady = true;
+        resolve();
+      } else {
+        signInAnonymously(auth)
+          .then(() => {
+            authReady = true;
+            resolve();
+          })
+          .catch((err) => {
+            console.warn('Anonymous auth initialization notice:', err?.message || err);
+            // Even if sign-in fails, allow attempts
+            authReady = true;
+            resolve();
+          });
+      }
     });
-  }
+  });
+
   return authPromise;
 }
 
@@ -100,6 +113,18 @@ export function subscribeToCloudWorkflow(
           const data = snapshot.data() as any;
           if (Array.isArray(data?.items)) {
             memoryWorkflow = data.items;
+            // Self-healing: if pipeline has 0 items but active slips exist, auto-generate items from slips
+            if (memoryWorkflow.length === 0 && memorySlips.length > 0) {
+              const healedItems: WorkflowItem[] = [];
+              memorySlips.forEach(s => {
+                const its = generateWorkflowItemsFromSlip(s);
+                healedItems.push(...its);
+              });
+              if (healedItems.length > 0) {
+                memoryWorkflow = healedItems;
+                saveCloudWorkflowItems(healedItems).catch(() => {});
+              }
+            }
             onUpdate(memoryWorkflow);
             return;
           }
@@ -144,6 +169,28 @@ export async function saveCloudWorkflowItem(item: WorkflowItem): Promise<void> {
   }, { merge: true });
 }
 
+export async function saveCloudWorkflowItems(items: WorkflowItem[]): Promise<void> {
+  if (!Array.isArray(items) || items.length === 0) return;
+  await ensureAuthReady();
+
+  // 1. Update memory in bulk
+  items.forEach(item => {
+    const idx = memoryWorkflow.findIndex(i => i.id === item.id);
+    if (idx >= 0) {
+      memoryWorkflow[idx] = item;
+    } else {
+      memoryWorkflow.unshift(item);
+    }
+  });
+
+  // 2. Atomically update authoritative real-time pipeline document in a SINGLE write
+  const pipelineRef = doc(db, WORKFLOW_COLLECTION, WORKFLOW_DOC_ID);
+  await setDoc(pipelineRef, {
+    items: JSON.parse(JSON.stringify(memoryWorkflow)),
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+}
+
 export async function deleteCloudWorkflowItem(itemId: string): Promise<void> {
   if (!itemId) return;
   await ensureAuthReady();
@@ -156,6 +203,21 @@ export async function deleteCloudWorkflowItem(itemId: string): Promise<void> {
   deleteDoc(doc(db, WORKFLOW_COLLECTION, safeId)).catch(() => {});
 
   // 3. Atomically update authoritative pipeline document
+  const pipelineRef = doc(db, WORKFLOW_COLLECTION, WORKFLOW_DOC_ID);
+  await setDoc(pipelineRef, {
+    items: JSON.parse(JSON.stringify(memoryWorkflow)),
+    updatedAt: new Date().toISOString()
+  });
+}
+
+export async function deleteCloudWorkflowItemsBySlipId(slipId: string): Promise<void> {
+  if (!slipId) return;
+  await ensureAuthReady();
+
+  // 1. Update memory
+  memoryWorkflow = memoryWorkflow.filter(i => i.orderSlipId !== slipId);
+
+  // 2. Atomically update authoritative pipeline document in a SINGLE write
   const pipelineRef = doc(db, WORKFLOW_COLLECTION, WORKFLOW_DOC_ID);
   await setDoc(pipelineRef, {
     items: JSON.parse(JSON.stringify(memoryWorkflow)),
@@ -183,6 +245,18 @@ export function subscribeToCloudOrderSlips(
           const data = snapshot.data() as any;
           if (Array.isArray(data?.slips)) {
             memorySlips = data.slips;
+            // Self-healing: if slips exist but workflow items are 0, heal workflow items
+            if (memorySlips.length > 0 && memoryWorkflow.length === 0) {
+              const healedItems: WorkflowItem[] = [];
+              memorySlips.forEach(s => {
+                const its = generateWorkflowItemsFromSlip(s);
+                healedItems.push(...its);
+              });
+              if (healedItems.length > 0) {
+                memoryWorkflow = healedItems;
+                saveCloudWorkflowItems(healedItems).catch(() => {});
+              }
+            }
             onUpdate(memorySlips);
             return;
           }

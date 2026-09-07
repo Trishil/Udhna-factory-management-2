@@ -66,7 +66,9 @@ import {
 import {
   subscribeToCloudWorkflow,
   saveCloudWorkflowItem,
+  saveCloudWorkflowItems,
   deleteCloudWorkflowItem,
+  deleteCloudWorkflowItemsBySlipId,
   subscribeToCloudOrderSlips,
   saveCloudOrderSlip,
   deleteCloudOrderSlip,
@@ -1569,24 +1571,20 @@ export default function App() {
     setOrderSlips(updatedSlips);
     saveStoredOrderSlips(updatedSlips);
 
-    // 2. Remove all workflow items matching this slip from state & Cloud
-    const removedItemIds: string[] = [];
+    // 2. Remove all workflow items matching this slip from state
     const updatedItems = workflowItems.filter(item => {
       const itSlipId = item.orderSlipId;
-      const isMatch = itSlipId ? itSlipId === slipId : (Boolean(jobNo) && item.jobNo === jobNo);
-      if (isMatch) {
-        removedItemIds.push(item.id);
-        deleteCloudWorkflowItem(item.id).catch(() => {});
-        return false;
-      }
-      return true;
+      return itSlipId ? itSlipId !== slipId : (jobNo ? item.jobNo !== jobNo : true);
     });
 
     setWorkflowItems(updatedItems);
     saveStoredWorkflowItems(updatedItems);
 
-    // 3. Delete Slip from Cloud Database
-    await deleteCloudOrderSlip(slipId).catch(() => {});
+    // 3. Delete Slip & associated lots from Cloud Database atomically in a single write
+    await Promise.all([
+      deleteCloudOrderSlip(slipId),
+      deleteCloudWorkflowItemsBySlipId(slipId)
+    ]).catch(() => {});
 
     setLastAutoEntryNotice(`Deleted order slip (${slipJob}) & cleaned up component lots from Cloud`);
     setTimeout(() => setLastAutoEntryNotice(null), 3000);
@@ -2540,7 +2538,7 @@ export default function App() {
     // Save Slip to Cloud Database
     saveCloudOrderSlip(slip).catch(err => console.warn('Cloud Database order slip error:', err));
 
-    // Save all generated component lots to Cloud Database
+    // Save all generated component lots to Cloud Database in ONE atomic batch call
     setWorkflowItems(prev => {
       let nextList = [...prev];
       generatedItems.forEach(it => {
@@ -2550,11 +2548,11 @@ export default function App() {
         } else {
           nextList.unshift(it);
         }
-        saveCloudWorkflowItem(it).catch(err => console.warn('Cloud Database item error:', err));
       });
       saveStoredWorkflowItems(nextList);
       return nextList;
     });
+    saveCloudWorkflowItems(generatedItems).catch(err => console.warn('Cloud Database batch error:', err));
 
     confetti({
       particleCount: 50,
