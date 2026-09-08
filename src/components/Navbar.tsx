@@ -192,16 +192,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right Controls & User Profile */}
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0 ml-auto">
             
-            {/* Cloud DB Live Status */}
-            <div 
-              className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-2xs"
-              title="Real-time Cloud Database Connected (Sub-second sync across all computers)"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="hidden sm:inline text-[11px] font-mono font-bold text-emerald-900">Cloud DB:</span>
-              <span className="text-[11px] font-mono font-bold text-emerald-700">LIVE</span>
-            </div>
-
             {/* 1-Click Multi-Sheet Excel Export */}
             {onExportExcel && (
               <button

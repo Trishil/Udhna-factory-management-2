@@ -9,9 +9,12 @@ import {
   ArrowRight, 
   MapPin,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  Receipt
 } from 'lucide-react';
 import { DispatchOrder, DispatchStatus } from '../../types';
+import { InvoiceAndChallanModal } from '../InvoiceAndChallanModal';
 
 interface MobileDispatchViewProps {
   orders: DispatchOrder[];
@@ -28,6 +31,7 @@ export const MobileDispatchView: React.FC<MobileDispatchViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedOrderForDoc, setSelectedOrderForDoc] = useState<{ order: DispatchOrder; type: 'invoice' | 'challan' } | null>(null);
 
   // Status counts
   const readyCount = orders.filter(o => o.status === 'ready_to_dispatch').length;
@@ -218,7 +222,30 @@ export const MobileDispatchView: React.FC<MobileDispatchViewProps> = ({
                   </div>
                 )}
 
-                {/* Action Buttons Row */}
+                {/* Document Preview Buttons: Tax Invoice & Delivery Chalan */}
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrderForDoc({ order, type: 'invoice' })}
+                    className="py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-xl text-xs font-bold shadow-2xs flex items-center justify-center space-x-1.5 transition-all active:scale-95"
+                    title="View & Print Tax Invoice"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-blue-600" />
+                    <span>Tax Invoice</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrderForDoc({ order, type: 'challan' })}
+                    className="py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold shadow-2xs flex items-center justify-center space-x-1.5 transition-all active:scale-95"
+                    title="View & Print Delivery Challan"
+                  >
+                    <Receipt className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>Delivery Chalan</span>
+                  </button>
+                </div>
+
+                {/* Status Action Buttons Row */}
                 <div className="flex items-center space-x-2 pt-1">
                   {order.status === 'ready_to_dispatch' && (
                     <button
@@ -265,6 +292,16 @@ export const MobileDispatchView: React.FC<MobileDispatchViewProps> = ({
         )}
       </div>
 
+      {/* Tax Invoice & Delivery Challan Modal for Mobile */}
+      {selectedOrderForDoc && (
+        <InvoiceAndChallanModal
+          order={selectedOrderForDoc.order}
+          initialDocType={selectedOrderForDoc.type}
+          onClose={() => setSelectedOrderForDoc(null)}
+        />
+      )}
+
     </div>
   );
 };
+
