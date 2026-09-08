@@ -77,13 +77,6 @@ export const MobileNavbar: React.FC<MobileNavbarProps> = ({
               <span className="font-mono font-black text-xs text-slate-900 tracking-tight truncate">
                 TextileFlow
               </span>
-              <div 
-                className="flex items-center space-x-1 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[9px] font-bold font-mono text-emerald-800 shrink-0"
-                title="Cloud DB Live"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>LIVE</span>
-              </div>
             </div>
             <p className="text-[10px] text-slate-500 truncate font-semibold">
               {currentUser?.companyName || 'Trisharth'} ERP

@@ -213,21 +213,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Real-time Cloud Status */}
-        {!isCollapsed && (
-          <div className="px-3 pt-3 mx-2 border-t border-slate-200/80">
-            <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50/60 border border-emerald-200/70 text-xs">
-              <div className="flex items-center space-x-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-[11px] font-semibold text-slate-700">Cloud DB Active</span>
-              </div>
-              <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-100/90 px-1.5 py-0.5 rounded">REAL-TIME</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Bottom User & Factory Info */}
