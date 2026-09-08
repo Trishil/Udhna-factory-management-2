@@ -28,6 +28,7 @@ import {
   PartyInvoice,
   SupplierPayable,
   DispatchOrder,
+  DispatchStatus,
   DispatchPaymentRecord,
   AppTab,
   WorkflowItem,
@@ -130,6 +131,14 @@ import { FinanceManager } from './components/FinanceManager';
 import { DispatchManager } from './components/DispatchManager';
 import { WorkflowManager } from './components/WorkflowManager';
 
+import { useResponsiveView } from './hooks/useResponsiveView';
+import { MobileNavbar } from './components/mobile/MobileNavbar';
+import { MobileBottomNav } from './components/mobile/MobileBottomNav';
+import { MobileWorkflowView } from './components/mobile/MobileWorkflowView';
+import { MobileInventoryView } from './components/mobile/MobileInventoryView';
+import { MobileDispatchView } from './components/mobile/MobileDispatchView';
+import { MobileFinanceView } from './components/mobile/MobileFinanceView';
+
 import { AddMachineModal } from './components/AddMachineModal';
 import { AddMaterialModal, InitialBatchFinancialOption } from './components/AddMaterialModal';
 import { StockAdjustModal, RestockFinancialLink } from './components/StockAdjustModal';
@@ -143,6 +152,8 @@ import { generateUniqueMaterialId, generateUniqueBatchId } from './utils/idGener
 import { CheckCircle2, FileSpreadsheet, Sparkles, ExternalLink, Trash2, Layers, Wallet, Activity, Package, ArrowDownRight, ArrowUpRight, Clock, Building2 } from 'lucide-react';
 
 export default function App() {
+  // Responsive layout state (Mobile / Desktop / Auto)
+  const { isMobile, viewMode, setViewMode } = useResponsiveView();
   // Authentication State
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     return getStoredAuthUser();
@@ -2650,35 +2661,131 @@ export default function App() {
     });
   };
 
+  const handleMobileUpdateDispatchStatus = (orderId: string, newStatus: DispatchStatus) => {
+    const order = dispatchOrders.find(d => d.id === orderId);
+    if (!order) return;
+    if (newStatus === 'dispatched') {
+      handleMarkAsDispatched(orderId, {
+        dispatchedDate: new Date().toISOString().split('T')[0],
+        transporterName: order.transporterName || 'Direct Logistics',
+        vehicleOrTrackingNumber: order.vehicleOrTrackingNumber || 'TRK-' + Math.floor(1000 + Math.random() * 9000)
+      });
+    } else {
+      handleUpdateDispatchOrder({
+        ...order,
+        status: newStatus
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex font-sans selection:bg-slate-900 selection:text-white">
-      
-      {/* Collapsible Left Sidebar */}
-      <Sidebar
-        activeTab={activeMainTab}
-        onTabChange={setActiveMainTab}
-        workflowCount={workflowItems.length}
-        lowStockCount={lowStockCount}
-        readyDispatchCount={readyDispatchCount}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={handleToggleSidebar}
-        currentUser={currentUser}
-      />
+      {isMobile ? (
+        /* Mobile Dedicated Layout */
+        <div className="flex-1 flex flex-col min-w-0 pb-20">
+          <MobileNavbar
+            currentUser={currentUser}
+            activeAlertsCount={alerts.filter(a => !a.resolved).length}
+            viewMode={viewMode}
+            onSetViewMode={setViewMode}
+            onOpenAlerts={() => setIsAlertsOpen(true)}
+            onExportExcel={handleExportExcel}
+            onSignOut={handleSignOut}
+            onSwitchAccount={handleSwitchAccount}
+          />
 
-      {/* Main Column (Navbar + Main Content + Footer) */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        {/* Top Navigation */}
-        <Navbar
-          machines={machines}
-          materials={materials}
-          alerts={alerts}
-          syncConfig={syncConfig}
-          isSimulating={isSimulating}
-          currentUser={currentUser}
-          activeTab={activeMainTab}
-          dispatchOrders={dispatchOrders}
-          workflowItems={workflowItems}
-          isSidebarCollapsed={isSidebarCollapsed}
+          <main className="flex-1 w-full px-3 py-3.5 space-y-4">
+            {activeMainTab === 'workflow' && (
+              <MobileWorkflowView
+                items={workflowItems}
+                orderSlips={orderSlips}
+                onUpdateStage={handleUpdateWorkflowStage}
+                onUpdateItem={handleUpdateWorkflowItem}
+                onDeleteItem={handleDeleteWorkflowItem}
+                onHandoverToDispatch={handleHandoverWorkflowToDispatch}
+                onSaveOrderSlip={handleSaveOrderSlip}
+                onDeleteSlip={handleDeleteOrderSlip}
+              />
+            )}
+
+            {activeMainTab === 'inventory' && (
+              <MobileInventoryView
+                materials={materials}
+                machines={machines}
+                onOpenAddMaterial={() => {
+                  setEditingMaterial(null);
+                  setIsAddMaterialOpen(true);
+                }}
+                onOpenQuickAdjust={(material, type) => {
+                  setAdjustTargetMaterial(material);
+                  setAdjustType(type);
+                  setIsStockAdjustOpen(true);
+                }}
+                onEditMaterial={(material) => {
+                  setEditingMaterial(material);
+                  setIsAddMaterialOpen(true);
+                }}
+                onDeleteMaterial={(id, name) => handleRequestDeleteMaterial(id, name)}
+              />
+            )}
+
+            {activeMainTab === 'dispatch' && (
+              <MobileDispatchView
+                orders={dispatchOrders}
+                onUpdateStatus={handleMobileUpdateDispatchStatus}
+              />
+            )}
+
+            {activeMainTab === 'finance' && (
+              <MobileFinanceView
+                employees={employees}
+                electricityRecords={electricityRecords}
+                expenses={expenses}
+                partyInvoices={partyInvoices}
+                supplierPayables={supplierPayables}
+                onAddExpense={handleAddExpense}
+                onPaySalary={handlePaySalary}
+                onPayElectricityBill={handlePayElectricityBill}
+              />
+            )}
+          </main>
+
+          <MobileBottomNav
+            activeTab={activeMainTab}
+            onTabChange={setActiveMainTab}
+            workflowCount={workflowItems.length}
+            lowStockCount={lowStockCount}
+            readyDispatchCount={readyDispatchCount}
+          />
+        </div>
+      ) : (
+        /* Desktop Layout (Sidebar + Navbar + Main Content + Footer) */
+        <div className="flex-1 flex min-w-0">
+          <Sidebar
+            activeTab={activeMainTab}
+            onTabChange={setActiveMainTab}
+            workflowCount={workflowItems.length}
+            lowStockCount={lowStockCount}
+            readyDispatchCount={readyDispatchCount}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={handleToggleSidebar}
+            currentUser={currentUser}
+          />
+
+          <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+            <Navbar
+              machines={machines}
+              materials={materials}
+              alerts={alerts}
+              syncConfig={syncConfig}
+              isSimulating={isSimulating}
+              currentUser={currentUser}
+              activeTab={activeMainTab}
+              dispatchOrders={dispatchOrders}
+              workflowItems={workflowItems}
+              isSidebarCollapsed={isSidebarCollapsed}
+              viewMode={viewMode}
+              onSetViewMode={setViewMode}
           onToggleSidebar={handleToggleSidebar}
           onTabChange={setActiveMainTab}
           onToggleSimulation={() => setIsSimulating(!isSimulating)}
@@ -2927,24 +3034,13 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-3">
-            <button 
-              onClick={() => setIsCreateSheetOpen(true)}
-              className="text-slate-700 hover:text-slate-900 font-semibold uppercase flex items-center space-x-1"
-            >
-              <Sparkles className="h-3 w-3 mr-0.5 text-slate-400" />
-              <span>+ Create New Sheet</span>
-            </button>
-            <span className="text-slate-300">|</span>
-            <button 
-              onClick={() => setIsSyncModalOpen(true)}
-              className="text-slate-700 hover:text-slate-900 font-semibold uppercase"
-            >
-              Spreadsheet Config
-            </button>
+            <span className="text-slate-600 font-semibold font-mono">FIRESTORE CLOUD v2.1</span>
           </div>
         </div>
       </footer>
       </div>
+    </div>
+  )}
 
       {/* Modals & Drawers */}
       <AddMachineModal
