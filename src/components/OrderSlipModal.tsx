@@ -26,6 +26,7 @@ import {
   getOrderSlipStageDistribution,
   generateWorkflowItemsFromSlip
 } from '../utils/workflowData';
+import { printOrderSlipDocument } from '../utils/orderSlipPrinter';
 
 interface OrderSlipModalProps {
   isOpen: boolean;
@@ -52,7 +53,9 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
   const [date, setDate] = useState(existingSlip?.date || todayStr);
   const [chalanNo, setChalanNo] = useState(existingSlip?.chalanNo || '');
   const [partyName, setPartyName] = useState(existingSlip?.partyName || '');
-  const [firmName, setFirmName] = useState(existingSlip?.firmName || 'Trisharth');
+  const [firmName, setFirmName] = useState(
+    existingSlip?.firmName && !existingSlip.firmName.includes('S V ART') ? existingSlip.firmName : 'Trisharth'
+  );
 
   // Columns: Fabric types in the slip matrix
   const [fabricColumns, setFabricColumns] = useState<string[]>(
@@ -217,100 +220,6 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
     setColorRows(prev => prev.filter(r => r.id !== rowId));
   };
 
-  // Load preset sample slips
-  const handleLoadPresetJaishri = () => {
-    setJobNo('06/05');
-    setDate('2026-07-05');
-    setChalanNo('227');
-    setPartyName('Jaishri');
-    setFirmName('S V ART & CREATION');
-    setFabricColumns(['Kali', 'Kurti', 'Lass']);
-    setColorRows([
-      {
-        id: 'r1',
-        colorName: 'Color 1 (Rust / Orange)',
-        colorHex: '#ea580c',
-        designNumber: '9014 Kali 8',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'Kali 3.30 = 39.50'
-      },
-      {
-        id: 'r2',
-        colorName: 'Color 2 (Cyan / Peacock Blue)',
-        colorHex: '#0284c7',
-        designNumber: '9012 Kali 8',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'Kurti 2 = 24'
-      },
-      {
-        id: 'r3',
-        colorName: 'Color 3 (Ochre / Mustard Yellow)',
-        colorHex: '#ca8a04',
-        designNumber: 'D.No 31',
-        fabricQuantities: { 'Kali': 79, 'Kurti': 24, 'Lass': 12 },
-        notes: 'Lass 1 = 12'
-      },
-      {
-        id: 'r4',
-        colorName: 'Color 4 (Magenta / Rose Pink)',
-        colorHex: '#db2777',
-        designNumber: 'D.No 31',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'DP = 2.60 = 31.20'
-      },
-      {
-        id: 'r5',
-        colorName: 'Color 5 (Olive / Mehndi Green)',
-        colorHex: '#65a30d',
-        designNumber: '9014 Kali 8',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'Lass .75 = 8.50'
-      },
-      {
-        id: 'r6',
-        colorName: 'Color 6 (Silver / Steel Grey)',
-        colorHex: '#64748b',
-        designNumber: 'D.No 31',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'BL 1.30 = 16'
-      }
-    ]);
-    setCalculationNotes('Kali 3.30 = 39.50 | Kurti 2 = 24 | Lass 1 = 12 | Magi 0.50 = 6 | Total = 81.50\nDP = 2.60 = 31.20 | Lass .75 = 8.50 | BL 1.30 = 16 | Total = 56');
-    setInwardChallanNotes('Ch 227: 12x6x2 = 24x6 | Ch 226: 11x6x2 = 22x6 | Total = 46x6');
-    setDeliveryChalanNo('96');
-    setPiecesCompleted(780);
-  };
-
-  const handleLoadPresetBLFashion = () => {
-    setJobNo('2');
-    setDate('2026-10-01');
-    setChalanNo('XYZ');
-    setPartyName('BL. FASHION');
-    setFirmName('S V ART & CREATION');
-    setFabricColumns(['Kali', 'Dupatta', 'Blouse front', 'Blouse Back', 'Lace']);
-    setColorRows([
-      {
-        id: 'r1',
-        colorName: 'Color 1 (Wine Maroon)',
-        colorHex: '#881337',
-        designNumber: 'Suit 28',
-        fabricQuantities: { 'Kali': 10, 'Dupatta': 10, 'Blouse front': 10, 'Blouse Back': 10, 'Lace': 10 },
-        notes: 'Heavy neck zari'
-      },
-      {
-        id: 'r2',
-        colorName: 'Color 2 (Emerald Green)',
-        colorHex: '#047857',
-        designNumber: 'Suit 28',
-        fabricQuantities: { 'Kali': 10, 'Dupatta': 10, 'Blouse front': 10, 'Blouse Back': 10, 'Lace': 10 },
-        notes: 'All borders matching'
-      }
-    ]);
-    setCalculationNotes('Suit 28 full 5-component set matching');
-    setDeliveryChalanNo('DCH-441');
-    setPiecesCompleted(40);
-  };
-
   // Submit and generate workflow items
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,7 +255,28 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
   };
 
   const handlePrintSlip = () => {
-    window.print();
+    const currentSlip: OrderSlip = {
+      id: existingSlip?.id || `slip-${Date.now()}`,
+      jobNo: jobNo.trim() || 'JOB-01',
+      date: date || todayStr,
+      chalanNo: chalanNo.trim() || 'CH-01',
+      partyName: partyName.trim() || 'Direct Client',
+      totalPcs: totalOrderedPcs,
+      fabricColumns,
+      colorRows,
+      calculationNotes,
+      inwardChallanNotes,
+      deliveryChalanNo,
+      deliveryDate,
+      billNo,
+      billDate,
+      piecesCompleted,
+      firmName: firmName || 'TRISHARTH',
+      status: piecesCompleted >= totalOrderedPcs && totalOrderedPcs > 0 ? 'completed' : 'in_progress',
+      createdAt: existingSlip?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    printOrderSlipDocument(currentSlip, firmName);
   };
 
   return (
@@ -375,25 +305,12 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
           <div className="flex items-center space-x-2">
             <button
               type="button"
-              onClick={handleLoadPresetJaishri}
-              className="px-2.5 py-1 text-[11px] font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg transition-colors border border-slate-200"
-            >
-              Load Jaishri (06/05)
-            </button>
-            <button
-              type="button"
-              onClick={handleLoadPresetBLFashion}
-              className="px-2.5 py-1 text-[11px] font-semibold bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg transition-colors border border-slate-200"
-            >
-              Load BL. Fashion (Job 2)
-            </button>
-            <button
-              type="button"
               onClick={handlePrintSlip}
-              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-              title="Print Order Slip"
+              className="px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl transition-all flex items-center space-x-1.5 shadow-2xs"
+              title="Print Order Slip (A4 Single Page)"
             >
-              <Printer className="h-4 w-4" />
+              <Printer className="h-4 w-4 text-blue-600" />
+              <span>Print Slip (A4)</span>
             </button>
             <button
               type="button"
@@ -483,7 +400,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
                   required
                   value={partyName}
                   onChange={(e) => setPartyName(e.target.value)}
-                  placeholder="e.g. Jaishri / BL. FASHION"
+                  placeholder="e.g. Radhika Sarees, Vandana Silk, Ambika Mills"
                   className="w-full px-3 py-2 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 text-slate-900 focus:bg-white transition-colors"
                 />
               </div>
@@ -848,6 +765,16 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
                 className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
               >
                 Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrintSlip}
+                className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors flex items-center space-x-1.5 shadow-2xs"
+                title="Print Order Slip (A4 Single Page)"
+              >
+                <Printer className="h-4 w-4 text-blue-600" />
+                <span>Print Slip (A4)</span>
               </button>
 
               {existingSlip && onDeleteSlip && (

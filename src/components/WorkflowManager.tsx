@@ -63,6 +63,7 @@ import { DesignPhotoModal } from './DesignPhotoModal';
 import { FabricColorStageMatrix } from './FabricColorStageMatrix';
 import { IndividualPieceTracker } from './IndividualPieceTracker';
 import { OrderSlipModal } from './OrderSlipModal';
+import { printOrderSlipDocument } from '../utils/orderSlipPrinter';
 import { normalizeStageForWeb, formatDirectImageUrl } from '../services/firebaseService';
 
 interface WorkflowManagerProps {
@@ -752,7 +753,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
         />
       )}
 
-      {/* VIEW 2: PARTY ORDER SLIPS (S V ART FORMAT) */}
+      {/* VIEW 2: PARTY ORDER SLIPS (TRISHARTH FORMAT) */}
       {viewMode === 'slips' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
@@ -799,7 +800,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                     <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <span className="text-amber-400 font-serif font-bold text-sm">श्री ૧૫</span>
-                        <span className="font-serif font-bold text-sm tracking-wide uppercase">{slip.firmName || 'S V ART & CREATION'}</span>
+                        <span className="font-serif font-bold text-sm tracking-wide uppercase">{slip.firmName && !slip.firmName.includes('S V ART') ? slip.firmName : 'TRISHARTH'}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="text-xs font-mono font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
@@ -940,6 +941,16 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                             <span>Delete</span>
                           </button>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => printOrderSlipDocument(slip)}
+                          className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg font-bold text-xs flex items-center space-x-1.5 transition-colors shadow-2xs"
+                          title="Print this Order Slip (A4 Single Page)"
+                        >
+                          <Printer className="h-3.5 w-3.5 text-blue-600" />
+                          <span>Print Slip</span>
+                        </button>
 
                         <button
                           type="button"
@@ -1585,7 +1596,7 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
         onSaveSlip={handleSaveSlip}
       />
 
-      {/* S V ART & CREATION Party Order Slip Modal */}
+      {/* Trisharth Party Order Slip Modal */}
       {isOrderSlipModalOpen && (
         <OrderSlipModal
           key={editingSlip ? editingSlip.id : 'new-slip'}

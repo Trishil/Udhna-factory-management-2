@@ -504,7 +504,7 @@ export const CreateWorkflowItemModal: React.FC<CreateWorkflowItemModalProps> = (
             <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start space-x-2.5">
               <FolderPlus className="h-4 w-4 text-amber-700 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-extrabold">Parent Order Master Folder (S V ART Slip):</span> Creates the master job umbrella containing a unique Job No., Inward Challan No., and Party Name. Multiple fabric component branches (Kali, Kurti, Lass, Dupatta) will be grouped under this single master job folder and synced to Google Sheets.
+                <span className="font-extrabold">Parent Order Master Folder (Trisharth Order Slip):</span> Creates the master job umbrella containing a unique Job No., Inward Challan No., and Party Name. Multiple fabric component branches (Kali, Kurti, Lass, Dupatta) will be grouped under this single master job folder and synced to Google Sheets.
               </div>
             </div>
           )}
@@ -649,7 +649,7 @@ export const CreateWorkflowItemModal: React.FC<CreateWorkflowItemModalProps> = (
                   required
                   value={partyName}
                   onChange={(e) => setPartyName(e.target.value)}
-                  placeholder="e.g. Vandana Silk, Ambika Mills, Jaishri, BL. FASHION"
+                  placeholder="e.g. Vandana Silk, Ambika Mills, Radhika Sarees"
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>

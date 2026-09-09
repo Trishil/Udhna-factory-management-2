@@ -326,7 +326,7 @@ export interface WorkflowItem {
 
   // Matrix Slip & Stage Piece Distribution
   colorSwatchHex?: string; // Hex color preview (e.g. #ea580c)
-  orderSlipId?: string; // Ref to master S V ART & CREATION slip
+  orderSlipId?: string; // Ref to master Trisharth order slip
   stagePieceBreakdown?: Partial<Record<WorkflowStageId, number>>; // Explicit breakdown of pieces in each of the 10 stages!
   individualPieces?: IndividualPieceUnit[]; // Unit-level piece tracking (e.g. Piece #1 to #20 with custom stages)
   orderCalculationNotes?: string;
@@ -379,7 +379,7 @@ export interface OrderSlip {
   date?: string; // e.g. "2026-07-05"
   dateOfEntry?: string;
   chalanNo: string; // e.g. "227"
-  partyName: string; // e.g. "Jaishri" or "BL. FASHION"
+  partyName: string; // e.g. "Vandana Silk" or "Ambika Mills"
   totalPcs: number; // e.g. 144
   fabricColumns: string[]; // e.g. ["Kali", "Dupatta", "BL. Front", "BL. Back", "Lace", "Kurti", "Lass"]
   colorRows: OrderSlipColorRow[];
