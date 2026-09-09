@@ -120,8 +120,34 @@ export const DesignPhotoModal: React.FC<DesignPhotoModalProps> = ({
       const file = e.target.files[0];
       setSelectedFile(file);
       const reader = new FileReader();
-      reader.onload = () => {
-        setPreviewUrl(reader.result as string);
+      reader.onload = (event) => {
+        const rawData = event.target?.result as string;
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            setPreviewUrl(canvas.toDataURL('image/jpeg', 0.82));
+          } else {
+            setPreviewUrl(rawData);
+          }
+        };
+        img.src = rawData;
       };
       reader.readAsDataURL(file);
     }
@@ -150,22 +176,33 @@ export const DesignPhotoModal: React.FC<DesignPhotoModalProps> = ({
     setUploadProgress('Uploading to Firebase Storage...');
 
     try {
-      let downloadUrl = previewUrl || '';
+      let base64Fallback = previewUrl || '';
+      if (!base64Fallback && selectedFile) {
+        base64Fallback = await new Promise<string>((resolve) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result as string);
+          r.onerror = () => resolve('');
+          r.readAsDataURL(selectedFile);
+        });
+      }
+
+      let downloadUrl = base64Fallback;
       let storagePath = '';
 
       // Try uploading to Firebase Storage
       try {
-        const payload = selectedFile || previewUrl!;
+        const payload = selectedFile || base64Fallback;
         const uploadResult = await uploadDesignImage(
           item.designNumber || item.id,
           payload,
           selectedFile?.name || `photo_${Date.now()}.jpg`
         );
-        downloadUrl = uploadResult.downloadUrl;
-        storagePath = uploadResult.storagePath;
+        if (uploadResult && uploadResult.downloadUrl) {
+          downloadUrl = uploadResult.downloadUrl;
+          storagePath = uploadResult.storagePath;
+        }
       } catch (fbErr) {
         console.warn('Firebase Storage direct upload note (falling back to base64 data):', fbErr);
-        // If storage bucket rules or offline, fallback to data URL directly
       }
 
       setUploadProgress('Attaching to Design record...');

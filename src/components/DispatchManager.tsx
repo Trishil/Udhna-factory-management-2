@@ -32,7 +32,9 @@ import {
   X, 
   Sparkles,
   ArrowUpRight,
-  ShieldCheck
+  ShieldCheck,
+  Smartphone,
+  Table
 } from 'lucide-react';
 import { 
   DispatchOrder, 
@@ -58,6 +60,7 @@ import {
 import { InvoiceAndChallanModal } from './InvoiceAndChallanModal';
 
 interface DispatchManagerProps {
+  isMobile?: boolean;
   dispatchOrders: DispatchOrder[];
   materials: RawMaterial[];
   machines: Machine[];
@@ -83,6 +86,7 @@ interface DispatchManagerProps {
 }
 
 export const DispatchManager: React.FC<DispatchManagerProps> = ({
+  isMobile,
   dispatchOrders,
   materials,
   machines,
@@ -94,6 +98,7 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
   onNavigateToFinance
 }) => {
   // Navigation & Filtering
+  const [viewMode, setViewMode] = useState<'mobile' | 'table'>(isMobile ? 'mobile' : 'table');
   const [activeFilter, setActiveFilter] = useState<'all' | 'ready_to_dispatch' | 'dispatched' | 'delivered' | 'unpaid'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'party_name'>('date_desc');
@@ -103,8 +108,21 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
   const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState<'invoice' | 'challan'>('invoice');
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<DispatchOrder | null>(null);
+
+  React.useEffect(() => {
+    if (isMobile) {
+      setViewMode('mobile');
+    }
+  }, [isMobile]);
+
+  const handleOpenDocModal = (order: DispatchOrder, type: 'invoice' | 'challan' = 'invoice') => {
+    setSelectedOrder(order);
+    setSelectedDocType(type);
+    setIsInvoiceModalOpen(true);
+  };
 
   // Stats Calculations
   const stats = useMemo(() => {
@@ -219,7 +237,41 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-2.5 shrink-0">
+          <div className="flex items-center space-x-2.5 shrink-0 flex-wrap gap-2">
+            {/* View Mode Switcher: App Dispatch (Mobile Cards) vs Consignments Table */}
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 border border-slate-200">
+              <button
+                id="dispatch-viewmode-mobile"
+                type="button"
+                onClick={() => setViewMode('mobile')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  viewMode === 'mobile'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <Smartphone className="h-4 w-4" />
+                <span>App Dispatch (Mobile)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[10px] ${viewMode === 'mobile' ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  Cards
+                </span>
+              </button>
+
+              <button
+                id="dispatch-viewmode-table"
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                  viewMode === 'table'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                }`}
+              >
+                <Table className="h-4 w-4" />
+                <span>Table</span>
+              </button>
+            </div>
+
             {onNavigateToFinance && (
               <button
                 type="button"
@@ -484,6 +536,180 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
               </button>
             </div>
           </div>
+        ) : viewMode === 'mobile' ? (
+          /* Mobile Cards View with Prominent Tax Invoice and Delivery Chalan Buttons */
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 bg-slate-50/60">
+            {filteredOrders.map(order => {
+              const isReady = order.status === 'ready_to_dispatch';
+              const isDispatched = order.status === 'dispatched' || order.status === 'in_transit';
+              const isDelivered = order.status === 'delivered';
+              const isFullyPaid = order.paymentStatus === 'paid' || order.balanceDue <= 0;
+
+              return (
+                <div
+                  key={order.id}
+                  className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3 flex flex-col justify-between hover:shadow-md transition-shadow"
+                >
+                  <div className="space-y-2.5">
+                    {/* Header: Dispatch #, Date & Status */}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center space-x-1.5">
+                          <span className="font-mono font-bold text-slate-900 text-sm">
+                            {order.dispatchNumber}
+                          </span>
+                          {order.orderNumber && (
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              ({order.orderNumber})
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                          Date: {order.dispatchedDate || order.readyDate || order.createdAt?.split('T')[0]}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border flex items-center space-x-1 ${
+                          isDelivered
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : isDispatched
+                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {isDelivered && <CheckCircle2 className="h-3 w-3 text-emerald-600" />}
+                        {isDispatched && <Truck className="h-3 w-3 text-blue-600" />}
+                        {isReady && <Package className="h-3 w-3 text-amber-600" />}
+                        <span>{isDelivered ? 'Delivered' : isDispatched ? 'In Transit' : 'Ready to Dispatch'}</span>
+                      </span>
+                    </div>
+
+                    {/* Buyer / Party */}
+                    <div className="pt-1">
+                      <div className="font-bold text-slate-900 text-sm flex items-center space-x-1.5">
+                        <Building2 className="h-4 w-4 text-indigo-500 shrink-0" />
+                        <span className="truncate">{order.partyName}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                        {order.contactPerson || order.deliveryAddress || 'Client Consignment'}
+                      </p>
+                    </div>
+
+                    {/* Product & Qty */}
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 truncate max-w-[200px]">{order.productName}</span>
+                        <span className="font-black text-slate-900 font-mono">
+                          {order.quantity?.toLocaleString()} {order.unit}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-200/80">
+                        <span className="text-slate-500">Invoice Total: <strong className="text-slate-900 font-mono">₹{(order.totalInvoiceAmount || 0).toLocaleString('en-IN')}</strong></span>
+                        <span className={isFullyPaid ? 'text-emerald-700 font-bold' : 'text-rose-700 font-bold'}>
+                          {isFullyPaid ? 'Paid' : `Due: ₹${(order.balanceDue || 0).toLocaleString('en-IN')}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Transporter */}
+                    {(order.transporterName || order.vehicleOrTrackingNumber) && (
+                      <div className="flex items-center space-x-1.5 text-xs text-slate-600 pt-0.5">
+                        <Truck className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">
+                          {order.transporterName} {order.vehicleOrTrackingNumber ? `(${order.vehicleOrTrackingNumber})` : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Area */}
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    {/* DOCUMENT PREVIEW BUTTONS: Tax Invoice & Delivery Chalan */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDocModal(order, 'invoice')}
+                        className="py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-xl text-xs font-bold shadow-2xs flex items-center justify-center space-x-1.5 transition-all active:scale-95 cursor-pointer"
+                        title="View & Print Tax Invoice"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-blue-600" />
+                        <span>Tax Invoice</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDocModal(order, 'challan')}
+                        className="py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 rounded-xl text-xs font-bold shadow-2xs flex items-center justify-center space-x-1.5 transition-all active:scale-95 cursor-pointer"
+                        title="View & Print Delivery Challan"
+                      >
+                        <Receipt className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>Delivery Chalan</span>
+                      </button>
+                    </div>
+
+                    {/* Status Actions */}
+                    <div className="flex items-center space-x-2">
+                      {isReady && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setIsDispatchModalOpen(true);
+                          }}
+                          className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                        >
+                          <Truck className="h-3.5 w-3.5" />
+                          <span>Dispatch Consignment</span>
+                        </button>
+                      )}
+
+                      {isDispatched && (
+                        <button
+                          type="button"
+                          onClick={() => onUpdateDispatch({
+                            ...order,
+                            status: 'delivered',
+                            deliveredDate: new Date().toISOString().split('T')[0]
+                          })}
+                          className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Confirm Delivery</span>
+                        </button>
+                      )}
+
+                      {!isFullyPaid && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setIsPaymentModalOpen(true);
+                          }}
+                          className="py-2 px-3 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all cursor-pointer"
+                        >
+                          <IndianRupee className="h-3.5 w-3.5" />
+                          <span>Collect ₹</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setIsCreateModalOpen(true);
+                        }}
+                        className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors"
+                        title="Edit Consignment"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
@@ -695,14 +921,24 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
                             </button>
                           )}
 
-                          {/* View Invoice & Challan */}
+                          {/* View Tax Invoice */}
                           <button
                             type="button"
-                            onClick={() => handleOpenInvoiceModal(order)}
-                            className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
-                            title="Print Tax Invoice & Delivery Challan"
+                            onClick={() => handleOpenDocModal(order, 'invoice')}
+                            className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg border border-blue-200 transition-colors"
+                            title="Print Tax Invoice"
                           >
                             <FileText className="h-3.5 w-3.5" />
+                          </button>
+
+                          {/* View Delivery Challan */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDocModal(order, 'challan')}
+                            className="p-1.5 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg border border-indigo-200 transition-colors"
+                            title="Print Delivery Challan & Gate Pass"
+                          >
+                            <Receipt className="h-3.5 w-3.5" />
                           </button>
 
                           {/* Delete */}
@@ -776,6 +1012,7 @@ export const DispatchManager: React.FC<DispatchManagerProps> = ({
       {isInvoiceModalOpen && selectedOrder && (
         <InvoiceAndChallanModal
           order={selectedOrder}
+          initialDocType={selectedDocType}
           onClose={() => {
             setIsInvoiceModalOpen(false);
             setSelectedOrder(null);

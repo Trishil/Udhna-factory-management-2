@@ -298,10 +298,37 @@ export default function App() {
 
     // 1. Pure Real-Time Cloud Database Synchronizers (Firebase Firestore)
     // Instant sub-second reflection across all computers & devices without cache ghosting
+    let isEnrichingPhotos = false;
     const unsubscribeDesigns = subscribeToCloudWorkflow((cloudItems) => {
       if (Array.isArray(cloudItems)) {
         setWorkflowItems(cloudItems);
         saveStoredWorkflowItems(cloudItems);
+
+        // Auto-scan and link Firebase Storage photos (e.g. DSG-104/, LOT-2026-107-KAL-1/, etc.)
+        const needsPhotos = cloudItems.some(
+          (it) => (!it.designImage || it.designImage.includes('unsplash.com')) && (!it.photos || it.photos.length === 0)
+        );
+
+        if (needsPhotos && !isEnrichingPhotos) {
+          isEnrichingPhotos = true;
+          attachStoragePhotosToWorkflowItems(cloudItems)
+            .then((enriched) => {
+              const changed = enriched.some(
+                (item, idx) => item.designImage !== cloudItems[idx]?.designImage || item.photos?.length !== cloudItems[idx]?.photos?.length
+              );
+              if (changed) {
+                setWorkflowItems(enriched);
+                saveStoredWorkflowItems(enriched);
+                saveCloudWorkflowItems(enriched).catch(() => {});
+              }
+            })
+            .catch((err) => {
+              console.warn('Auto storage photo attachment note:', err);
+            })
+            .finally(() => {
+              isEnrichingPhotos = false;
+            });
+        }
       }
     });
 
@@ -2826,6 +2853,7 @@ export default function App() {
             onSaveOrderSlip={handleSaveOrderSlip}
             onDeleteOrderSlip={handleDeleteOrderSlip}
             onClearAllOrders={handleClearAllOrders}
+            isMobile={isMobile}
           />
         )}
         
@@ -2962,6 +2990,7 @@ export default function App() {
         {activeMainTab === 'dispatch' && (
           /* Dispatch, Logistics & Ready-to-Dispatch Consignments Module */
           <DispatchManager
+            isMobile={isMobile}
             dispatchOrders={dispatchOrders}
             materials={materials}
             machines={machines}

@@ -78,6 +78,7 @@ interface WorkflowManagerProps {
   onSaveOrderSlip?: (slip: OrderSlip, generatedItems: WorkflowItem[]) => void;
   onDeleteOrderSlip?: (slipId: string, jobNo?: string) => void;
   onClearAllOrders?: () => void;
+  isMobile?: boolean;
 }
 
 export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
@@ -92,10 +93,16 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
   orderSlips: propOrderSlips,
   onSaveOrderSlip: propOnSaveOrderSlip,
   onDeleteOrderSlip,
-  onClearAllOrders
+  onClearAllOrders,
+  isMobile = false
 }) => {
-  // View mode tab: Matrix breakdown vs Individual Piece Tracker vs Kanban vs Party Slips
-  const [viewMode, setViewMode] = useState<'matrix' | 'pieces' | 'kanban' | 'slips'>('matrix');
+  // View mode tab: Mobile app-style Stage view vs Matrix vs Individual Piece Tracker vs Kanban vs Party Slips
+  const [viewMode, setViewMode] = useState<'mobile' | 'matrix' | 'pieces' | 'kanban' | 'slips'>(
+    isMobile ? 'mobile' : 'matrix'
+  );
+
+  // Active stage for mobile view
+  const [activeMobileStage, setActiveMobileStage] = useState<WorkflowStageId>('fabric');
 
   // Local Order Slips state fallback
   const [localOrderSlips, setLocalOrderSlips] = useState<OrderSlip[]>(() => {
@@ -314,6 +321,23 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3 flex flex-col md:flex-row items-center justify-between gap-3">
         <div className="bg-slate-100/80 p-1 rounded-xl flex items-center flex-wrap gap-1 w-full md:w-auto border border-slate-200/60">
           <button
+            id="viewmode-btn-mobile"
+            type="button"
+            onClick={() => setViewMode('mobile')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 ${
+              viewMode === 'mobile'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <Smartphone className="h-4 w-4" />
+            <span>App Workflow (Mobile)</span>
+            <span className={`px-1.5 py-0.2 rounded text-[10px] ${viewMode === 'mobile' ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+              Stages
+            </span>
+          </button>
+
+          <button
             id="viewmode-btn-matrix"
             type="button"
             onClick={() => setViewMode('matrix')}
@@ -412,6 +436,300 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
           )}
         </div>
       </div>
+
+      {/* VIEW 0: APP WORKFLOW (MOBILE CLEAN STAGE VIEW MATCHING MOBILE APP) */}
+      {viewMode === 'mobile' && (
+        <div className="space-y-4">
+          {/* Header Card: App-style title & Add lot */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-xs">
+                <GitBranch className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-base font-black text-slate-900">
+                    Textile Production Workflow
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                    {effectiveItems.length} Lots
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Floor Employee View • Stage by stage tracking
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>+ Add Lot</span>
+            </button>
+          </div>
+
+          {/* Quick Search & Filter Chips */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search lot, design #, fabric, color, client..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+
+            <div className="flex items-center space-x-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => setSelectedPriority(selectedPriority === 'urgent' ? 'all' : 'urgent')}
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+                  selectedPriority === 'urgent'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Flame className="h-3.5 w-3.5" />
+                <span>Urgent Only ({urgentCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedQualityFilter(selectedQualityFilter === 'alter' ? 'all' : 'alter')}
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+                  selectedQualityFilter === 'alter'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                <span>Needs Alter ({alteringCount})</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 10-Stage Horizontal Navigation Tabs Bar */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-2 shadow-xs">
+            <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
+              {WORKFLOW_STAGES.map((st, idx) => {
+                const count = filteredItems.filter(it => normalizeStageForWeb(it.currentStage) === st.id).length;
+                const isActive = normalizeStageForWeb(activeMobileStage) === st.id;
+                return (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() => setActiveMobileStage(st.id)}
+                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 cursor-pointer ${
+                      isActive
+                        ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-400/50'
+                        : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/80'
+                    }`}
+                  >
+                    <span>{idx + 1}. {st.shortName}</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                      isActive ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Stage Cards Flow (Exact design of Mobile App) */}
+          <div className="space-y-3">
+            {(() => {
+              const currentStageObj = WORKFLOW_STAGES.find(s => s.id === normalizeStageForWeb(activeMobileStage)) || WORKFLOW_STAGES[0];
+              const stageLots = filteredItems.filter(it => normalizeStageForWeb(it.currentStage) === currentStageObj.id);
+
+              if (stageLots.length === 0) {
+                return (
+                  <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-xs">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                      <Package className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-800">
+                      No lots in {currentStageObj.name}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Advance cards from previous stages or add a new job to this stage.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs inline-flex items-center space-x-1.5 cursor-pointer"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>+ Add Lot to {currentStageObj.shortName}</span>
+                    </button>
+                  </div>
+                );
+              }
+
+              return stageLots.map((item) => {
+                const nextStageId = getNextStage(item.currentStage);
+                const prevStageId = getPreviousStage(item.currentStage);
+                const nextStageObj = nextStageId ? WORKFLOW_STAGES.find(s => s.id === nextStageId) : null;
+                const prevStageObj = prevStageId ? WORKFLOW_STAGES.find(s => s.id === prevStageId) : null;
+                const photoCount = item.photos?.length || (item.designImage ? 1 : 0);
+                const displayImg = formatDirectImageUrl(item.designImage || item.photos?.[0]?.url || '');
+
+                const getQcBadge = () => {
+                  if (item.alterInspectionResult === 'needs_alter' || item.qualityStatus === 'bad_return') {
+                    return { label: 'ALTER', bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200' };
+                  }
+                  if (item.isReturned || item.qualityStatus === 'bad_return') {
+                    return { label: 'REJECT', bg: 'bg-rose-50', text: 'text-rose-800', border: 'border-rose-200' };
+                  }
+                  return { label: 'PASS', bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200' };
+                };
+                const qc = getQcBadge();
+
+                return (
+                  <div
+                    key={`mobile-wf-${item.id}`}
+                    onClick={() => setSelectedItemForModal(item)}
+                    className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all p-4 cursor-pointer hover:border-blue-400 group"
+                  >
+                    {/* Header Row: Lot Badge, Urgent, QC Badge */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-mono text-xs font-black">
+                        {item.lotNumber}
+                      </div>
+
+                      <div className="flex items-center space-x-1.5">
+                        {item.priority === 'urgent' && (
+                          <span className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-extrabold animate-pulse">
+                            <Flame className="h-3 w-3" />
+                            <span>URGENT</span>
+                          </span>
+                        )}
+
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${qc.bg} ${qc.text} ${qc.border}`}>
+                          {qc.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Photo Thumbnail Banner if available */}
+                    {(displayImg && (displayImg.startsWith('http') || displayImg.startsWith('data:image'))) && (
+                      <div 
+                        className="relative rounded-xl overflow-hidden mb-3 bg-slate-900 aspect-video max-h-44 flex items-center justify-center border border-slate-200"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPhotoModalItem(item);
+                        }}
+                      >
+                        <img
+                          src={displayImg}
+                          alt={item.designNumber}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            (e.currentTarget.parentElement as HTMLElement)?.style.setProperty('display', 'none');
+                          }}
+                        />
+                        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[10px] font-bold backdrop-blur-xs flex items-center space-x-1">
+                          <Camera className="h-3 w-3 text-blue-400" />
+                          <span>{photoCount} {photoCount === 1 ? 'photo' : 'photos'}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Job Details Banner */}
+                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200/80 space-y-1.5 mb-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-900 flex items-center space-x-1.5 truncate max-w-[200px]">
+                          <FolderTree className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                          <span className="truncate">{item.jobNo || item.lotNumber}</span>
+                        </span>
+                        {item.chalanNumber && (
+                          <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-100/70 px-1.5 py-0.5 rounded border border-blue-200">
+                            Ch: {item.chalanNumber}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-slate-700 pt-1 border-t border-slate-200/60">
+                        <span className="font-semibold text-slate-900 truncate">
+                          {item.designNumber} {item.designName ? `• ${item.designName}` : ''}
+                        </span>
+                        <span className="font-mono font-black text-blue-700">
+                          {(item.quantity ?? item.pieces ?? 0).toLocaleString()} {item.unit || 'pcs'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-slate-600 text-[11px]">
+                        <span className="truncate max-w-[160px]">{item.fabricType} {item.fabricColor ? `(${item.fabricColor})` : ''}</span>
+                        <span className="truncate max-w-[140px] text-slate-500 font-medium">
+                          {item.partyOrClientName || 'Direct Client'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Card Footer Actions Row (Camera, Send Back, Advance) */}
+                    <div 
+                      className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Photo / Camera button */}
+                      <button
+                        type="button"
+                        onClick={() => setPhotoModalItem(item)}
+                        className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                          photoCount > 0
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Camera className="h-3.5 w-3.5" />
+                        <span>{photoCount > 0 ? `${photoCount} Photos` : 'Add Photo'}</span>
+                      </button>
+
+                      {/* Stage Action Buttons (Back & Advance) */}
+                      <div className="flex items-center space-x-2">
+                        {prevStageId ? (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateStage(item.id, prevStageId, 'Moved back one stage')}
+                            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 transition-colors cursor-pointer"
+                            title={`Send back to ${prevStageObj?.shortName || prevStageId}`}
+                          >
+                            <ArrowLeft className="h-3.5 w-3.5 text-slate-600" />
+                            <span>Back</span>
+                          </button>
+                        ) : null}
+
+                        {nextStageId ? (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateStage(item.id, nextStageId, `Advanced to ${nextStageId}`)}
+                            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+                            title={`Advance to ${nextStageObj?.shortName || nextStageId}`}
+                          >
+                            <span>Advance</span>
+                            <ArrowRight className="h-3.5 w-3.5 text-white" />
+                          </button>
+                        ) : (
+                          <div className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 font-extrabold text-xs">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                            <span>Ready</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* VIEW 1: FABRIC TYPE & COLOR STAGE MATRIX */}
       {viewMode === 'matrix' && (
@@ -924,10 +1242,10 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                         }`}
                       >
                         {/* Design Image Thumbnail Banner if photo exists */}
-                        {item.designImage && item.designImage.startsWith('http') && (
+                        {(item.designImage || (item.photos && item.photos.length > 0)) && (
                           <div className="relative rounded-lg overflow-hidden mb-2.5 bg-slate-900 border border-slate-200 aspect-video max-h-32 flex items-center justify-center">
                             <img
-                              src={formatDirectImageUrl(item.designImage)}
+                              src={formatDirectImageUrl(item.designImage || item.photos[0]?.url)}
                               alt={item.designNumber}
                               className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
                               onError={(e) => {
@@ -1106,13 +1424,14 @@ export const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                             <button
                               type="button"
                               onClick={() => onUpdateStage(item.id, prevStageId, 'Moved back one stage')}
-                              className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors"
-                              title={`Rollback to ${prevStageId}`}
+                              className="flex items-center space-x-1 px-1.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] transition-colors"
+                              title={`Send back to ${prevStageId}`}
                             >
-                              <ArrowLeft className="h-3.5 w-3.5" />
+                              <ArrowLeft className="h-3 w-3" />
+                              <span>Back</span>
                             </button>
                           ) : (
-                            <div className="w-5" />
+                            <div className="w-10" />
                           )}
 
                           {/* Center Supervisor / Due Date */}

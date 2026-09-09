@@ -94,6 +94,12 @@ export async function uploadDesignImage(
   fileOrBase64: File | Blob | string,
   fileName?: string
 ): Promise<{ downloadUrl: string; storagePath: string }> {
+  try {
+    if (!auth.currentUser) {
+      await signInAnonymously(auth).catch(() => {});
+    }
+  } catch (_) {}
+
   const timestamp = Date.now();
   const safeName = (fileName || `img_${timestamp}.jpg`).replace(/[^a-zA-Z0-9._-]/g, '_');
   const storagePath = `design_photos/${designIdOrLot}/${timestamp}_${safeName}`;
@@ -118,15 +124,30 @@ export async function uploadDesignImage(
 export async function fetchPhotosForDesign(designNumberOrLot: string): Promise<string[]> {
   try {
     if (!designNumberOrLot) return [];
-    const cleanKey = designNumberOrLot.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const folderRef = ref(storage, `design_photos/${cleanKey}`);
-    const res = await listAll(folderRef);
-    const urls: string[] = [];
-    for (const itemRef of res.items) {
-      const url = await getDownloadURL(itemRef);
-      urls.push(url);
+    if (!auth.currentUser) {
+      await signInAnonymously(auth).catch(() => {});
     }
-    return urls;
+    const keysToCheck = Array.from(new Set([
+      designNumberOrLot.trim(),
+      designNumberOrLot.trim().replace(/[^a-zA-Z0-9._-]/g, '_'),
+      designNumberOrLot.trim().replace(/\s+/g, '_'),
+    ])).filter(Boolean);
+
+    for (const k of keysToCheck) {
+      try {
+        const folderRef = ref(storage, `design_photos/${k}`);
+        const res = await listAll(folderRef);
+        if (res.items.length > 0) {
+          const urls: string[] = [];
+          for (const itemRef of res.items) {
+            const url = await getDownloadURL(itemRef);
+            urls.push(url);
+          }
+          return urls;
+        }
+      } catch (_) {}
+    }
+    return [];
   } catch (e) {
     return [];
   }
@@ -138,13 +159,14 @@ export async function fetchPhotosForDesign(designNumberOrLot: string): Promise<s
 export async function attachStoragePhotosToWorkflowItems(items: WorkflowItem[]): Promise<WorkflowItem[]> {
   const updatedItems = await Promise.all(
     items.map(async (item) => {
+      const isCloudImg = (u: any) => u && (String(u).startsWith('http') || String(u).startsWith('data:image'));
       const hasValidCustomPhoto = Boolean(
         item.designImage && 
-        item.designImage.startsWith('http') && 
+        isCloudImg(item.designImage) && 
         !item.designImage.includes('unsplash.com') && 
         item.photos && 
         item.photos.length > 0 &&
-        item.photos.some(p => p.url && p.url.startsWith('http'))
+        item.photos.some(p => isCloudImg(p.url))
       );
 
       // If item already has a valid cloud photo URL, keep it
@@ -152,8 +174,8 @@ export async function attachStoragePhotosToWorkflowItems(items: WorkflowItem[]):
         return item;
       }
 
-      // Look in design_photos/{lotNumber}, design_photos/{id}, and design_photos/{jobNo} FIRST
-      const candidates = [item.lotNumber, item.id, item.jobNo].filter(Boolean) as string[];
+      // Look in design_photos/{designNumber}, design_photos/{lotNumber}, design_photos/{jobNo}, and design_photos/{id}
+      const candidates = [item.designNumber, item.lotNumber, item.jobNo, item.id].filter(Boolean) as string[];
       let foundUrls: string[] = [];
       for (const key of candidates) {
         const urls = await fetchPhotosForDesign(key);
@@ -167,7 +189,7 @@ export async function attachStoragePhotosToWorkflowItems(items: WorkflowItem[]):
         const newPhotos = foundUrls.map((u, i) => ({
           id: `storage-photo-${item.id}-${i}`,
           url: u,
-          caption: `Photo for ${item.lotNumber || item.designNumber}`,
+          caption: `Photo for ${item.designNumber || item.lotNumber}`,
           stageCapturedAt: item.currentStage,
           timestamp: item.date || new Date().toISOString()
         }));
@@ -179,9 +201,9 @@ export async function attachStoragePhotosToWorkflowItems(items: WorkflowItem[]):
         };
       }
 
-      // If no lot-specific photos, sanitize any broken file:// URIs
-      const cleanDesignImage = (item.designImage && item.designImage.startsWith('http')) ? item.designImage : undefined;
-      const cleanPhotos = (item.photos || []).filter(p => p.url && p.url.startsWith('http'));
+      // If no lot-specific photos, sanitize any broken file:// URIs, while preserving valid base64 and http URLs
+      const cleanDesignImage = isCloudImg(item.designImage) ? item.designImage : undefined;
+      const cleanPhotos = (item.photos || []).filter(p => isCloudImg(p.url));
 
       return {
         ...item,
@@ -294,9 +316,10 @@ export function mapFirestoreDocToWorkflowItem(data: any, docId: string): Workflo
     qualityStatus: h.qualityStatus
   })) : [];
 
-  const cleanPhotos = photos.filter((p: any) => p && p.url && String(p.url).startsWith('http'));
+  const isImgValid = (u: any) => u && (String(u).startsWith('http') || String(u).startsWith('data:image'));
+  const cleanPhotos = photos.filter((p: any) => p && isImgValid(p.url));
   const rawDesignImg = formatDirectImageUrl(data.designImage || '');
-  const cleanDesignImg = (rawDesignImg && rawDesignImg.startsWith('http')) ? rawDesignImg : (cleanPhotos[0]?.url || undefined);
+  const cleanDesignImg = isImgValid(rawDesignImg) ? rawDesignImg : (cleanPhotos[0]?.url || undefined);
 
   return {
     id: data.id || docId,

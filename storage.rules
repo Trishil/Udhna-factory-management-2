@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Firebase Storage Rules for Textile Factory Management & Mobile Tracker
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Allow read and write to design photos for factory floor cameras and web dashboard
+    match /design_photos/{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    // Global fallback: allow read and write
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
+
