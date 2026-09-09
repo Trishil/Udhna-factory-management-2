@@ -15,6 +15,7 @@ import {
   ArrowRightLeft
 } from 'lucide-react';
 import { AppTab, AuthUser } from '../types';
+import logoImg from '../assets/logo.png';
 
 interface SidebarProps {
   activeTab: AppTab;
@@ -96,27 +97,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="h-[72px] flex items-center justify-between px-4 border-b border-slate-200/90">
           {!isCollapsed ? (
             <div className="flex items-center space-x-3 overflow-hidden">
-              <div className="h-9 w-9 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xs shrink-0">
-                <Workflow className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center p-1 shadow-xs shrink-0 overflow-hidden">
+                <img src={logoImg} alt="Trisharth Textile" className="h-full w-full object-contain" />
               </div>
               <div className="truncate">
                 <div className="flex items-center space-x-1.5">
                   <span className="text-xs font-black tracking-tight text-slate-900 font-mono truncate">
-                    TextileFlow
+                    Trisharth
                   </span>
-                  <span className="text-[9px] text-slate-600 font-mono font-bold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                    v5.0
+                  <span className="text-[9px] text-blue-700 font-mono font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                    ERP
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 font-semibold truncate mt-0.5">
-                  {currentUser?.companyName || 'Trisharth'} ERP
+                  Textile Management
                 </p>
               </div>
             </div>
           ) : (
             <div className="mx-auto">
-              <div className="h-9 w-9 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xs">
-                <Workflow className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center p-1 shadow-xs overflow-hidden">
+                <img src={logoImg} alt="Trisharth Textile" className="h-full w-full object-contain" />
               </div>
             </div>
           )}

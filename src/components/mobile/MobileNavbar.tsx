@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { AuthUser } from '../../types';
 import { ViewMode } from '../../hooks/useResponsiveView';
+import logoImg from '../../assets/logo.png';
 
 interface MobileNavbarProps {
   currentUser: AuthUser | null;
@@ -69,17 +70,17 @@ export const MobileNavbar: React.FC<MobileNavbarProps> = ({
         
         {/* Brand & Cloud Status */}
         <div className="flex items-center space-x-2 min-w-0">
-          <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-xs shrink-0">
-            <Workflow className="h-4 w-4" />
+          <div className="h-8 w-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center p-0.5 shadow-xs shrink-0 overflow-hidden">
+            <img src={logoImg} alt="Trisharth Textile" className="h-full w-full object-contain" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center space-x-1.5">
               <span className="font-mono font-black text-xs text-slate-900 tracking-tight truncate">
-                TextileFlow
+                Trisharth ERP
               </span>
             </div>
             <p className="text-[10px] text-slate-500 truncate font-semibold">
-              {currentUser?.companyName || 'Trisharth'} ERP
+              Textile Management
             </p>
           </div>
         </div>
