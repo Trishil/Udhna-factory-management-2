@@ -57,79 +57,39 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
     existingSlip?.firmName && !existingSlip.firmName.includes('S V ART') ? existingSlip.firmName : 'Trisharth'
   );
 
-  // Columns: Fabric types in the slip matrix
+  // Columns: Fabric types in the slip matrix (starts empty for new slips, fully customizable)
   const [fabricColumns, setFabricColumns] = useState<string[]>(
-    existingSlip?.fabricColumns || ['Kali', 'Kurti', 'Lass']
+    existingSlip?.fabricColumns || []
   );
   const [newColumnInput, setNewColumnInput] = useState('');
   const [showAddColumnInput, setShowAddColumnInput] = useState(false);
 
-  // Rows: Colors & quantities
+  // Rows: Colors & quantities (starts completely clean with no dummy d.No or fake quantities)
   const [colorRows, setColorRows] = useState<OrderSlipColorRow[]>(
-    existingSlip?.colorRows || [
-      {
-        id: 'r1',
-        colorName: 'Color 1 (Rust / Orange)',
-        colorHex: '#ea580c',
-        designNumber: '9014 Kali 8',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'Kali 3.30 = 39.50'
-      },
-      {
-        id: 'r2',
-        colorName: 'Color 2 (Cyan / Peacock Blue)',
-        colorHex: '#0284c7',
-        designNumber: '9012 Kali 8',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'Kurti 2 = 24'
-      },
-      {
-        id: 'r3',
-        colorName: 'Color 3 (Ochre / Mustard Yellow)',
-        colorHex: '#ca8a04',
-        designNumber: 'D.No 31',
-        fabricQuantities: { 'Kali': 79, 'Kurti': 24, 'Lass': 12 },
-        notes: 'Lass 1 = 12'
-      },
-      {
-        id: 'r4',
-        colorName: 'Color 4 (Magenta / Rose Pink)',
-        colorHex: '#db2777',
-        designNumber: 'D.No 31',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'DP = 2.60 = 31.20'
-      },
-      {
-        id: 'r5',
-        colorName: 'Color 5 (Olive / Mehndi Green)',
-        colorHex: '#65a30d',
-        designNumber: '9014 Kali 8',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'Lass .75 = 8.50'
-      },
-      {
-        id: 'r6',
-        colorName: 'Color 6 (Silver / Steel Grey)',
-        colorHex: '#64748b',
-        designNumber: 'D.No 31',
-        fabricQuantities: { 'Kali': 96, 'Kurti': 24, 'Lass': 12 },
-        notes: 'BL 1.30 = 16'
-      }
-    ]
+    existingSlip?.colorRows && existingSlip.colorRows.length > 0
+      ? existingSlip.colorRows
+      : [
+          {
+            id: 'r1',
+            colorName: '',
+            colorHex: '#ea580c',
+            designNumber: '',
+            fabricQuantities: {},
+            notes: ''
+          }
+        ]
   );
 
-  // Bottom notes & calculations
+  // Bottom notes & calculations (starts completely clean)
   const [calculationNotes, setCalculationNotes] = useState(
-    existingSlip?.calculationNotes ||
-    'Kali 3.30 = 39.50 | Kurti 2 = 24 | Lass 1 = 12 | Magi 0.50 = 6 | Total = 81.50\nDP = 2.60 = 31.20 | Lass .75 = 8.50 | BL 1.30 = 16 | Total = 56'
+    existingSlip?.calculationNotes || ''
   );
   const [inwardChallanNotes, setInwardChallanNotes] = useState(
-    existingSlip?.inwardChallanNotes ||
-    'Ch 227: 12x6x2 = 24x6 | Ch 226: 11x6x2 = 22x6 | Total = 46x6'
+    existingSlip?.inwardChallanNotes || ''
   );
 
   // Delivery & After-Completion fields
-  const [deliveryChalanNo, setDeliveryChalanNo] = useState(existingSlip?.deliveryChalanNo || '96');
+  const [deliveryChalanNo, setDeliveryChalanNo] = useState(existingSlip?.deliveryChalanNo || '');
   const [deliveryDate, setDeliveryDate] = useState(existingSlip?.deliveryDate || '');
   const [billNo, setBillNo] = useState(existingSlip?.billNo || '');
   const [billDate, setBillDate] = useState(existingSlip?.billDate || '');
@@ -523,6 +483,11 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
                       <th className="py-2.5 px-3 min-w-[170px] border-r border-slate-300">
                         1) Colour / Swatch
                       </th>
+                      {fabricColumns.length === 0 && (
+                        <th className="py-2.5 px-4 text-center text-slate-400 font-normal italic text-[11px] border-r border-slate-300">
+                          Click "+ Add Fabric Column" to add fabrics (e.g. Kali, Kurti, Lass)
+                        </th>
+                      )}
                       {fabricColumns.map(col => (
                         <th key={col} className="py-2.5 px-3 text-center min-w-[100px] border-r border-slate-300 bg-blue-50/50">
                           <div className="flex items-center justify-between space-x-1">
@@ -575,6 +540,13 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
                           </div>
                         </td>
 
+                        {/* If no fabric columns yet */}
+                        {fabricColumns.length === 0 && (
+                          <td className="py-2 px-3 text-center text-slate-400 italic text-[11px] border-r border-slate-200 bg-slate-50/50">
+                            Add fabric columns above to enter quantities
+                          </td>
+                        )}
+
                         {/* Quantity Cells */}
                         {fabricColumns.map(col => {
                           const val = row.fabricQuantities[col] ?? 0;
@@ -598,7 +570,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
                             type="text"
                             value={row.designNumber || ''}
                             onChange={(e) => handleUpdateRowMeta(row.id, 'designNumber', e.target.value)}
-                            placeholder="e.g. 9014 Kali 8"
+                            placeholder="Enter D.No"
                             className="w-full px-2 py-1 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-md focus:bg-white"
                           />
                         </td>

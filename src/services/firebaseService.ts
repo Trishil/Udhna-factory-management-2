@@ -174,8 +174,8 @@ export async function attachStoragePhotosToWorkflowItems(items: WorkflowItem[]):
         return item;
       }
 
-      // Look in design_photos/{designNumber}, design_photos/{lotNumber}, design_photos/{jobNo}, and design_photos/{id}
-      const candidates = [item.designNumber, item.lotNumber, item.jobNo, item.id].filter(Boolean) as string[];
+      // Look in design_photos/{lotNumber} and design_photos/{id} (strictly scoped to lot, NOT shared designNumber)
+      const candidates = [item.lotNumber, item.id].filter(Boolean) as string[];
       let foundUrls: string[] = [];
       for (const key of candidates) {
         const urls = await fetchPhotosForDesign(key);

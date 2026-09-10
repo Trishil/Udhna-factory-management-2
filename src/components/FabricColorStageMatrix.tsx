@@ -237,62 +237,215 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
   };
 
   // Group filtered items into two main sections: Yet to Complete vs Completed, and group Party-wise
-  const { yetToCompleteParties, completedParties, totalYetToCompletePcs, totalCompletedPcsAll, pendingCount, doneCount } = useMemo(() => {
+  // Group filtered items into Party-wise Grid Matrices (Exact table format matching Party Order Slip)
+  const { 
+    yetToCompleteGridParties, 
+    completedGridParties, 
+    totalYetToCompletePcs, 
+    totalCompletedPcsAll, 
+    pendingCount, 
+    doneCount 
+  } = useMemo(() => {
     const pendingItems = filteredItems.filter(it => it.remainingPcs > 0);
     const doneItems = filteredItems.filter(it => it.remainingPcs === 0 || it.completedPcs >= it.totalPcs);
 
-    // Group pending by Party
-    const pendingMap: Record<string, typeof filteredItems> = {};
-    pendingItems.forEach(it => {
-      const p = (it.partyOrClientName || it.partyName || 'Direct Client / Unassigned').trim();
-      if (!pendingMap[p]) pendingMap[p] = [];
-      pendingMap[p].push(it);
-    });
+    const buildGridParties = (itemsList: typeof filteredItems) => {
+      // Group by Party
+      const partyMap: Record<string, typeof filteredItems> = {};
+      itemsList.forEach(it => {
+        const p = (it.partyOrClientName || it.partyName || 'Direct Client / Unassigned').trim();
+        if (!partyMap[p]) partyMap[p] = [];
+        partyMap[p].push(it);
+      });
 
-    // Group completed by Party
-    const doneMap: Record<string, typeof filteredItems> = {};
-    doneItems.forEach(it => {
-      const p = (it.partyOrClientName || it.partyName || 'Direct Client / Unassigned').trim();
-      if (!doneMap[p]) doneMap[p] = [];
-      doneMap[p].push(it);
-    });
+      return Object.entries(partyMap).map(([partyName, pItems]) => {
+        // Find all jobs for this party
+        const jobMap: Record<string, typeof filteredItems> = {};
+        pItems.forEach(it => {
+          const j = (it.jobNo || it.lotNumber || 'General').trim();
+          if (!jobMap[j]) jobMap[j] = [];
+          jobMap[j].push(it);
+        });
 
-    const pendingPartyList = Object.entries(pendingMap).map(([partyName, partyItems]) => {
-      const totalOrdered = partyItems.reduce((acc, it) => acc + it.totalPcs, 0);
-      const totalDone = partyItems.reduce((acc, it) => acc + it.completedPcs, 0);
-      const totalRemaining = partyItems.reduce((acc, it) => acc + it.remainingPcs, 0);
-      return {
-        partyName,
-        items: partyItems,
-        totalOrdered,
-        totalDone,
-        totalRemaining
-      };
-    });
+        const jobs = Object.entries(jobMap).map(([jobNo, jItems]) => {
+          // Find matching slip if any
+          const slip = effectiveSlips.find(s => 
+            (s.partyName && s.partyName.toLowerCase().trim() === partyName.toLowerCase().trim()) &&
+            (!s.jobNo || !jobNo || s.jobNo.toLowerCase().trim() === jobNo.toLowerCase().trim())
+          );
 
-    const donePartyList = Object.entries(doneMap).map(([partyName, partyItems]) => {
-      const totalOrdered = partyItems.reduce((acc, it) => acc + it.totalPcs, 0);
-      const totalDone = partyItems.reduce((acc, it) => acc + it.completedPcs, 0);
-      return {
-        partyName,
-        items: partyItems,
-        totalOrdered,
-        totalDone
-      };
-    });
+          // Determine fabric columns in order
+          let fabricCols: string[] = [];
+          if (slip?.fabricColumns && slip.fabricColumns.length > 0) {
+            fabricCols = [...slip.fabricColumns];
+            jItems.forEach(it => {
+              if (it.fabricType && !fabricCols.includes(it.fabricType)) {
+                fabricCols.push(it.fabricType);
+              }
+            });
+          } else {
+            const fSet = new Set<string>();
+            jItems.forEach(it => {
+              if (it.fabricType) fSet.add(it.fabricType);
+            });
+            fabricCols = Array.from(fSet);
+          }
+
+          // Group by colorway
+          const colorMap: Record<string, {
+            colorKey: string;
+            colorName: string;
+            colorHex: string;
+            designNumber: string;
+            fabricQuantities: Record<string, {
+              ordered: number;
+              completed: number;
+              remaining: number;
+              currentStage: WorkflowStageId;
+              item: typeof enrichedItems[0];
+            }>;
+            items: typeof enrichedItems;
+            notes: string;
+          }> = {};
+
+          jItems.forEach(it => {
+            const colorName = it.fabricColor || 'Color 1';
+            const colorHex = it.colorSwatchHex || '#3b82f6';
+            const dNo = it.designNumber || '';
+            const cKey = `${colorName}___${colorHex}___${dNo}`;
+
+            if (!colorMap[cKey]) {
+              colorMap[cKey] = {
+                colorKey: cKey,
+                colorName,
+                colorHex,
+                designNumber: dNo,
+                fabricQuantities: {},
+                items: [],
+                notes: it.notes || ''
+              };
+            }
+
+            colorMap[cKey].items.push(it);
+            if (it.notes && !colorMap[cKey].notes) {
+              colorMap[cKey].notes = it.notes;
+            }
+
+            colorMap[cKey].fabricQuantities[it.fabricType] = {
+              ordered: it.totalPcs,
+              completed: it.completedPcs,
+              remaining: it.remainingPcs,
+              currentStage: it.currentStage,
+              item: it
+            };
+          });
+
+          // Build color rows
+          const colorRows = Object.values(colorMap).map(crow => {
+            const totalOrdered = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.ordered, 0);
+            const totalCompleted = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.completed, 0);
+            const totalRemaining = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.remaining, 0);
+            const percentComplete = totalOrdered > 0 ? Math.round((totalCompleted / totalOrdered) * 100) : 0;
+
+            // Collect remaining stages
+            const stageCounts: Record<WorkflowStageId, number> = {
+              fabric: 0, chalan: 0, inspection: 0, stitching_patta: 0, embroidery: 0,
+              dhaga_cutting: 0, inspection_alter: 0, altering: 0, folding: 0, prepare_dispatch: 0
+            };
+            crow.items.forEach(it => {
+              WORKFLOW_STAGES.forEach(s => {
+                stageCounts[s.id] += (it.stageDistribution[s.id] || 0);
+              });
+            });
+
+            const remainingStages = WORKFLOW_STAGES
+              .filter(s => s.id !== 'prepare_dispatch' && stageCounts[s.id] > 0)
+              .map(s => ({ stage: s, count: stageCounts[s.id] }));
+
+            return {
+              ...crow,
+              totalOrdered,
+              totalCompleted,
+              totalRemaining,
+              percentComplete,
+              remainingStages
+            };
+          });
+
+          const jobOrdered = colorRows.reduce((a, b) => a + b.totalOrdered, 0);
+          const jobCompleted = colorRows.reduce((a, b) => a + b.totalCompleted, 0);
+          const jobRemaining = colorRows.reduce((a, b) => a + b.totalRemaining, 0);
+          const jobPercent = jobOrdered > 0 ? Math.round((jobCompleted / jobOrdered) * 100) : 0;
+
+          // Fabric totals across all colors
+          const fabricTotals: Record<string, { ordered: number; completed: number; remaining: number }> = {};
+          fabricCols.forEach(fc => {
+            let fOrd = 0;
+            let fComp = 0;
+            let fRem = 0;
+            colorRows.forEach(crow => {
+              const fd = crow.fabricQuantities[fc];
+              if (fd) {
+                fOrd += fd.ordered;
+                fComp += fd.completed;
+                fRem += fd.remaining;
+              }
+            });
+            fabricTotals[fc] = { ordered: fOrd, completed: fComp, remaining: fRem };
+          });
+
+          const sampleItem = jItems[0];
+
+          return {
+            jobNo,
+            date: slip?.date || sampleItem?.date || '',
+            chalanNo: slip?.chalanNo || sampleItem?.chalanNumber || '',
+            firmName: slip?.firmName || 'Trisharth',
+            fabricColumns: fabricCols,
+            colorRows,
+            fabricTotals,
+            totalOrdered: jobOrdered,
+            totalCompleted: jobCompleted,
+            totalRemaining: jobRemaining,
+            percentComplete: jobPercent,
+            deliveryChalanNo: slip?.deliveryChalanNo,
+            billNo: slip?.billNo,
+            slip
+          };
+        });
+
+        const partyOrdered = jobs.reduce((a, b) => a + b.totalOrdered, 0);
+        const partyCompleted = jobs.reduce((a, b) => a + b.totalCompleted, 0);
+        const partyRemaining = jobs.reduce((a, b) => a + b.totalRemaining, 0);
+        const partyPercent = partyOrdered > 0 ? Math.round((partyCompleted / partyOrdered) * 100) : 0;
+
+        return {
+          partyName,
+          jobs,
+          totalOrdered: partyOrdered,
+          totalCompleted: partyCompleted,
+          totalRemaining: partyRemaining,
+          percentComplete: partyPercent,
+          totalLots: pItems.length
+        };
+      });
+    };
+
+    const pendingGridParties = buildGridParties(pendingItems);
+    const doneGridParties = buildGridParties(doneItems);
 
     const totalYetToCompletePcs = pendingItems.reduce((acc, it) => acc + it.remainingPcs, 0);
     const totalCompletedPcsAll = doneItems.reduce((acc, it) => acc + it.completedPcs, 0);
 
     return {
-      yetToCompleteParties: pendingPartyList,
-      completedParties: donePartyList,
+      yetToCompleteGridParties: pendingGridParties,
+      completedGridParties: doneGridParties,
       totalYetToCompletePcs,
       totalCompletedPcsAll,
       pendingCount: pendingItems.length,
       doneCount: doneItems.length
     };
-  }, [filteredItems]);
+  }, [filteredItems, effectiveSlips]);
 
   const handleOpenEditBreakdown = (item: typeof enrichedItems[0]) => {
     setEditingItemBreakdown(item);
@@ -690,28 +843,25 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
             </div>
 
             {/* Party-wise Pending Cards */}
-            {yetToCompleteParties.length === 0 ? (
+            {yetToCompleteGridParties.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 space-y-2">
                 <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto" />
                 <div className="font-bold text-sm text-slate-800">All Caught Up! Zero Pieces Yet To Complete</div>
                 <p className="text-xs text-slate-400">Every batch in this filter has been 100% completed.</p>
               </div>
             ) : (
-              yetToCompleteParties.map(partyGroup => {
+              yetToCompleteGridParties.map(partyGroup => {
                 const isCollapsed = !!collapsedParties[`pending_${partyGroup.partyName}`];
-                const partyCompletionRate = partyGroup.totalOrdered > 0 
-                  ? Math.round((partyGroup.totalDone / partyGroup.totalOrdered) * 100) 
-                  : 0;
 
                 return (
                   <div 
                     key={partyGroup.partyName}
-                    className="bg-white rounded-2xl border border-slate-300 shadow-xs overflow-hidden transition-all"
+                    className="bg-white rounded-2xl border-2 border-slate-300 shadow-xs overflow-hidden transition-all space-y-4 p-4"
                   >
                     {/* Party Header Bar */}
                     <div 
                       onClick={() => togglePartyCollapse(`pending_${partyGroup.partyName}`)}
-                      className="p-3.5 bg-slate-50 hover:bg-slate-100/80 border-b border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 cursor-pointer select-none transition-colors"
+                      className="p-3.5 bg-slate-100/90 rounded-xl border border-slate-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 cursor-pointer select-none transition-colors"
                     >
                       <div className="flex items-center space-x-3">
                         <div className="p-2 rounded-lg bg-slate-900 text-white shadow-2xs">
@@ -719,183 +869,294 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Party:</span>
-                            <h4 className="text-sm font-black text-slate-900">
+                            <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Party:</span>
+                            <h4 className="text-base font-black text-slate-900">
                               {partyGroup.partyName}
                             </h4>
-                            <span className="px-2 py-0.2 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">
-                              {partyGroup.items.length} lots
+                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold font-mono">
+                              {partyGroup.totalRemaining} pcs Pending
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center space-x-2">
+                          <div className="text-[11px] text-slate-600 mt-0.5 flex items-center space-x-2">
                             <span>Ordered: <strong>{partyGroup.totalOrdered} pcs</strong></span>
                             <span>•</span>
-                            <span>Completed: <strong className="text-emerald-700">{partyGroup.totalDone} pcs</strong></span>
+                            <span>Completed: <strong className="text-emerald-700">{partyGroup.totalCompleted} pcs</strong></span>
                             <span>•</span>
-                            <span>Yet To Complete: <strong className="text-amber-700">{partyGroup.totalRemaining} pcs</strong></span>
+                            <span>Yet To Complete: <strong className="text-amber-800">{partyGroup.totalRemaining} pcs</strong></span>
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-end">
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs font-mono font-bold text-slate-700">{partyCompletionRate}%</span>
+                          <span className="text-xs font-mono font-bold text-slate-700">{partyGroup.percentComplete}%</span>
                           <div className="w-24 bg-slate-200 h-2 rounded-full overflow-hidden">
                             <div 
                               className="bg-amber-500 h-full rounded-full transition-all" 
-                              style={{ width: `${partyCompletionRate}%` }}
+                              style={{ width: `${partyGroup.percentComplete}%` }}
                             />
                           </div>
                         </div>
-                        <div className="p-1 rounded-md text-slate-400 hover:text-slate-700">
+                        <div className="p-1 rounded-md text-slate-500 hover:text-slate-800">
                           {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                         </div>
                       </div>
                     </div>
 
-                    {/* Party Pending Lots Table */}
+                    {/* Jobs rendered in EXACT Party Order Slip Grid Matrix format */}
                     {!isCollapsed && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-slate-100/70 text-slate-700 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
-                              <th className="py-2.5 px-3 min-w-[130px]">Color / Swatch</th>
-                              <th className="py-2.5 px-3 min-w-[110px]">Fabric Type</th>
-                              <th className="py-2.5 px-3 min-w-[90px]">Job No</th>
-                              <th className="py-2.5 px-3 min-w-[100px]">8) D.No</th>
-                              <th className="py-2.5 px-3 text-center min-w-[70px]">Ordered</th>
-                              <th className="py-2.5 px-3 text-center min-w-[80px] bg-emerald-50/70 text-emerald-900">Done</th>
-                              <th className="py-2.5 px-3 text-center min-w-[95px] bg-amber-50 text-amber-950 font-black">
-                                Yet To Complete
-                              </th>
-                              <th className="py-2.5 px-3 min-w-[280px]">
-                                What Stage Are Pending Pieces In? (1-10)
-                              </th>
-                              <th className="py-2.5 px-3 text-center min-w-[80px]">Progress</th>
-                              <th className="py-2.5 px-3 text-right min-w-[110px]">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200">
-                            {partyGroup.items.map(item => {
-                              const jobStr = item.jobNo || item.lotNumber;
-                              const swatchColor = item.colorSwatchHex || '#64748b';
+                      <div className="space-y-6">
+                        {partyGroup.jobs.map((job, jIdx) => (
+                          <div key={job.jobNo || jIdx} className="border-2 border-slate-300 rounded-xl overflow-hidden shadow-xs">
+                            
+                            {/* Party Order Slip Header Bar */}
+                            <div className="p-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex flex-wrap items-center justify-between gap-3 text-xs">
+                              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                                <div>
+                                  <span className="text-slate-400 text-[10px] uppercase font-bold block">2) Party Name:</span>
+                                  <span className="text-sm font-black text-white">{partyGroup.partyName}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 text-[10px] uppercase font-bold block">3) Job No.:</span>
+                                  <span className="text-sm font-black font-mono text-amber-400">{job.jobNo || '—'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 text-[10px] uppercase font-bold block">4) Date:</span>
+                                  <span className="text-xs font-medium text-slate-200">{job.date || '—'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 text-[10px] uppercase font-bold block">5) Chalan No. (Ch. No.):</span>
+                                  <span className="text-xs font-mono font-bold text-slate-200">{job.chalanNo || '—'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-slate-400 text-[10px] uppercase font-bold block">Firm:</span>
+                                  <span className="text-xs font-bold text-emerald-400">Trisharth</span>
+                                </div>
+                              </div>
 
-                              return (
-                                <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                                  <td className="py-2.5 px-3 font-medium text-slate-900">
-                                    <div className="flex items-center space-x-2">
-                                      <span 
-                                        className="h-3.5 w-3.5 rounded-full border border-slate-300 shadow-2xs shrink-0" 
-                                        style={{ backgroundColor: swatchColor }}
-                                      />
-                                      <span className="font-bold truncate max-w-[110px]" title={item.fabricColor}>
-                                        {item.fabricColor || 'N/A'}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className="py-2.5 px-3">
-                                    <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-800 font-bold text-[10px]">
-                                      {item.fabricType}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 font-mono font-bold text-slate-800">
-                                    {jobStr}
-                                  </td>
-                                  <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                                    {item.designNumber}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-800">
-                                    {item.totalPcs}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-mono font-bold text-emerald-700 bg-emerald-50/40">
-                                    {item.completedPcs}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-mono font-black text-amber-700 bg-amber-50 text-sm">
-                                    {item.remainingPcs}
-                                  </td>
-                                  <td className="py-2.5 px-3">
-                                    <div className="flex flex-wrap gap-1.5 items-center">
-                                      {item.remainingStagesWithCounts.map(({ stage, count }) => (
-                                        <span 
-                                          key={stage.id}
-                                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center space-x-1 shadow-2xs ${
-                                            stage.id === 'altering'
-                                              ? 'bg-rose-100 text-rose-900 border-rose-300'
-                                              : stage.id === 'embroidery'
-                                                ? 'bg-purple-100 text-purple-900 border-purple-300'
-                                                : stage.id === 'dhaga_cutting'
-                                                  ? 'bg-orange-100 text-orange-900 border-orange-300'
-                                                  : stage.id === 'stitching_patta'
-                                                    ? 'bg-cyan-100 text-cyan-900 border-cyan-300'
-                                                    : 'bg-slate-100 text-slate-800 border-slate-300'
-                                          }`}
-                                        >
-                                          <span className="font-mono font-black bg-white/90 px-1 rounded-xs">
-                                            {count} pcs
+                              <div className="flex items-center space-x-4 bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
+                                <div>
+                                  <span className="text-[10px] text-slate-300 uppercase font-bold block">Total Ordered</span>
+                                  <span className="text-sm font-black font-mono text-amber-300">{job.totalOrdered} Pcs</span>
+                                </div>
+                                <div className="h-6 w-px bg-white/20" />
+                                <div>
+                                  <span className="text-[10px] text-slate-300 uppercase font-bold block">Yet To Complete</span>
+                                  <span className="text-sm font-black font-mono text-rose-300">{job.totalRemaining} Pcs</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* EXACT Fabric & Color Piece Grid Matrix Table */}
+                            <div className="overflow-x-auto bg-white">
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead>
+                                  <tr className="bg-slate-100 border-b-2 border-slate-300 text-slate-800 font-black uppercase text-[11px]">
+                                    <th className="py-2.5 px-3 min-w-[160px] border-r border-slate-300">
+                                      1) Colour / Swatch
+                                    </th>
+                                    {job.fabricColumns.map(col => (
+                                      <th key={col} className="py-2.5 px-3 text-center min-w-[90px] border-r border-slate-300 bg-blue-50/50">
+                                        <span className="font-bold truncate" title={col}>{col}</span>
+                                      </th>
+                                    ))}
+                                    <th className="py-2.5 px-3 min-w-[110px] border-r border-slate-300">
+                                      8) D.No
+                                    </th>
+                                    <th className="py-2.5 px-3 text-center min-w-[85px] border-r border-slate-300">
+                                      Total
+                                    </th>
+                                    <th className="py-2.5 px-3 min-w-[260px] border-r border-slate-300">
+                                      What Stage Are Pending Pieces In? (1-10)
+                                    </th>
+                                    <th className="py-2.5 px-3 text-right min-w-[120px]">
+                                      Actions
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y border-slate-300">
+                                  {job.colorRows.map((row) => (
+                                    <tr key={row.colorKey} className="hover:bg-slate-50/80 transition-colors">
+                                      {/* 1) Colour / Swatch */}
+                                      <td className="py-2.5 px-3 border-r border-slate-200">
+                                        <div className="flex items-center space-x-2">
+                                          <span 
+                                            className="h-4 w-4 rounded-full border border-slate-300 shadow-2xs shrink-0" 
+                                            style={{ backgroundColor: row.colorHex || '#ea580c' }}
+                                          />
+                                          <span className="font-bold text-slate-900 truncate max-w-[150px]" title={row.colorName}>
+                                            {row.colorName}
                                           </span>
-                                          <span>in {stage.shortName}</span>
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center">
-                                    <span className="text-[10px] font-mono font-bold text-slate-700">
-                                      {item.percentComplete}%
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right">
-                                    <div className="flex items-center justify-end space-x-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleQuickAdvanceNextStage(item)}
-                                        title="Advance remaining pieces to next stage"
-                                        className="px-2 py-1 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors shadow-2xs flex items-center space-x-1"
-                                      >
-                                        <span>Next</span>
-                                        <ArrowRight className="h-2.5 w-2.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenEditBreakdown(item)}
-                                        title="Distribute pieces across stages"
-                                        className="p-1 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-                                      >
-                                        <SlidersHorizontal className="h-3 w-3" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => onOpenItemModal(item)}
-                                        title="View job details"
-                                        className="p-1 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-                                      >
-                                        <Eye className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                          <tfoot>
-                            <tr className="bg-slate-50 border-t-2 border-slate-300 font-black text-slate-800 text-[11px]">
-                              <td colSpan={4} className="py-2 px-3 text-right text-slate-500 uppercase">
-                                Subtotal ({partyGroup.partyName}):
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono">
-                                {partyGroup.totalOrdered}
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono text-emerald-700">
-                                {partyGroup.totalDone}
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono text-amber-800 bg-amber-100/80 text-sm">
-                                {partyGroup.totalRemaining} pcs
-                              </td>
-                              <td colSpan={3} className="py-2 px-3 text-slate-400 text-xs font-normal">
-                                {partyGroup.items.length} lots pending completion
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                                        </div>
+                                      </td>
+
+                                      {/* Fabric Columns */}
+                                      {job.fabricColumns.map(col => {
+                                        const fd = row.fabricQuantities[col];
+                                        if (!fd || fd.ordered === 0) {
+                                          return (
+                                            <td key={col} className="py-2.5 px-3 text-center border-r border-slate-200 text-slate-300 font-mono">
+                                              —
+                                            </td>
+                                          );
+                                        }
+
+                                        if (fd.remaining > 0) {
+                                          return (
+                                            <td key={col} className="py-2.5 px-3 text-center border-r border-slate-200 bg-amber-50/50">
+                                              <div className="font-mono font-black text-amber-950 text-sm">
+                                                {fd.remaining}
+                                              </div>
+                                              <div className="text-[9px] text-slate-500 font-semibold">
+                                                {fd.completed > 0 ? `${fd.completed}/${fd.ordered} done` : `of ${fd.ordered}`}
+                                              </div>
+                                            </td>
+                                          );
+                                        }
+
+                                        return (
+                                          <td key={col} className="py-2.5 px-3 text-center border-r border-slate-200 bg-emerald-50/40">
+                                            <div className="font-mono font-black text-emerald-900 text-sm">
+                                              {fd.completed}
+                                            </div>
+                                            <div className="text-[9px] text-emerald-700 font-bold">
+                                              ✓ Done
+                                            </div>
+                                          </td>
+                                        );
+                                      })}
+
+                                      {/* 8) D.No */}
+                                      <td className="py-2.5 px-3 border-r border-slate-200 font-mono font-bold text-slate-900">
+                                        {row.designNumber || '—'}
+                                      </td>
+
+                                      {/* Total */}
+                                      <td className="py-2.5 px-3 text-center border-r border-slate-200">
+                                        <div className="font-mono font-black text-sm text-slate-900">
+                                          {row.totalRemaining > 0 ? (
+                                            <span className="text-amber-900">{row.totalRemaining}</span>
+                                          ) : (
+                                            <span className="text-emerald-700">{row.totalCompleted}</span>
+                                          )}
+                                        </div>
+                                        <div className="text-[9px] text-slate-500 font-medium">
+                                          of {row.totalOrdered} pcs
+                                        </div>
+                                      </td>
+
+                                      {/* What Stage Are Pending Pieces In? */}
+                                      <td className="py-2.5 px-3 border-r border-slate-200">
+                                        {row.totalRemaining === 0 ? (
+                                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                            <span>10. Ready for Dispatch ({row.totalOrdered} pcs)</span>
+                                          </span>
+                                        ) : (
+                                          <div className="flex flex-wrap gap-1.5 items-center">
+                                            {row.remainingStages.map(({ stage, count }) => (
+                                              <span 
+                                                key={stage.id}
+                                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center space-x-1 shadow-2xs ${
+                                                  stage.id === 'altering'
+                                                    ? 'bg-rose-100 text-rose-900 border-rose-300'
+                                                    : stage.id === 'embroidery'
+                                                      ? 'bg-purple-100 text-purple-900 border-purple-300'
+                                                      : stage.id === 'dhaga_cutting'
+                                                        ? 'bg-orange-100 text-orange-900 border-orange-300'
+                                                        : stage.id === 'stitching_patta'
+                                                          ? 'bg-cyan-100 text-cyan-900 border-cyan-300'
+                                                          : 'bg-slate-100 text-slate-800 border-slate-300'
+                                                }`}
+                                              >
+                                                <span className="font-mono font-black bg-white/90 px-1 rounded-xs">
+                                                  {count} pcs
+                                                </span>
+                                                <span>in {stage.shortName}</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </td>
+
+                                      {/* Actions */}
+                                      <td className="py-2.5 px-3 text-right">
+                                        <div className="flex items-center justify-end space-x-1.5">
+                                          {row.totalRemaining > 0 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                row.items.forEach(it => {
+                                                  if (it.remainingPcs > 0) {
+                                                    handleQuickAdvanceNextStage(it);
+                                                  }
+                                                });
+                                              }}
+                                              title="Advance pending pieces of this color row to next stage"
+                                              className="px-2 py-1 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors shadow-2xs flex items-center space-x-1"
+                                            >
+                                              <span>Next</span>
+                                              <ArrowRight className="h-2.5 w-2.5" />
+                                            </button>
+                                          )}
+                                          {row.items[0] && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleOpenEditBreakdown(row.items[0])}
+                                              title="Distribute pieces across stages"
+                                              className="p-1 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                                            >
+                                              <SlidersHorizontal className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                          {row.items[0] && (
+                                            <button
+                                              type="button"
+                                              onClick={() => onOpenItemModal(row.items[0])}
+                                              title="View job slip details"
+                                              className="p-1 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                                            >
+                                              <Eye className="h-3.5 w-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900 text-xs">
+                                    <td className="py-2.5 px-3 border-r border-slate-300 uppercase tracking-wider text-slate-600">
+                                      Total (Pcs):
+                                    </td>
+                                    {job.fabricColumns.map(col => {
+                                      const tot = job.fabricTotals[col];
+                                      return (
+                                        <td key={col} className="py-2.5 px-3 text-center border-r border-slate-300 font-mono font-black bg-blue-50/60">
+                                          {tot ? tot.ordered : 0}
+                                        </td>
+                                      );
+                                    })}
+                                    <td className="py-2.5 px-3 border-r border-slate-300 text-slate-400">
+                                      —
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center border-r border-slate-300 font-mono font-black text-slate-900">
+                                      {job.totalOrdered}
+                                    </td>
+                                    <td colSpan={2} className="py-2.5 px-3 text-slate-600 font-normal">
+                                      {job.totalRemaining > 0 ? (
+                                        <span className="font-bold text-amber-800">{job.totalRemaining} pcs yet to complete</span>
+                                      ) : (
+                                        <span className="font-bold text-emerald-800">100% completed ({job.totalCompleted} pcs)</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -935,25 +1196,25 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
             </div>
 
             {/* Party-wise Completed Cards */}
-            {completedParties.length === 0 ? (
+            {completedGridParties.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 space-y-2">
                 <Clock className="h-10 w-10 text-amber-400 mx-auto" />
                 <div className="font-bold text-sm text-slate-800">No 100% Completed Batches Yet</div>
                 <p className="text-xs text-slate-400">Once lots complete all 10 stages and reach Prepare Dispatch, they will appear here party-wise.</p>
               </div>
             ) : (
-              completedParties.map(partyGroup => {
+              completedGridParties.map(partyGroup => {
                 const isCollapsed = !!collapsedParties[`completed_${partyGroup.partyName}`];
 
                 return (
                   <div 
                     key={partyGroup.partyName}
-                    className="bg-white rounded-2xl border border-emerald-200 shadow-xs overflow-hidden transition-all"
+                    className="bg-white rounded-2xl border-2 border-emerald-300 shadow-xs overflow-hidden transition-all space-y-4 p-4"
                   >
                     {/* Party Header Bar */}
                     <div 
                       onClick={() => togglePartyCollapse(`completed_${partyGroup.partyName}`)}
-                      className="p-3.5 bg-emerald-50/60 hover:bg-emerald-50 border-b border-emerald-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 cursor-pointer select-none transition-colors"
+                      className="p-3.5 bg-emerald-50/80 hover:bg-emerald-100/60 rounded-xl border border-emerald-300 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 cursor-pointer select-none transition-colors"
                     >
                       <div className="flex items-center space-x-3">
                         <div className="p-2 rounded-lg bg-emerald-700 text-white shadow-2xs">
@@ -961,130 +1222,214 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-xs text-emerald-600 font-bold uppercase tracking-wider">Party:</span>
-                            <h4 className="text-sm font-black text-emerald-950">
+                            <span className="text-xs text-emerald-700 font-bold uppercase tracking-wider">Party:</span>
+                            <h4 className="text-base font-black text-emerald-950">
                               {partyGroup.partyName}
                             </h4>
-                            <span className="px-2 py-0.2 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-bold font-mono">
-                              100% DONE
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-950 text-[10px] font-bold font-mono">
+                              100% COMPLETED
                             </span>
                           </div>
-                          <div className="text-[11px] text-emerald-700 mt-0.5">
-                            {partyGroup.items.length} completed lots &bull; Total finished pieces: <strong>{partyGroup.totalDone} pcs</strong>
+                          <div className="text-[11px] text-emerald-800 mt-0.5">
+                            Total finished pieces: <strong>{partyGroup.totalCompleted} pcs</strong> &bull; Ready for Delivery &amp; Billing
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-end">
-                        <div className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-900 font-mono font-bold text-xs border border-emerald-300">
-                          ✅ {partyGroup.totalDone} Pcs Ready
+                        <div className="px-3 py-1.5 rounded-lg bg-emerald-200/80 text-emerald-950 font-mono font-black text-xs border border-emerald-400">
+                          ✅ {partyGroup.totalCompleted} Pcs Ready For Dispatch
                         </div>
-                        <div className="p-1 rounded-md text-emerald-700 hover:text-emerald-900">
+                        <div className="p-1 rounded-md text-emerald-800 hover:text-emerald-950">
                           {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                         </div>
                       </div>
                     </div>
 
-                    {/* Party Completed Lots Table */}
+                    {/* Jobs rendered in EXACT Party Order Slip Grid Matrix format */}
                     {!isCollapsed && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="bg-emerald-50/40 text-emerald-900 font-bold border-b border-emerald-200 uppercase tracking-wider text-[10px]">
-                              <th className="py-2.5 px-3 min-w-[130px]">Color / Swatch</th>
-                              <th className="py-2.5 px-3 min-w-[110px]">Fabric Type</th>
-                              <th className="py-2.5 px-3 min-w-[90px]">Job No</th>
-                              <th className="py-2.5 px-3 min-w-[100px]">8) D.No</th>
-                              <th className="py-2.5 px-3 text-center min-w-[80px]">Total Ordered</th>
-                              <th className="py-2.5 px-3 text-center min-w-[90px] bg-emerald-100/70 text-emerald-950 font-black">
-                                Completed Pcs
-                              </th>
-                              <th className="py-2.5 px-3 min-w-[200px]">Current Status</th>
-                              <th className="py-2.5 px-3 text-center min-w-[120px]">Challan / Bill</th>
-                              <th className="py-2.5 px-3 text-right min-w-[80px]">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-emerald-100">
-                            {partyGroup.items.map(item => {
-                              const jobStr = item.jobNo || item.lotNumber;
-                              const swatchColor = item.colorSwatchHex || '#64748b';
+                      <div className="space-y-6">
+                        {partyGroup.jobs.map((job, jIdx) => (
+                          <div key={job.jobNo || jIdx} className="border-2 border-emerald-300 rounded-xl overflow-hidden shadow-xs">
+                            
+                            {/* Party Order Slip Header Bar */}
+                            <div className="p-3.5 bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-950 text-white flex flex-wrap items-center justify-between gap-3 text-xs">
+                              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                                <div>
+                                  <span className="text-emerald-200 text-[10px] uppercase font-bold block">2) Party Name:</span>
+                                  <span className="text-sm font-black text-white">{partyGroup.partyName}</span>
+                                </div>
+                                <div>
+                                  <span className="text-emerald-200 text-[10px] uppercase font-bold block">3) Job No.:</span>
+                                  <span className="text-sm font-black font-mono text-emerald-300">{job.jobNo || '—'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-emerald-200 text-[10px] uppercase font-bold block">4) Date:</span>
+                                  <span className="text-xs font-medium text-slate-200">{job.date || '—'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-emerald-200 text-[10px] uppercase font-bold block">5) Chalan No. (Ch. No.):</span>
+                                  <span className="text-xs font-mono font-bold text-slate-200">{job.chalanNo || '—'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-emerald-200 text-[10px] uppercase font-bold block">Firm:</span>
+                                  <span className="text-xs font-bold text-emerald-300">Trisharth</span>
+                                </div>
+                              </div>
 
-                              return (
-                                <tr key={item.id} className="hover:bg-emerald-50/30 transition-colors">
-                                  <td className="py-2.5 px-3 font-medium text-slate-900">
-                                    <div className="flex items-center space-x-2">
-                                      <span 
-                                        className="h-3.5 w-3.5 rounded-full border border-slate-300 shadow-2xs shrink-0" 
-                                        style={{ backgroundColor: swatchColor }}
-                                      />
-                                      <span className="font-bold truncate max-w-[110px]" title={item.fabricColor}>
-                                        {item.fabricColor || 'N/A'}
+                              <div className="flex items-center space-x-4 bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
+                                <div>
+                                  <span className="text-[10px] text-emerald-200 uppercase font-bold block">100% Completed</span>
+                                  <span className="text-sm font-black font-mono text-white">{job.totalCompleted} Pcs</span>
+                                </div>
+                                {(job.deliveryChalanNo || job.billNo) && (
+                                  <>
+                                    <div className="h-6 w-px bg-white/20" />
+                                    <div>
+                                      <span className="text-[10px] text-emerald-200 uppercase font-bold block">Challan / Bill</span>
+                                      <span className="text-xs font-mono font-bold text-amber-200">
+                                        {job.deliveryChalanNo ? `Ch: ${job.deliveryChalanNo}` : `Bill: ${job.billNo}`}
                                       </span>
                                     </div>
-                                  </td>
-                                  <td className="py-2.5 px-3">
-                                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-900 font-bold text-[10px]">
-                                      {item.fabricType}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 font-mono font-bold text-slate-800">
-                                    {jobStr}
-                                  </td>
-                                  <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                                    {item.designNumber}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-800">
-                                    {item.totalPcs}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-mono font-black text-emerald-800 bg-emerald-100/60 text-sm">
-                                    {item.completedPcs}
-                                  </td>
-                                  <td className="py-2.5 px-3">
-                                    <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[11px] border border-emerald-200">
-                                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                      <span>10. Ready for Dispatch ({item.totalPcs} pcs)</span>
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-600">
-                                    {item.deliveryChalanNumber || item.deliveryChalanNo ? (
-                                      <span>Ch: {item.deliveryChalanNumber || item.deliveryChalanNo}</span>
-                                    ) : item.billNumber || item.billNo ? (
-                                      <span>Bill: {item.billNumber || item.billNo}</span>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => onOpenItemModal(item)}
-                                      title="View job details"
-                                      className="p-1 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-                                    >
-                                      <Eye className="h-3.5 w-3.5" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                          <tfoot>
-                            <tr className="bg-emerald-50/70 border-t-2 border-emerald-200 font-black text-emerald-950 text-[11px]">
-                              <td colSpan={4} className="py-2 px-3 text-right text-emerald-700 uppercase">
-                                Subtotal ({partyGroup.partyName}):
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono">
-                                {partyGroup.totalOrdered}
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono text-emerald-900 bg-emerald-200/80 text-sm">
-                                {partyGroup.totalDone} pcs
-                              </td>
-                              <td colSpan={3} className="py-2 px-3 text-emerald-700 text-xs font-semibold">
-                                ✅ 100% Finished ({partyGroup.items.length} lots)
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* EXACT Fabric & Color Piece Grid Matrix Table */}
+                            <div className="overflow-x-auto bg-white">
+                              <table className="w-full text-left border-collapse text-xs">
+                                <thead>
+                                  <tr className="bg-emerald-50 border-b-2 border-emerald-200 text-emerald-950 font-black uppercase text-[11px]">
+                                    <th className="py-2.5 px-3 min-w-[160px] border-r border-emerald-200">
+                                      1) Colour / Swatch
+                                    </th>
+                                    {job.fabricColumns.map(col => (
+                                      <th key={col} className="py-2.5 px-3 text-center min-w-[90px] border-r border-emerald-200 bg-emerald-100/50">
+                                        <span className="font-bold truncate" title={col}>{col}</span>
+                                      </th>
+                                    ))}
+                                    <th className="py-2.5 px-3 min-w-[110px] border-r border-emerald-200">
+                                      8) D.No
+                                    </th>
+                                    <th className="py-2.5 px-3 text-center min-w-[85px] border-r border-emerald-200">
+                                      Total
+                                    </th>
+                                    <th className="py-2.5 px-3 min-w-[220px] border-r border-emerald-200">
+                                      Current Status
+                                    </th>
+                                    <th className="py-2.5 px-3 text-right min-w-[80px]">
+                                      Actions
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y border-emerald-100">
+                                  {job.colorRows.map((row) => (
+                                    <tr key={row.colorKey} className="hover:bg-emerald-50/30 transition-colors">
+                                      {/* 1) Colour / Swatch */}
+                                      <td className="py-2.5 px-3 border-r border-emerald-100">
+                                        <div className="flex items-center space-x-2">
+                                          <span 
+                                            className="h-4 w-4 rounded-full border border-slate-300 shadow-2xs shrink-0" 
+                                            style={{ backgroundColor: row.colorHex || '#ea580c' }}
+                                          />
+                                          <span className="font-bold text-slate-900 truncate max-w-[150px]" title={row.colorName}>
+                                            {row.colorName}
+                                          </span>
+                                        </div>
+                                      </td>
+
+                                      {/* Fabric Columns */}
+                                      {job.fabricColumns.map(col => {
+                                        const fd = row.fabricQuantities[col];
+                                        if (!fd || fd.ordered === 0) {
+                                          return (
+                                            <td key={col} className="py-2.5 px-3 text-center border-r border-emerald-100 text-slate-300 font-mono">
+                                              —
+                                            </td>
+                                          );
+                                        }
+
+                                        return (
+                                          <td key={col} className="py-2.5 px-3 text-center border-r border-emerald-100 bg-emerald-50/60">
+                                            <div className="font-mono font-black text-emerald-950 text-sm">
+                                              {fd.completed}
+                                            </div>
+                                            <div className="text-[9px] text-emerald-700 font-bold">
+                                              ✓ 100% Done
+                                            </div>
+                                          </td>
+                                        );
+                                      })}
+
+                                      {/* 8) D.No */}
+                                      <td className="py-2.5 px-3 border-r border-emerald-100 font-mono font-bold text-slate-900">
+                                        {row.designNumber || '—'}
+                                      </td>
+
+                                      {/* Total */}
+                                      <td className="py-2.5 px-3 text-center border-r border-emerald-100">
+                                        <div className="font-mono font-black text-sm text-emerald-900">
+                                          {row.totalCompleted}
+                                        </div>
+                                        <div className="text-[9px] text-emerald-700 font-bold">
+                                          100% Finished
+                                        </div>
+                                      </td>
+
+                                      {/* Status */}
+                                      <td className="py-2.5 px-3 border-r border-emerald-100">
+                                        <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                          <span>10. Ready for Dispatch ({row.totalCompleted} pcs)</span>
+                                        </span>
+                                      </td>
+
+                                      {/* Actions */}
+                                      <td className="py-2.5 px-3 text-right">
+                                        {row.items[0] && (
+                                          <button
+                                            type="button"
+                                            onClick={() => onOpenItemModal(row.items[0])}
+                                            title="View job details"
+                                            className="p-1 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                                          >
+                                            <Eye className="h-3.5 w-3.5" />
+                                          </button>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="bg-emerald-50 border-t-2 border-emerald-200 font-black text-emerald-950 text-xs">
+                                    <td className="py-2.5 px-3 border-r border-emerald-200 uppercase tracking-wider text-emerald-800">
+                                      Total Completed:
+                                    </td>
+                                    {job.fabricColumns.map(col => {
+                                      const tot = job.fabricTotals[col];
+                                      return (
+                                        <td key={col} className="py-2.5 px-3 text-center border-r border-emerald-200 font-mono font-black bg-emerald-100/70 text-emerald-950">
+                                          {tot ? tot.completed : 0}
+                                        </td>
+                                      );
+                                    })}
+                                    <td className="py-2.5 px-3 border-r border-emerald-200 text-slate-400">
+                                      —
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center border-r border-emerald-200 font-mono font-black text-emerald-950">
+                                      {job.totalCompleted}
+                                    </td>
+                                    <td colSpan={2} className="py-2.5 px-3 text-emerald-800 font-bold">
+                                      ✅ All {job.totalCompleted} pcs ready for delivery challan &amp; dispatch
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
