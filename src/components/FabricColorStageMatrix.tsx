@@ -244,206 +244,259 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
     totalYetToCompletePcs, 
     totalCompletedPcsAll, 
     pendingCount, 
-    doneCount 
+    doneCount,
+    readyForDispatchLots
   } = useMemo(() => {
-    const pendingItems = filteredItems.filter(it => it.remainingPcs > 0);
-    const doneItems = filteredItems.filter(it => it.remainingPcs === 0 || it.completedPcs >= it.totalPcs);
+    // 1. Helper to clean / normalize job number
+    const extractCleanJobNo = (it: typeof enrichedItems[0]): string => {
+      if (it.orderSlipId) {
+        const slip = effectiveSlips.find(s => s.id === it.orderSlipId);
+        if (slip?.jobNo) return slip.jobNo.trim();
+      }
+      if (it.jobNo && !it.jobNo.startsWith('LOT-')) {
+        return it.jobNo.trim();
+      }
+      if (it.lotNumber && it.lotNumber.startsWith('LOT-')) {
+        const parts = it.lotNumber.split('-');
+        if (parts.length >= 2 && parts[1]) return parts[1].trim();
+      }
+      return (it.jobNo || it.lotNumber || 'General').trim();
+    };
 
-    const buildGridParties = (itemsList: typeof filteredItems) => {
-      // Group by Party
-      const partyMap: Record<string, typeof filteredItems> = {};
-      itemsList.forEach(it => {
-        const p = (it.partyOrClientName || it.partyName || 'Direct Client / Unassigned').trim();
-        if (!partyMap[p]) partyMap[p] = [];
-        partyMap[p].push(it);
+    // 2. Identify all lots currently ready for dispatch (Stage 10)
+    const readyLots = enrichedItems.filter(it => it.completedPcs > 0 || it.currentStage === 'prepare_dispatch');
+
+    // 3. Group ALL filtered items by Party first, then by normalized Job No
+    const partyMap: Record<string, typeof filteredItems> = {};
+    filteredItems.forEach(it => {
+      const p = (it.partyOrClientName || it.partyName || 'Direct Client / Unassigned').trim();
+      if (!partyMap[p]) partyMap[p] = [];
+      partyMap[p].push(it);
+    });
+
+    // Build unified party structures containing full jobs
+    const allBuiltParties = Object.entries(partyMap).map(([partyName, pItems]) => {
+      const jobMap: Record<string, typeof filteredItems> = {};
+      pItems.forEach(it => {
+        const j = extractCleanJobNo(it);
+        if (!jobMap[j]) jobMap[j] = [];
+        jobMap[j].push(it);
       });
 
-      return Object.entries(partyMap).map(([partyName, pItems]) => {
-        // Find all jobs for this party
-        const jobMap: Record<string, typeof filteredItems> = {};
-        pItems.forEach(it => {
-          const j = (it.jobNo || it.lotNumber || 'General').trim();
-          if (!jobMap[j]) jobMap[j] = [];
-          jobMap[j].push(it);
-        });
+      const jobs = Object.entries(jobMap).map(([jobNo, jItems]) => {
+        // Find matching slip
+        const slip = effectiveSlips.find(s => 
+          (s.id && jItems.some(it => it.orderSlipId === s.id)) ||
+          ((s.partyName && s.partyName.toLowerCase().trim() === partyName.toLowerCase().trim()) &&
+           (!s.jobNo || !jobNo || s.jobNo.toLowerCase().trim() === jobNo.toLowerCase().trim() ||
+            jItems.some(it => it.lotNumber?.includes(s.jobNo))))
+        );
 
-        const jobs = Object.entries(jobMap).map(([jobNo, jItems]) => {
-          // Find matching slip if any
-          const slip = effectiveSlips.find(s => 
-            (s.partyName && s.partyName.toLowerCase().trim() === partyName.toLowerCase().trim()) &&
-            (!s.jobNo || !jobNo || s.jobNo.toLowerCase().trim() === jobNo.toLowerCase().trim())
-          );
+        // Determine fabric columns in order
+        let fabricCols: string[] = [];
+        if (slip?.fabricColumns && slip.fabricColumns.length > 0) {
+          fabricCols = [...slip.fabricColumns];
+          jItems.forEach(it => {
+            if (it.fabricType && !fabricCols.includes(it.fabricType)) {
+              fabricCols.push(it.fabricType);
+            }
+          });
+        } else {
+          const fSet = new Set<string>();
+          jItems.forEach(it => {
+            if (it.fabricType) fSet.add(it.fabricType);
+          });
+          fabricCols = Array.from(fSet);
+        }
 
-          // Determine fabric columns in order
-          let fabricCols: string[] = [];
-          if (slip?.fabricColumns && slip.fabricColumns.length > 0) {
-            fabricCols = [...slip.fabricColumns];
-            jItems.forEach(it => {
-              if (it.fabricType && !fabricCols.includes(it.fabricType)) {
-                fabricCols.push(it.fabricType);
-              }
-            });
-          } else {
-            const fSet = new Set<string>();
-            jItems.forEach(it => {
-              if (it.fabricType) fSet.add(it.fabricType);
-            });
-            fabricCols = Array.from(fSet);
+        // Group by colorway
+        const colorMap: Record<string, {
+          colorKey: string;
+          colorName: string;
+          colorHex: string;
+          designNumber: string;
+          fabricQuantities: Record<string, {
+            ordered: number;
+            completed: number;
+            remaining: number;
+            currentStage: WorkflowStageId;
+            item: typeof enrichedItems[0];
+          }>;
+          items: typeof enrichedItems;
+          notes: string;
+        }> = {};
+
+        // If slip exists, initialize rows from slip.colorRows to guarantee full order matrix structure
+        if (slip?.colorRows && slip.colorRows.length > 0) {
+          slip.colorRows.forEach((r, rIdx) => {
+            const colorName = r.colorName || `Color ${rIdx + 1}`;
+            const colorHex = r.colorHex || '#3b82f6';
+            const dNo = r.designNumber || '';
+            const cKey = `${colorName}___${colorHex}___${dNo}`;
+            colorMap[cKey] = {
+              colorKey: cKey,
+              colorName,
+              colorHex,
+              designNumber: dNo,
+              fabricQuantities: {},
+              items: [],
+              notes: r.notes || ''
+            };
+          });
+        }
+
+        jItems.forEach(it => {
+          const colorName = it.fabricColor || 'Color 1';
+          const colorHex = it.colorSwatchHex || '#3b82f6';
+          const dNo = it.designNumber || '';
+          const cKey = `${colorName}___${colorHex}___${dNo}`;
+
+          if (!colorMap[cKey]) {
+            colorMap[cKey] = {
+              colorKey: cKey,
+              colorName,
+              colorHex,
+              designNumber: dNo,
+              fabricQuantities: {},
+              items: [],
+              notes: it.notes || ''
+            };
           }
 
-          // Group by colorway
-          const colorMap: Record<string, {
-            colorKey: string;
-            colorName: string;
-            colorHex: string;
-            designNumber: string;
-            fabricQuantities: Record<string, {
-              ordered: number;
-              completed: number;
-              remaining: number;
-              currentStage: WorkflowStageId;
-              item: typeof enrichedItems[0];
-            }>;
-            items: typeof enrichedItems;
-            notes: string;
-          }> = {};
+          colorMap[cKey].items.push(it);
+          if (it.notes && !colorMap[cKey].notes) {
+            colorMap[cKey].notes = it.notes;
+          }
 
-          jItems.forEach(it => {
-            const colorName = it.fabricColor || 'Color 1';
-            const colorHex = it.colorSwatchHex || '#3b82f6';
-            const dNo = it.designNumber || '';
-            const cKey = `${colorName}___${colorHex}___${dNo}`;
-
-            if (!colorMap[cKey]) {
-              colorMap[cKey] = {
-                colorKey: cKey,
-                colorName,
-                colorHex,
-                designNumber: dNo,
-                fabricQuantities: {},
-                items: [],
-                notes: it.notes || ''
-              };
-            }
-
-            colorMap[cKey].items.push(it);
-            if (it.notes && !colorMap[cKey].notes) {
-              colorMap[cKey].notes = it.notes;
-            }
-
-            colorMap[cKey].fabricQuantities[it.fabricType] = {
-              ordered: it.totalPcs,
-              completed: it.completedPcs,
-              remaining: it.remainingPcs,
-              currentStage: it.currentStage,
-              item: it
-            };
-          });
-
-          // Build color rows
-          const colorRows = Object.values(colorMap).map(crow => {
-            const totalOrdered = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.ordered, 0);
-            const totalCompleted = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.completed, 0);
-            const totalRemaining = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.remaining, 0);
-            const percentComplete = totalOrdered > 0 ? Math.round((totalCompleted / totalOrdered) * 100) : 0;
-
-            // Collect remaining stages
-            const stageCounts: Record<WorkflowStageId, number> = {
-              fabric: 0, chalan: 0, inspection: 0, stitching_patta: 0, embroidery: 0,
-              dhaga_cutting: 0, inspection_alter: 0, altering: 0, folding: 0, prepare_dispatch: 0
-            };
-            crow.items.forEach(it => {
-              WORKFLOW_STAGES.forEach(s => {
-                stageCounts[s.id] += (it.stageDistribution[s.id] || 0);
-              });
-            });
-
-            const remainingStages = WORKFLOW_STAGES
-              .filter(s => s.id !== 'prepare_dispatch' && stageCounts[s.id] > 0)
-              .map(s => ({ stage: s, count: stageCounts[s.id] }));
-
-            return {
-              ...crow,
-              totalOrdered,
-              totalCompleted,
-              totalRemaining,
-              percentComplete,
-              remainingStages
-            };
-          });
-
-          const jobOrdered = colorRows.reduce((a, b) => a + b.totalOrdered, 0);
-          const jobCompleted = colorRows.reduce((a, b) => a + b.totalCompleted, 0);
-          const jobRemaining = colorRows.reduce((a, b) => a + b.totalRemaining, 0);
-          const jobPercent = jobOrdered > 0 ? Math.round((jobCompleted / jobOrdered) * 100) : 0;
-
-          // Fabric totals across all colors
-          const fabricTotals: Record<string, { ordered: number; completed: number; remaining: number }> = {};
-          fabricCols.forEach(fc => {
-            let fOrd = 0;
-            let fComp = 0;
-            let fRem = 0;
-            colorRows.forEach(crow => {
-              const fd = crow.fabricQuantities[fc];
-              if (fd) {
-                fOrd += fd.ordered;
-                fComp += fd.completed;
-                fRem += fd.remaining;
-              }
-            });
-            fabricTotals[fc] = { ordered: fOrd, completed: fComp, remaining: fRem };
-          });
-
-          const sampleItem = jItems[0];
-
-          return {
-            jobNo,
-            date: slip?.date || sampleItem?.date || '',
-            chalanNo: slip?.chalanNo || sampleItem?.chalanNumber || '',
-            firmName: slip?.firmName || 'Trisharth',
-            fabricColumns: fabricCols,
-            colorRows,
-            fabricTotals,
-            totalOrdered: jobOrdered,
-            totalCompleted: jobCompleted,
-            totalRemaining: jobRemaining,
-            percentComplete: jobPercent,
-            deliveryChalanNo: slip?.deliveryChalanNo,
-            billNo: slip?.billNo,
-            slip
+          colorMap[cKey].fabricQuantities[it.fabricType] = {
+            ordered: it.totalPcs,
+            completed: it.completedPcs,
+            remaining: it.remainingPcs,
+            currentStage: it.currentStage,
+            item: it
           };
         });
 
-        const partyOrdered = jobs.reduce((a, b) => a + b.totalOrdered, 0);
-        const partyCompleted = jobs.reduce((a, b) => a + b.totalCompleted, 0);
-        const partyRemaining = jobs.reduce((a, b) => a + b.totalRemaining, 0);
-        const partyPercent = partyOrdered > 0 ? Math.round((partyCompleted / partyOrdered) * 100) : 0;
+        // Build color rows
+        const colorRows = Object.values(colorMap).map(crow => {
+          const totalOrdered = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.ordered, 0);
+          const totalCompleted = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.completed, 0);
+          const totalRemaining = Object.values(crow.fabricQuantities).reduce((a, b) => a + b.remaining, 0);
+          const percentComplete = totalOrdered > 0 ? Math.round((totalCompleted / totalOrdered) * 100) : 0;
+
+          // Collect remaining stages
+          const stageCounts: Record<WorkflowStageId, number> = {
+            fabric: 0, chalan: 0, inspection: 0, stitching_patta: 0, embroidery: 0,
+            dhaga_cutting: 0, inspection_alter: 0, altering: 0, folding: 0, prepare_dispatch: 0
+          };
+          crow.items.forEach(it => {
+            WORKFLOW_STAGES.forEach(s => {
+              stageCounts[s.id] += (it.stageDistribution[s.id] || 0);
+            });
+          });
+
+          const remainingStages = WORKFLOW_STAGES
+            .filter(s => s.id !== 'prepare_dispatch' && stageCounts[s.id] > 0)
+            .map(s => ({ stage: s, count: stageCounts[s.id] }));
+
+          return {
+            ...crow,
+            totalOrdered,
+            totalCompleted,
+            totalRemaining,
+            percentComplete,
+            remainingStages
+          };
+        });
+
+        const jobOrdered = colorRows.reduce((a, b) => a + b.totalOrdered, 0);
+        const jobCompleted = colorRows.reduce((a, b) => a + b.totalCompleted, 0);
+        const jobRemaining = colorRows.reduce((a, b) => a + b.totalRemaining, 0);
+        const jobPercent = jobOrdered > 0 ? Math.round((jobCompleted / jobOrdered) * 100) : 0;
+
+        // Fabric totals across all colors
+        const fabricTotals: Record<string, { ordered: number; completed: number; remaining: number }> = {};
+        fabricCols.forEach(fc => {
+          let fOrd = 0;
+          let fComp = 0;
+          let fRem = 0;
+          colorRows.forEach(crow => {
+            const fd = crow.fabricQuantities[fc];
+            if (fd) {
+              fOrd += fd.ordered;
+              fComp += fd.completed;
+              fRem += fd.remaining;
+            }
+          });
+          fabricTotals[fc] = { ordered: fOrd, completed: fComp, remaining: fRem };
+        });
+
+        const sampleItem = jItems[0];
 
         return {
-          partyName,
-          jobs,
-          totalOrdered: partyOrdered,
-          totalCompleted: partyCompleted,
-          totalRemaining: partyRemaining,
-          percentComplete: partyPercent,
-          totalLots: pItems.length
+          jobNo,
+          date: slip?.date || sampleItem?.date || '',
+          chalanNo: slip?.chalanNo || sampleItem?.chalanNumber || '',
+          firmName: slip?.firmName || 'Trisharth',
+          fabricColumns: fabricCols,
+          colorRows,
+          fabricTotals,
+          totalOrdered: jobOrdered,
+          totalCompleted: jobCompleted,
+          totalRemaining: jobRemaining,
+          percentComplete: jobPercent,
+          deliveryChalanNo: slip?.deliveryChalanNo,
+          billNo: slip?.billNo,
+          slip,
+          items: jItems,
+          is100PercentDone: jobRemaining === 0 && jobOrdered > 0
         };
       });
-    };
 
-    const pendingGridParties = buildGridParties(pendingItems);
-    const doneGridParties = buildGridParties(doneItems);
+      const partyOrdered = jobs.reduce((a, b) => a + b.totalOrdered, 0);
+      const partyCompleted = jobs.reduce((a, b) => a + b.totalCompleted, 0);
+      const partyRemaining = jobs.reduce((a, b) => a + b.totalRemaining, 0);
+      const partyPercent = partyOrdered > 0 ? Math.round((partyCompleted / partyOrdered) * 100) : 0;
 
-    const totalYetToCompletePcs = pendingItems.reduce((acc, it) => acc + it.remainingPcs, 0);
-    const totalCompletedPcsAll = doneItems.reduce((acc, it) => acc + it.completedPcs, 0);
+      return {
+        partyName,
+        jobs,
+        totalOrdered: partyOrdered,
+        totalCompleted: partyCompleted,
+        totalRemaining: partyRemaining,
+        percentComplete: partyPercent,
+        totalLots: pItems.length
+      };
+    });
+
+    // 4. Split Parties/Jobs cleanly into Section 1 (Yet to complete) vs Section 2 (100% Completed Orders)
+    const yetToCompleteGridParties = allBuiltParties
+      .map(p => ({
+        ...p,
+        jobs: p.jobs.filter(j => !j.is100PercentDone)
+      }))
+      .filter(p => p.jobs.length > 0);
+
+    const completedGridParties = allBuiltParties
+      .map(p => ({
+        ...p,
+        jobs: p.jobs.filter(j => j.is100PercentDone)
+      }))
+      .filter(p => p.jobs.length > 0);
+
+    const totalYetToCompletePcs = filteredItems.reduce((acc, it) => acc + it.remainingPcs, 0);
+    const totalCompletedPcsAll = filteredItems.reduce((acc, it) => acc + it.completedPcs, 0);
+    const pendingCount = filteredItems.filter(it => it.remainingPcs > 0).length;
+    const doneCount = readyLots.length;
 
     return {
-      yetToCompleteGridParties: pendingGridParties,
-      completedGridParties: doneGridParties,
+      yetToCompleteGridParties,
+      completedGridParties,
       totalYetToCompletePcs,
       totalCompletedPcsAll,
-      pendingCount: pendingItems.length,
-      doneCount: doneItems.length
+      pendingCount,
+      doneCount,
+      readyForDispatchLots: readyLots
     };
   }, [filteredItems, effectiveSlips]);
 
@@ -837,10 +890,57 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                 </div>
               </div>
 
-              <div className="px-3.5 py-1.5 rounded-xl bg-amber-100 border border-amber-300 text-amber-950 font-mono font-black text-sm">
-                Total Pending: {totalYetToCompletePcs.toLocaleString()} Pcs
+              <div className="flex items-center space-x-2">
+                {readyForDispatchLots.length > 0 && (
+                  <div className="px-3 py-1.5 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-950 font-mono font-black text-xs flex items-center space-x-1">
+                    <PackageCheck className="h-3.5 w-3.5 text-emerald-700" />
+                    <span>{readyForDispatchLots.reduce((a, b) => a + (b.completedPcs || b.totalPcs), 0)} Pcs Ready to Dispatch</span>
+                  </div>
+                )}
+                <div className="px-3.5 py-1.5 rounded-xl bg-amber-100 border border-amber-300 text-amber-950 font-mono font-black text-sm">
+                  Total Pending: {totalYetToCompletePcs.toLocaleString()} Pcs
+                </div>
               </div>
             </div>
+
+            {/* Live Ready for Dispatch Batches Summary Banner */}
+            {readyForDispatchLots.length > 0 && (
+              <div className="p-3.5 bg-gradient-to-r from-emerald-500/15 via-emerald-50 to-white rounded-xl border-2 border-emerald-300 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 rounded-lg bg-emerald-600 text-white shadow-xs">
+                    <PackageCheck className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-black text-emerald-950 uppercase tracking-wide">
+                        📦 Batches Ready For Master Carton &amp; Handover to Logistics:
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold font-mono text-[10px]">
+                        {readyForDispatchLots.length} {readyForDispatchLots.length === 1 ? 'Batch' : 'Batches'} Ready
+                      </span>
+                    </div>
+                    <div className="flex items-center flex-wrap gap-2 mt-1">
+                      {readyForDispatchLots.map(rlot => (
+                        <span key={rlot.id} className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-white border border-emerald-300 shadow-2xs text-[11px]">
+                          <span className="font-mono font-black text-emerald-800 bg-emerald-100 px-1 rounded-xs">
+                            {rlot.completedPcs || rlot.totalPcs} pcs
+                          </span>
+                          <span className="font-bold text-slate-900">{rlot.fabricType}</span>
+                          <span className="text-slate-600">({rlot.fabricColor})</span>
+                          <span className="font-mono text-[10px] text-slate-400">[{rlot.lotNumber || rlot.jobNo}]</span>
+                          <span className="text-emerald-700 font-black text-[10px]">✓ Ready for Dispatch</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-xs font-black font-mono text-emerald-900 bg-emerald-100/90 px-3 py-1.5 rounded-lg border border-emerald-300">
+                    {readyForDispatchLots.reduce((a, b) => a + (b.completedPcs || b.totalPcs), 0)} Total Pcs Ready
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Party-wise Pending Cards */}
             {yetToCompleteGridParties.length === 0 ? (
@@ -876,11 +976,16 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                             <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold font-mono">
                               {partyGroup.totalRemaining} pcs Pending
                             </span>
+                            {partyGroup.totalCompleted > 0 && (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-bold font-mono">
+                                {partyGroup.totalCompleted} pcs Ready
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] text-slate-600 mt-0.5 flex items-center space-x-2">
                             <span>Ordered: <strong>{partyGroup.totalOrdered} pcs</strong></span>
                             <span>•</span>
-                            <span>Completed: <strong className="text-emerald-700">{partyGroup.totalCompleted} pcs</strong></span>
+                            <span>Ready for Dispatch: <strong className="text-emerald-700">{partyGroup.totalCompleted} pcs</strong></span>
                             <span>•</span>
                             <span>Yet To Complete: <strong className="text-amber-800">{partyGroup.totalRemaining} pcs</strong></span>
                           </div>
@@ -934,14 +1039,19 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                                 </div>
                               </div>
 
-                              <div className="flex items-center space-x-4 bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
+                              <div className="flex items-center space-x-3 bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
                                 <div>
                                   <span className="text-[10px] text-slate-300 uppercase font-bold block">Total Ordered</span>
                                   <span className="text-sm font-black font-mono text-amber-300">{job.totalOrdered} Pcs</span>
                                 </div>
                                 <div className="h-6 w-px bg-white/20" />
                                 <div>
-                                  <span className="text-[10px] text-slate-300 uppercase font-bold block">Yet To Complete</span>
+                                  <span className="text-[10px] text-emerald-300 uppercase font-bold block">Ready for Dispatch</span>
+                                  <span className="text-sm font-black font-mono text-emerald-400">{job.totalCompleted} Pcs</span>
+                                </div>
+                                <div className="h-6 w-px bg-white/20" />
+                                <div>
+                                  <span className="text-[10px] text-rose-300 uppercase font-bold block">Yet To Complete</span>
                                   <span className="text-sm font-black font-mono text-rose-300">{job.totalRemaining} Pcs</span>
                                 </div>
                               </div>
@@ -963,7 +1073,7 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                                     <th className="py-2.5 px-3 min-w-[110px] border-r border-slate-300">
                                       8) D.No
                                     </th>
-                                    <th className="py-2.5 px-3 text-center min-w-[85px] border-r border-slate-300">
+                                    <th className="py-2.5 px-3 text-center min-w-[95px] border-r border-slate-300">
                                       Total
                                     </th>
                                     <th className="py-2.5 px-3 min-w-[260px] border-r border-slate-300">
@@ -1008,19 +1118,23 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                                                 {fd.remaining}
                                               </div>
                                               <div className="text-[9px] text-slate-500 font-semibold">
-                                                {fd.completed > 0 ? `${fd.completed}/${fd.ordered} done` : `of ${fd.ordered}`}
+                                                {fd.completed > 0 ? (
+                                                  <span className="text-emerald-700 font-bold">{fd.completed} ready / of {fd.ordered}</span>
+                                                ) : (
+                                                  `of ${fd.ordered}`
+                                                )}
                                               </div>
                                             </td>
                                           );
                                         }
 
                                         return (
-                                          <td key={col} className="py-2.5 px-3 text-center border-r border-slate-200 bg-emerald-50/40">
-                                            <div className="font-mono font-black text-emerald-900 text-sm">
+                                          <td key={col} className="py-2.5 px-3 text-center border-r border-slate-200 bg-emerald-50/70 border-emerald-200">
+                                            <div className="font-mono font-black text-emerald-950 text-sm">
                                               {fd.completed}
                                             </div>
-                                            <div className="text-[9px] text-emerald-700 font-bold">
-                                              ✓ Done
+                                            <div className="text-[9px] text-emerald-800 font-black">
+                                              ✓ Ready for Dispatch
                                             </div>
                                           </td>
                                         );
@@ -1035,9 +1149,14 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                                       <td className="py-2.5 px-3 text-center border-r border-slate-200">
                                         <div className="font-mono font-black text-sm text-slate-900">
                                           {row.totalRemaining > 0 ? (
-                                            <span className="text-amber-900">{row.totalRemaining}</span>
+                                            <div className="flex flex-col items-center justify-center">
+                                              <span className="text-amber-950 font-black">{row.totalRemaining} pending</span>
+                                              {row.totalCompleted > 0 && (
+                                                <span className="text-emerald-700 text-[10px] font-bold">({row.totalCompleted} ready)</span>
+                                              )}
+                                            </div>
                                           ) : (
-                                            <span className="text-emerald-700">{row.totalCompleted}</span>
+                                            <span className="text-emerald-700 font-black">{row.totalCompleted} ready</span>
                                           )}
                                         </div>
                                         <div className="text-[9px] text-slate-500 font-medium">
@@ -1048,12 +1167,20 @@ export const FabricColorStageMatrix: React.FC<FabricColorStageMatrixProps> = ({
                                       {/* What Stage Are Pending Pieces In? */}
                                       <td className="py-2.5 px-3 border-r border-slate-200">
                                         {row.totalRemaining === 0 ? (
-                                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-[11px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                                             <span>10. Ready for Dispatch ({row.totalOrdered} pcs)</span>
                                           </span>
                                         ) : (
                                           <div className="flex flex-wrap gap-1.5 items-center">
+                                            {row.totalCompleted > 0 && (
+                                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black border flex items-center space-x-1 shadow-2xs bg-emerald-100 text-emerald-950 border-emerald-300">
+                                                <span className="font-mono font-black bg-white/90 px-1 rounded-xs text-emerald-800">
+                                                  {row.totalCompleted} pcs
+                                                </span>
+                                                <span>✓ Ready for Dispatch</span>
+                                              </span>
+                                            )}
                                             {row.remainingStages.map(({ stage, count }) => (
                                               <span 
                                                 key={stage.id}
