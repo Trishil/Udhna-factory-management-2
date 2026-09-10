@@ -85,6 +85,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   ];
 
+  const hasFinancialAccess = currentUser?.role === 'owner' || currentUser?.financialAccess === true;
+  const visibleNavItems = navItems.filter(item => item.id !== 'finance' || hasFinancialAccess);
+
   return (
     <aside
       id="app-left-sidebar"
@@ -159,7 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
 

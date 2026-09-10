@@ -28,7 +28,15 @@ import {
   Check,
   Edit2,
   Trash2,
-  X
+  X,
+  Lock,
+  Shield,
+  ShieldAlert,
+  Smartphone,
+  Globe,
+  KeyRound,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { 
   EmployeeRecord, 
@@ -39,6 +47,33 @@ import {
   RawMaterial, 
   Machine 
 } from '../types';
+
+export function computeEmployeePassword(name: string, dob?: string): string {
+  if (!name.trim()) return '';
+  const firstName = name.trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!dob) return `${firstName}@1234`;
+  const parts = dob.split('-');
+  if (parts.length === 3) {
+    const day = parts[2];
+    const month = parts[1];
+    return `${firstName}@${day}${month}`;
+  }
+  return `${firstName}@1234`;
+}
+
+export function getNextEmployeeId(existingEmployees: EmployeeRecord[]): string {
+  let maxNum = 0;
+  for (const emp of existingEmployees) {
+    const raw = emp.employeeId || emp.employeeCode || '';
+    const match = raw.match(/TR-(\d+)/i) || raw.match(/EMP-(\d+)/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxNum) maxNum = num;
+    }
+  }
+  const nextNum = maxNum > 0 ? maxNum + 1 : (existingEmployees.length + 1);
+  return `TR-${String(nextNum).padStart(3, '0')}`;
+}
 import {
   DEFAULT_CATEGORIES,
   DEFAULT_UNITS,
@@ -188,7 +223,9 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
   });
 
   const [newEmp, setNewEmp] = useState({
+    employeeId: '',
     name: '',
+    dob: '',
     role: '',
     department: 'Production' as const,
     salaryType: 'monthly' as const,
@@ -201,8 +238,15 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     paymentMethod: 'bank_transfer' as const,
     bankAccountOrUpi: '',
     phone: '',
-    assignedMachineId: ''
+    assignedMachineId: '',
+    webAccess: false,
+    mobileAccess: true,
+    financialAccess: false,
+    noAppAccess: false,
+    googleEmail: '',
+    customPassword: ''
   });
+  const [showPasswordPreview, setShowPasswordPreview] = useState(false);
 
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
@@ -463,9 +507,22 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     const hourly = parseFloat(newEmp.hourlyRate) || 0;
     const hours = parseFloat(newEmp.hoursWorkedMonth) || 160;
 
+    const assignedId = newEmp.employeeId.trim() || getNextEmployeeId(employees);
+    const computedPass = computeEmployeePassword(newEmp.name, newEmp.dob);
+    const effectivePass = newEmp.customPassword.trim() || computedPass;
+
     onAddEmployee({
-      name: newEmp.name,
-      role: newEmp.role,
+      employeeId: assignedId,
+      employeeCode: assignedId,
+      name: newEmp.name.trim(),
+      dob: newEmp.dob || undefined,
+      loginPassword: effectivePass,
+      googleEmail: newEmp.googleEmail.trim() || undefined,
+      webAccess: newEmp.noAppAccess ? false : !!newEmp.webAccess,
+      mobileAccess: newEmp.noAppAccess ? false : !!newEmp.mobileAccess,
+      financialAccess: !!newEmp.financialAccess,
+      noAppAccess: !!newEmp.noAppAccess,
+      role: newEmp.role.trim(),
       department: newEmp.department,
       salaryType: newEmp.salaryType,
       baseSalary: base,
@@ -481,7 +538,9 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
     });
 
     setNewEmp({
+      employeeId: '',
       name: '',
+      dob: '',
       role: '',
       department: 'Production',
       salaryType: 'monthly',
@@ -494,9 +553,44 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
       paymentMethod: 'bank_transfer',
       bankAccountOrUpi: '',
       phone: '',
-      assignedMachineId: ''
+      assignedMachineId: '',
+      webAccess: false,
+      mobileAccess: true,
+      financialAccess: false,
+      noAppAccess: false,
+      googleEmail: '',
+      customPassword: ''
     });
     setIsAddEmployeeOpen(false);
+  };
+
+  const handleOpenAddEmployee = () => {
+    setNewEmp({
+      employeeId: getNextEmployeeId(employees),
+      name: '',
+      dob: '',
+      role: '',
+      department: 'Production',
+      salaryType: 'monthly',
+      baseSalary: '',
+      hourlyRate: '',
+      hoursWorkedMonth: '160',
+      bonusOrOvertime: '0',
+      deductions: '0',
+      paymentStatus: 'pending',
+      paymentMethod: 'bank_transfer',
+      bankAccountOrUpi: '',
+      phone: '',
+      assignedMachineId: '',
+      webAccess: false,
+      mobileAccess: true,
+      financialAccess: false,
+      noAppAccess: false,
+      googleEmail: '',
+      customPassword: ''
+    });
+    setShowPasswordPreview(false);
+    setIsAddEmployeeOpen(true);
   };
 
   const handleOpenPartyPaymentModal = (invoice: PartyInvoice) => {
@@ -1371,7 +1465,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
             <div className="flex items-center space-x-2">
               <button
                 id="btn-add-employee-top"
-                onClick={() => setIsAddEmployeeOpen(true)}
+                onClick={handleOpenAddEmployee}
                 className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs"
               >
                 <UserPlus className="h-4 w-4" />
@@ -1385,78 +1479,109 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50/90 text-slate-500 uppercase tracking-wider font-bold text-[10px] border-b border-slate-200">
                   <tr>
-                    <th className="py-3 px-4">Code</th>
+                    <th className="py-3 px-4">Emp ID</th>
                     <th className="py-3 px-4">Employee Name</th>
-                    <th className="py-3 px-3">Role / Dept</th>
-                    <th className="py-3 px-3">Salary Model</th>
-                    <th className="py-3 px-3">Base Amount</th>
-                    <th className="py-3 px-3">Overtime / Bonus</th>
-                    <th className="py-3 px-3">Deductions</th>
+                    <th className="py-3 px-3">Role &amp; Dept</th>
+                    <th className="py-3 px-3">Platform Access</th>
+                    <th className="py-3 px-3">Login Password</th>
+                    <th className="py-3 px-3">Base Salary</th>
                     <th className="py-3 px-3">Net Payable</th>
                     <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-4 text-right">Disburse</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {employees.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="text-center py-10 text-slate-400">
+                      <td colSpan={9} className="text-center py-10 text-slate-400">
                         No employees added yet. Click "+ Add Employee" above to add machine operators and staff.
                       </td>
                     </tr>
                   ) : (
-                    employees.map((emp) => (
-                      <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-800">
-                          {emp.employeeCode}
-                        </td>
-                        <td className="py-3 px-4">
-                          <p className="font-bold text-slate-900">{emp.name}</p>
-                          <span className="text-[10px] text-slate-400 font-mono">{emp.phone || emp.bankAccountOrUpi || 'Direct Payout'}</span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="font-semibold text-slate-800">{emp.role}</span>
-                          <span className="block text-[10px] text-slate-400">{emp.department}</span>
-                        </td>
-                        <td className="py-3 px-3 capitalize font-medium text-slate-600">
-                          {emp.salaryType}
-                        </td>
-                        <td className="py-3 px-3 font-mono font-semibold text-slate-800">
-                          {formatINR(emp.baseSalary)}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-emerald-600 font-semibold">
-                          +{formatINR(emp.bonusOrOvertime || 0)}
-                        </td>
-                        <td className="py-3 px-3 font-mono text-rose-600 font-semibold">
-                          -{formatINR(emp.deductions || 0)}
-                        </td>
-                        <td className="py-3 px-3 font-mono font-black text-slate-900 text-sm">
-                          {formatINR(emp.netPayable)}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            emp.paymentStatus === 'paid'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {emp.paymentStatus}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end space-x-1.5">
-                            {emp.paymentStatus !== 'paid' ? (
-                              <button
-                                onClick={() => onPaySalary(emp.id)}
-                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs"
-                              >
-                                Pay Salary
-                              </button>
-                            ) : (
-                              <span className="text-[11px] font-semibold text-emerald-600 flex items-center justify-end space-x-1">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                <span>Paid ({emp.paidDate || emp.lastPaidDate || 'Disbursed'})</span>
+                    employees.map((emp) => {
+                      const displayId = emp.employeeId || emp.employeeCode || `TR-${emp.id.slice(-3)}`;
+                      const defaultPass = emp.loginPassword || computeEmployeePassword(emp.name, emp.dob);
+                      const isNoApp = emp.noAppAccess || (!emp.webAccess && !emp.mobileAccess);
+
+                      return (
+                        <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-blue-700">
+                            {displayId}
+                          </td>
+                          <td className="py-3 px-4">
+                            <p className="font-bold text-slate-900">{emp.name}</p>
+                            <span className="text-[10px] text-slate-400 font-mono">{emp.phone || emp.googleEmail || emp.bankAccountOrUpi || 'Direct Payout'}</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-semibold text-slate-800">{emp.role}</span>
+                            <span className="block text-[10px] text-slate-400">{emp.department}</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            {isNoApp ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                Payroll Only (No App)
                               </span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold font-mono border ${
+                                  emp.webAccess ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-400 border-slate-200'
+                                }`}>
+                                  Web: {emp.webAccess ? '✓' : '✗'}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold font-mono border ${
+                                  emp.mobileAccess ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-200'
+                                }`}>
+                                  Mobile: {emp.mobileAccess ? '✓' : '✗'}
+                                </span>
+                                {emp.financialAccess && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Finance: ✓
+                                  </span>
+                                )}
+                              </div>
                             )}
+                          </td>
+                          <td className="py-3 px-3">
+                            {isNoApp ? (
+                              <span className="text-[10px] text-slate-400 italic">No Portal Access</span>
+                            ) : (
+                              <div className="inline-flex items-center space-x-1.5 px-2 py-1 bg-slate-100 rounded-lg border border-slate-200/80">
+                                <KeyRound className="h-3 w-3 text-slate-500" />
+                                <span className="font-mono font-bold text-[11px] text-slate-800">{defaultPass}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 font-mono font-semibold text-slate-800">
+                            {formatINR(emp.baseSalary)}
+                            <span className="block text-[10px] text-slate-400 capitalize">{emp.salaryType}</span>
+                          </td>
+                          <td className="py-3 px-3 font-mono font-black text-slate-900 text-sm">
+                            {formatINR(emp.netPayable)}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              emp.paymentStatus === 'paid'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {emp.paymentStatus}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end space-x-1.5">
+                              {emp.paymentStatus !== 'paid' ? (
+                                <button
+                                  onClick={() => onPaySalary(emp.id)}
+                                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs"
+                                >
+                                  Pay Salary
+                                </button>
+                              ) : (
+                                <span className="text-[11px] font-semibold text-emerald-600 flex items-center justify-end space-x-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>Paid</span>
+                                </span>
+                              )}
                             {onDeleteEmployee && (
                               <button
                                 onClick={() => onDeleteEmployee(emp.id)}
@@ -1469,7 +1594,8 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -2835,7 +2961,41 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleCreateEmployeeSubmit} className="space-y-3 text-xs">
+            <form onSubmit={handleCreateEmployeeSubmit} className="space-y-3.5 text-xs max-h-[80vh] overflow-y-auto pr-1">
+              
+              {/* Row 1: Employee ID & DOB */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700">Employee ID</label>
+                    <span className="text-[9px] font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">Auto</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={newEmp.employeeId || getNextEmployeeId(employees)}
+                      onChange={(e) => setNewEmp({ ...newEmp, employeeId: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono font-bold uppercase tracking-wider"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700">Date of Birth (DOB) *</label>
+                    <span className="text-[9px] text-indigo-600 font-semibold">For Password</span>
+                  </div>
+                  <input
+                    type="date"
+                    required
+                    value={newEmp.dob}
+                    onChange={(e) => setNewEmp({ ...newEmp, dob: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Full Name & Role */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Full Name *</label>
@@ -2861,6 +3021,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                 </div>
               </div>
 
+              {/* Row 3: Department & Salary Type */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Department</label>
@@ -2890,6 +3051,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                 </div>
               </div>
 
+              {/* Row 4: Base Salary & Overtime & Deductions */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Base Salary (₹) *</label>
@@ -2927,17 +3089,8 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                 </div>
               </div>
 
+              {/* Row 5: Bank A/C & Phone */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Bank A/C or UPI ID</label>
-                  <input
-                    type="text"
-                    value={newEmp.bankAccountOrUpi}
-                    onChange={(e) => setNewEmp({ ...newEmp, bankAccountOrUpi: e.target.value })}
-                    placeholder="e.g. 9876543210@upi"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
-                  />
-                </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Phone Number</label>
                   <input
@@ -2948,7 +3101,164 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
                   />
                 </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Bank A/C or UPI ID</label>
+                  <input
+                    type="text"
+                    value={newEmp.bankAccountOrUpi}
+                    onChange={(e) => setNewEmp({ ...newEmp, bankAccountOrUpi: e.target.value })}
+                    placeholder="e.g. 9876543210@upi"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
+                  />
+                </div>
               </div>
+
+              {/* SECTION: PLATFORM ACCESS & SECURITY CLEARANCES */}
+              <div className="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="h-4 w-4 text-indigo-600" />
+                    <span className="font-bold text-slate-900 text-xs">Platform Access &amp; App Clearances</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setNewEmp({
+                        ...newEmp,
+                        noAppAccess: !newEmp.noAppAccess,
+                        webAccess: false,
+                        mobileAccess: false,
+                        financialAccess: false
+                      })}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${
+                        newEmp.noAppAccess
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-slate-200/80 text-slate-600 hover:bg-slate-300'
+                      }`}
+                    >
+                      {newEmp.noAppAccess ? '✓ No App Access (Janitor/Laborer)' : 'Set No App Access'}
+                    </button>
+                  </div>
+                </div>
+
+                {!newEmp.noAppAccess ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                    {/* Web ERP Access */}
+                    <label className={`flex items-start space-x-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      newEmp.webAccess ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={newEmp.webAccess}
+                        onChange={(e) => setNewEmp({ ...newEmp, webAccess: e.target.checked })}
+                        className="rounded mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="flex items-center space-x-1">
+                          <Globe className="h-3 w-3 text-blue-600" />
+                          <span className="font-bold text-slate-900 text-[11px]">Web ERP</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">Desktop portal</span>
+                      </div>
+                    </label>
+
+                    {/* Mobile App Access */}
+                    <label className={`flex items-start space-x-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      newEmp.mobileAccess ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={newEmp.mobileAccess}
+                        onChange={(e) => setNewEmp({ ...newEmp, mobileAccess: e.target.checked })}
+                        className="rounded mt-0.5 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="flex items-center space-x-1">
+                          <Smartphone className="h-3 w-3 text-indigo-600" />
+                          <span className="font-bold text-slate-900 text-[11px]">Mobile App</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">Floor phone app</span>
+                      </div>
+                    </label>
+
+                    {/* Financial Access */}
+                    <label className={`flex items-start space-x-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      newEmp.financialAccess ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={newEmp.financialAccess}
+                        onChange={(e) => setNewEmp({ ...newEmp, financialAccess: e.target.checked })}
+                        className="rounded mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div>
+                        <div className="flex items-center space-x-1">
+                          <ShieldAlert className="h-3 w-3 text-emerald-600" />
+                          <span className="font-bold text-slate-900 text-[11px]">Finance &amp; P&amp;L</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">Salaries &amp; books</span>
+                      </div>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-amber-800 text-[11px]">
+                    <p className="font-semibold">⚠️ Janitor / Daily Wage Laborer (Payroll Only)</p>
+                    <p className="text-[10px] text-amber-700 mt-0.5">This staff member will exist solely on wage sheets &amp; attendance ledgers. Both Web and Mobile app logins are blocked.</p>
+                  </div>
+                )}
+
+                {/* Optional Google Account Linking */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1 text-[11px]">
+                    Linked Google Account Email (Optional for 1-Tap Google Sign-In)
+                  </label>
+                  <input
+                    type="email"
+                    value={newEmp.googleEmail}
+                    onChange={(e) => setNewEmp({ ...newEmp, googleEmail: e.target.value })}
+                    placeholder="e.g. operator.name@gmail.com"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    If specified, this employee can also log in directly using "Sign In with Google".
+                  </p>
+                </div>
+              </div>
+
+              {/* LIVE GENERATED CREDENTIALS CARD */}
+              {!newEmp.noAppAccess && (
+                <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <KeyRound className="h-4 w-4 text-blue-600" />
+                      <span className="font-bold text-slate-900 text-xs">Generated Login Credentials</span>
+                    </div>
+                    <span className="text-[10px] text-blue-700 font-semibold bg-blue-100/80 px-2 py-0.5 rounded-full">
+                      Formula: firstname@DDMM
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white p-2 rounded-lg border border-blue-100">
+                      <span className="text-[10px] text-slate-400 block font-semibold">Login Employee ID</span>
+                      <span className="font-mono font-black text-blue-700 text-sm">
+                        {newEmp.employeeId || getNextEmployeeId(employees)}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-2 rounded-lg border border-blue-100">
+                      <span className="text-[10px] text-slate-400 block font-semibold">Auto Login Password</span>
+                      <span className="font-mono font-black text-slate-900 text-sm">
+                        {computeEmployeePassword(newEmp.name, newEmp.dob) || 'name@DDMM'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 mt-2 italic">
+                    Share this ID &amp; Password with the staff member. They will use this to sign into the Trisharth mobile or web app based on clearance.
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                 <button
@@ -2962,7 +3272,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                   type="submit"
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
                 >
-                  Save Employee
+                  Save Employee &amp; Credentials
                 </button>
               </div>
             </form>

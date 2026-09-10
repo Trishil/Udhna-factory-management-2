@@ -237,6 +237,16 @@ export default function App() {
 
   // UI state
   const [activeMainTab, setActiveMainTab] = useState<AppTab>('workflow');
+
+  // Guard Financial Tab: If user lacks financial access, automatically redirect to workflow
+  useEffect(() => {
+    if (activeMainTab === 'finance' && currentUser) {
+      const hasFinance = currentUser.role === 'owner' || currentUser.financialAccess === true;
+      if (!hasFinance) {
+        setActiveMainTab('workflow');
+      }
+    }
+  }, [activeMainTab, currentUser]);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     const saved = localStorage.getItem('factory_sidebar_collapsed');
     return saved === 'true';
@@ -355,8 +365,12 @@ export default function App() {
 
     const unsubscribeFinance = subscribeToCloudFinance((cloudFin) => {
       if (Array.isArray(cloudFin.employees)) {
-        setEmployees(cloudFin.employees);
-        localStorage.setItem('factory_employees', JSON.stringify(cloudFin.employees));
+        const emps = cloudFin.employees.length > 0 ? cloudFin.employees : INITIAL_EMPLOYEES;
+        setEmployees(emps);
+        localStorage.setItem('factory_employees', JSON.stringify(emps));
+        if (cloudFin.employees.length === 0) {
+          saveCloudFinance({ employees: INITIAL_EMPLOYEES }).catch(() => {});
+        }
       }
       if (Array.isArray(cloudFin.electricityRecords)) {
         setElectricityRecords(cloudFin.electricityRecords);
@@ -1701,18 +1715,20 @@ export default function App() {
     });
   };
 
-  const handleAddEmployee = (newEmpData: Omit<EmployeeRecord, 'id' | 'employeeCode' | 'netPayable'>) => {
+  const handleAddEmployee = (newEmpData: Omit<EmployeeRecord, 'id' | 'netPayable'>) => {
     const net = (newEmpData.baseSalary || 0) + (newEmpData.bonusOrOvertime || 0) - (newEmpData.deductions || 0);
+    const assignedId = newEmpData.employeeId || `TR-${String(employees.length + 1).padStart(3, '0')}`;
     const newRecord: EmployeeRecord = {
       ...newEmpData,
       id: `emp-${Date.now()}`,
-      employeeCode: `EMP-${100 + employees.length + 1}`,
+      employeeId: assignedId,
+      employeeCode: assignedId,
       netPayable: net
     };
 
     const updatedEmployees = [...employees, newRecord];
     setEmployees(updatedEmployees);
-    setLastAutoEntryNotice(`Added staff member ${newRecord.name} (${newRecord.role})`);
+    setLastAutoEntryNotice(`Added staff member ${newRecord.name} (${assignedId})`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
 
     syncFullStateToGoogleSheets({ employeesList: updatedEmployees });
@@ -2783,6 +2799,7 @@ export default function App() {
             workflowCount={workflowItems.length}
             lowStockCount={lowStockCount}
             readyDispatchCount={readyDispatchCount}
+            currentUser={currentUser}
           />
         </div>
       ) : (

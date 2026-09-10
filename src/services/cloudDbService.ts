@@ -647,3 +647,24 @@ export async function clearAllCloudProductionOrders(): Promise<void> {
     setDoc(dspRef, { orders: [], updatedAt: new Date().toISOString() })
   ]);
 }
+
+export async function fetchCloudFinanceEmployees(): Promise<EmployeeRecord[]> {
+  try {
+    await ensureAuthReady();
+    const finRef = doc(db, FINANCE_COLLECTION, FINANCE_DOC_ID);
+    const snap = await getDoc(finRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data?.employees) && data.employees.length > 0) {
+        return data.employees;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to fetch finance employees from Firestore:', e);
+  }
+  try {
+    const saved = localStorage.getItem('factory_employees');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
+}

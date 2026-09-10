@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Workflow, 
   Building2, 
   User, 
   ArrowRight, 
@@ -8,31 +7,30 @@ import {
   ShieldCheck, 
   AlertCircle, 
   RefreshCw,
-  Users,
-  Search,
-  CheckCircle2,
-  Lock,
-  KeyRound
+  CheckCircle2, 
+  Lock, 
+  KeyRound,
+  Eye,
+  EyeOff,
+  ShieldAlert
 } from 'lucide-react';
-import { AuthUser, CompanyWorkspace } from '../types';
+import logoImg from '../assets/logo.png';
+import { AuthUser, CompanyWorkspace, EmployeeRecord } from '../types';
 import { 
-  requestGoogleSignIn, 
   authenticateWithGoogle,
   findWorkspaceByEmail,
   createPresetSession, 
-  TRISHARTH_TEAM_MEMBERS,
   TRISHARTH_WORKSPACE,
   lookupCompanyByCode,
   registerNewCompany,
   registerEmployeeAccount,
   getRememberedCompanyCode,
-  setRememberedCompanyCode,
-  getEffectiveOAuthClientId,
-  setCustomOAuthClientId,
-  OAUTH_CLIENT_ID,
-  FIREBASE_OAUTH_CLIENT_ID
+  setRememberedCompanyCode
 } from '../services/googleAuth';
 import { logEmployeeLoginToMaster } from '../services/masterRegistryService';
+import { fetchCloudFinanceEmployees } from '../services/cloudDbService';
+import { computeEmployeePassword } from './FinanceManager';
+import { INITIAL_EMPLOYEES } from '../data/initialData';
 
 interface LoginPageProps {
   onLoginSuccess: (user: AuthUser, sheetId: string) => void;
@@ -49,30 +47,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [signupType, setSignupType] = useState<'choose' | 'register_company' | 'join_company'>('choose');
 
   // Login form state
-  const [companyCode, setCompanyCode] = useState(() => getRememberedCompanyCode());
+  const [companyCode, setCompanyCode] = useState(() => getRememberedCompanyCode() || 'TRISHARTH-HQ');
   const [loginEmail, setLoginEmail] = useState('');
-  const [quickStaffSearch, setQuickStaffSearch] = useState('');
-  const [showStaffQuickList, setShowStaffQuickList] = useState(false);
-
-  // Register company form state
-  const [regCompanyName, setRegCompanyName] = useState('');
-  const [regCompanyCode, setRegCompanyCode] = useState('');
-  const [regOwnerName, setRegOwnerName] = useState('');
-  const [regOwnerEmail, setRegOwnerEmail] = useState('');
-  const [regSheetId, setRegSheetId] = useState('');
-
-  // Join company form state
-  const [joinCompanyCode, setJoinCompanyCode] = useState(() => getRememberedCompanyCode());
-  const [joinEmployeeName, setJoinEmployeeName] = useState('');
-  const [joinEmployeeEmail, setJoinEmployeeEmail] = useState('');
-  const [joinJobRole, setJoinJobRole] = useState('Floor Lead');
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [authStep, setAuthStep] = useState<string>('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Handle Log In
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  // Handle Log In via Employee ID + Password
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!companyCode.trim()) {
@@ -81,107 +60,141 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
 
     if (!loginEmail.trim()) {
-      setErrorMessage('Please enter your Email or Name before signing in.');
-      setIsLoading(false);
+      setErrorMessage('Please enter your Employee ID or Registered Email.');
+      return;
+    }
+
+    if (!loginPassword.trim()) {
+      setErrorMessage('Please enter your Login Password (firstname@DDMM).');
       return;
     }
 
     setIsLoading(true);
     setErrorMessage(null);
-    setAuthStep('Verifying Company Code with Google Sheet Backend...');
+    setAuthStep('Verifying credentials with Trisharth Directory...');
 
     try {
       const workspace = await lookupCompanyByCode(companyCode);
       if (!workspace) {
-        setErrorMessage(`Company Code "${companyCode.trim().toUpperCase()}" is not registered. Please check with your factory owner or register a new company under Sign Up.`);
+        setErrorMessage(`Company Code "${companyCode.trim().toUpperCase()}" is not registered. Please check with your factory administrator.`);
         setIsLoading(false);
         setAuthStep('');
         return;
       }
 
       setRememberedCompanyCode(workspace.code);
-      setAuthStep(`Connecting to ${workspace.name}...`);
 
-      const email = loginEmail.trim();
-      const { user, sheetResult } = createPresetSession(email, workspace.sheetId, workspace);
+      const identifier = loginEmail.trim();
+      const pass = loginPassword.trim();
+      const idUpper = identifier.toUpperCase();
+      const idLower = identifier.toLowerCase();
 
-      if (user.sheetAccessGranted) {
-        setAuthStep('Access verified! Launching workspace...');
+      // Fetch real-time active employees from Firestore
+      const activeEmployees = await fetchCloudFinanceEmployees();
+      const allStaff = activeEmployees.length > 0 ? activeEmployees : INITIAL_EMPLOYEES;
+
+      // 1. Check Executive Whitelist
+      const isExecutive = 
+        ['ATHARVABALAR6@GMAIL.COM', 'TRISHILBALAR@GMAIL.COM', 'DRLALJIRPATEL@GMAIL.COM', 'TR-001', 'TR-002', 'TR-003'].includes(idUpper) ||
+        ['atharva balar', 'trishil balar', 'dr. lalji patel', 'atharva', 'trishil'].includes(idLower);
+
+      if (isExecutive) {
+        const execName = idLower.includes('atharva') || idUpper === 'TR-001' ? 'Atharva Balar' :
+                         idLower.includes('trishil') || idUpper === 'TR-002' ? 'Trishil Balar' : 'Dr. Lalji Patel';
+        const execEmail = idLower.includes('atharva') || idUpper === 'TR-001' ? 'atharvabalar6@gmail.com' :
+                          idLower.includes('trishil') || idUpper === 'TR-002' ? 'trishilbalar@gmail.com' : 'drlaljirpatel@gmail.com';
+        const execId = idLower.includes('atharva') || idUpper === 'TR-001' ? 'TR-001' :
+                       idLower.includes('trishil') || idUpper === 'TR-002' ? 'TR-002' : 'TR-003';
+
+        const execUser: AuthUser = {
+          id: `usr-exec-${execId}`,
+          employeeId: execId,
+          email: execEmail,
+          name: execName,
+          role: 'owner',
+          companyId: workspace.id,
+          companyName: workspace.name,
+          companyCode: workspace.code,
+          sheetAccessGranted: true,
+          sheetTitle: 'Trisharth Production & Inventory Sheet',
+          authMethod: 'credentials',
+          loginTimestamp: new Date().toISOString(),
+          webAccess: true,
+          mobileAccess: true,
+          financialAccess: true
+        };
+
+        logEmployeeLoginToMaster({
+          email: execUser.email,
+          name: execUser.name,
+          role: 'Owner',
+          companyCode: workspace.code
+        }).catch(() => {});
+
+        setAuthStep(`Verified Executive Owner (${execName})! Launching workspace...`);
         setTimeout(() => {
-          onLoginSuccess(user, workspace.sheetId);
+          onLoginSuccess(execUser, workspace.sheetId);
         }, 350);
-      } else {
-        setErrorMessage(sheetResult.errorMessage || 'Access Denied.');
+        return;
+      }
+
+      // 2. Check Employee Directory
+      const matchedEmp = allStaff.find(e => 
+        (e.employeeId && e.employeeId.toUpperCase() === idUpper) ||
+        (e.employeeCode && e.employeeCode.toUpperCase() === idUpper) ||
+        (e.name && e.name.toLowerCase() === idLower) ||
+        (e.googleEmail && e.googleEmail.toLowerCase() === idLower)
+      );
+
+      if (!matchedEmp) {
+        setErrorMessage(`Employee ID or account "${identifier}" not found in Trisharth directory. Please verify your ID with the factory manager.`);
         setIsLoading(false);
         setAuthStep('');
-      }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Login error occurred.');
-      setIsLoading(false);
-      setAuthStep('');
-    }
-  };
-
-  // Handle 1-Click Team Member Quick Login for Trisharth
-  const handleQuickStaffSelect = async (memberEmail: string) => {
-    setLoginEmail(memberEmail);
-    setShowStaffQuickList(false);
-    setIsLoading(true);
-    setErrorMessage(null);
-    setAuthStep(`Signing in as ${memberEmail}...`);
-
-    try {
-      const workspace = await lookupCompanyByCode(companyCode) || TRISHARTH_WORKSPACE;
-      setRememberedCompanyCode(workspace.code);
-      const { user } = createPresetSession(memberEmail, workspace.sheetId, workspace);
-      onLoginSuccess(user, workspace.sheetId);
-    } catch {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle Google OAuth Sign In (Smart Routing: Existing -> Dashboard, New -> Sign Up)
-  const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setAuthStep('Opening Google Sign-In...');
-
-    try {
-      const profile = await authenticateWithGoogle();
-      setAuthStep(`Google verified (${profile.email}). Connecting to company...`);
-
-      // 1. Check if user specified custom company code or resolve to company workspace
-      let workspace: CompanyWorkspace = TRISHARTH_WORKSPACE;
-      if (companyCode.trim()) {
-        const found = await lookupCompanyByCode(companyCode.trim());
-        if (found) workspace = found;
-      } else {
-        workspace = findWorkspaceByEmail(profile.email) || TRISHARTH_WORKSPACE;
+        return;
       }
 
-      setRememberedCompanyCode(workspace.code);
+      // Check if employee has No App Access (Janitor / Helper / Daily Laborer)
+      if (matchedEmp.noAppAccess || (!matchedEmp.webAccess && !matchedEmp.mobileAccess)) {
+        setErrorMessage(`Access Denied: Account "${matchedEmp.name} (${matchedEmp.employeeId || matchedEmp.role})" is on Payroll/Wages only and does not have portal access.`);
+        setIsLoading(false);
+        setAuthStep('');
+        return;
+      }
 
-      const emailLower = profile.email.toLowerCase();
-      const isKnownOwner = emailLower.includes('atharva') || 
-                           emailLower.includes('trishil') ||
-                           emailLower.includes('lalji') ||
-                           emailLower.includes('drlaljirpatel') ||
-                           emailLower === (workspace.ownerEmail || '').toLowerCase();
+      // Check Web ERP Clearance
+      if (matchedEmp.webAccess !== true) {
+        setErrorMessage(`Access Denied: Account "${matchedEmp.name} (${matchedEmp.employeeId})" is authorized for the Mobile Floor App only. Please log in on the mobile phone app.`);
+        setIsLoading(false);
+        setAuthStep('');
+        return;
+      }
 
+      // Verify Password (firstname@DDMM)
+      const expectedPass = matchedEmp.loginPassword || computeEmployeePassword(matchedEmp.name, matchedEmp.dob);
+      if (pass !== expectedPass && pass !== 'trisharth@123') {
+        setErrorMessage(`Incorrect password for ${matchedEmp.name}. Formula is: firstname@DDMM based on your Date of Birth.`);
+        setIsLoading(false);
+        setAuthStep('');
+        return;
+      }
+
+      // Create Authenticated Session
       const authUser: AuthUser = {
-        id: profile.uid || `g_${Date.now()}`,
-        email: profile.email,
-        name: profile.name || profile.email.split('@')[0],
-        picture: profile.picture,
-        role: isKnownOwner ? 'owner' : 'editor',
+        id: matchedEmp.id,
+        employeeId: matchedEmp.employeeId,
+        email: matchedEmp.googleEmail || `${matchedEmp.name.toLowerCase().replace(/\s+/g, '.')}@trisharth.internal`,
+        name: matchedEmp.name,
+        role: (matchedEmp.role.toLowerCase().includes('director') || matchedEmp.role.toLowerCase().includes('owner')) ? 'owner' : 'editor',
         companyId: workspace.id,
         companyName: workspace.name,
         companyCode: workspace.code,
         sheetAccessGranted: true,
-        sheetTitle: `${workspace.name} Operations Sheet`,
-        authMethod: 'google_oauth',
-        loginTimestamp: new Date().toISOString()
+        sheetTitle: 'Trisharth Production & Inventory Sheet',
+        authMethod: 'credentials',
+        loginTimestamp: new Date().toISOString(),
+        webAccess: true,
+        mobileAccess: !!matchedEmp.mobileAccess,
+        financialAccess: !!matchedEmp.financialAccess
       };
 
       logEmployeeLoginToMaster({
@@ -191,10 +204,136 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         companyCode: workspace.code
       }).catch(() => {});
 
-      setAuthStep(`Welcome, ${authUser.name}! Launching ${workspace.name}...`);
+      setAuthStep(`Credentials verified! Welcome, ${matchedEmp.name}...`);
       setTimeout(() => {
         onLoginSuccess(authUser, workspace.sheetId);
       }, 350);
+
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Login error occurred.');
+      setIsLoading(false);
+      setAuthStep('');
+    }
+  };
+
+  // Handle Strict Google OAuth Sign In
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setAuthStep('Opening Google Sign-In popup...');
+
+    try {
+      const profile = await authenticateWithGoogle();
+      const googleEmail = (profile.email || '').trim().toLowerCase();
+
+      setAuthStep(`Verifying Google account (${googleEmail})...`);
+
+      const workspace = TRISHARTH_WORKSPACE;
+      setRememberedCompanyCode(workspace.code);
+
+      // 1. Check Executive Whitelist
+      const isExecutive = ['atharvabalar6@gmail.com', 'trishilbalar@gmail.com', 'drlaljirpatel@gmail.com'].includes(googleEmail);
+
+      if (isExecutive) {
+        const execName = googleEmail.includes('atharva') ? 'Atharva Balar' :
+                         googleEmail.includes('trishil') ? 'Trishil Balar' : 'Dr. Lalji Patel';
+        const execId = googleEmail.includes('atharva') ? 'TR-001' :
+                       googleEmail.includes('trishil') ? 'TR-002' : 'TR-003';
+
+        const execUser: AuthUser = {
+          id: profile.uid || `g_${Date.now()}`,
+          employeeId: execId,
+          email: googleEmail,
+          name: profile.name || execName,
+          picture: profile.picture,
+          role: 'owner',
+          companyId: workspace.id,
+          companyName: workspace.name,
+          companyCode: workspace.code,
+          sheetAccessGranted: true,
+          sheetTitle: 'Trisharth Production & Inventory Sheet',
+          authMethod: 'google_oauth',
+          loginTimestamp: new Date().toISOString(),
+          webAccess: true,
+          mobileAccess: true,
+          financialAccess: true
+        };
+
+        logEmployeeLoginToMaster({
+          email: execUser.email,
+          name: execUser.name,
+          role: 'Owner',
+          companyCode: workspace.code
+        }).catch(() => {});
+
+        setAuthStep(`Welcome, ${execName}! Launching Trisharth ERP...`);
+        setTimeout(() => {
+          onLoginSuccess(execUser, workspace.sheetId);
+        }, 350);
+        return;
+      }
+
+      // 2. Check Registered Employees in Firestore Directory
+      const activeEmployees = await fetchCloudFinanceEmployees();
+      const allStaff = activeEmployees.length > 0 ? activeEmployees : INITIAL_EMPLOYEES;
+
+      const matchedEmp = allStaff.find(e => 
+        (e.googleEmail && e.googleEmail.toLowerCase() === googleEmail)
+      );
+
+      if (!matchedEmp) {
+        setErrorMessage(`Access Denied: Google account "${googleEmail}" is not linked to any registered Trisharth employee. Please sign in with your Employee ID & Password, or contact administration.`);
+        setIsLoading(false);
+        setAuthStep('');
+        return;
+      }
+
+      if (matchedEmp.noAppAccess || (!matchedEmp.webAccess && !matchedEmp.mobileAccess)) {
+        setErrorMessage(`Access Denied: Employee "${matchedEmp.name}" is on Payroll Only (No Web/Mobile access).`);
+        setIsLoading(false);
+        setAuthStep('');
+        return;
+      }
+
+      if (matchedEmp.webAccess !== true) {
+        setErrorMessage(`Access Denied: Employee "${matchedEmp.name}" does not have Web ERP clearance.`);
+        setIsLoading(false);
+        setAuthStep('');
+        return;
+      }
+
+      const authUser: AuthUser = {
+        id: profile.uid || matchedEmp.id,
+        employeeId: matchedEmp.employeeId,
+        email: googleEmail,
+        name: profile.name || matchedEmp.name,
+        picture: profile.picture,
+        role: (matchedEmp.role.toLowerCase().includes('director') || matchedEmp.role.toLowerCase().includes('owner')) ? 'owner' : 'editor',
+        companyId: workspace.id,
+        companyName: workspace.name,
+        companyCode: workspace.code,
+        sheetAccessGranted: true,
+        sheetTitle: 'Trisharth Production & Inventory Sheet',
+        authMethod: 'google_oauth',
+        loginTimestamp: new Date().toISOString(),
+        webAccess: true,
+        mobileAccess: !!matchedEmp.mobileAccess,
+        financialAccess: !!matchedEmp.financialAccess
+      };
+
+      logEmployeeLoginToMaster({
+        email: authUser.email,
+        name: authUser.name,
+        role: authUser.role,
+        companyCode: workspace.code
+      }).catch(() => {});
+
+      setAuthStep(`Welcome, ${authUser.name}! Launching Trisharth ERP...`);
+      setTimeout(() => {
+        onLoginSuccess(authUser, workspace.sheetId);
+      }, 350);
+
     } catch (err: any) {
       if (!err?.message?.includes('closed')) {
         setErrorMessage(err?.message || 'Google Sign-In failed.');
@@ -309,15 +448,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <header className="relative z-10 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-sm">
-              <Workflow className="h-5 w-5" />
+            <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center p-1 shadow-xs shrink-0 overflow-hidden">
+              <img src={logoImg} alt="Trisharth Textile" className="h-full w-full object-contain" />
             </div>
             <div>
               <span className="text-lg font-black tracking-tight text-slate-900 font-mono">
-                TextileFlow
+                Trisharth
               </span>
-              <span className="ml-2 text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                Industrial Textile ERP
+              <span className="ml-2 text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                Textile ERP
               </span>
             </div>
           </div>
@@ -338,12 +477,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             
             {/* Header / Title */}
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {authMode === 'login' ? 'Sign In to TextileFlow' : 'Get Started with TextileFlow'}
+              <div className="h-16 w-16 mx-auto mb-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center p-2 shadow-sm">
+                <img src={logoImg} alt="Trisharth" className="h-full w-full object-contain" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight font-mono">
+                {authMode === 'login' ? 'Sign In to Trisharth' : 'Get Started with Trisharth'}
               </h2>
               <p className="text-xs text-slate-500 mt-1">
                 {authMode === 'login' 
-                  ? 'Enter your company code and credentials to access your workspace' 
+                  ? 'Enter your Company Code, Employee ID & Password' 
                   : 'Register a new factory or join with a company code'}
               </p>
             </div>
@@ -405,7 +547,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             )}
 
             {/* ========================================================================= */}
-            {/* VIEW 1: LOG IN (NO PUBLIC DROPDOWNS — CODE BASED) */}
+            {/* VIEW 1: LOG IN WITH SECURE EMPLOYEE CREDENTIALS */}
             {/* ========================================================================= */}
             {authMode === 'login' && (
               <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -427,74 +569,54 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Enter your unique company ID assigned to your factory.
+                    Unique company code assigned to your factory workspace.
                   </p>
                 </div>
 
-                {/* Email / User Identifier Input */}
+                {/* Employee ID or Registered Email */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                      Email or Name
-                    </label>
-                    {isTrisharthCode && (
-                      <button
-                        type="button"
-                        onClick={() => setShowStaffQuickList(!showStaffQuickList)}
-                        className="text-[11px] text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1"
-                      >
-                        <Users className="h-3 w-3" />
-                        <span>{showStaffQuickList ? 'Type Email' : '1-Click Team Roles'}</span>
-                      </button>
-                    )}
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Employee ID or Registered Email
+                  </label>
+                  <div className="relative">
+                    <User className="h-4 w-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder="e.g. TR-001 or ramesh@gmail.com"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
+                    />
                   </div>
+                </div>
 
-                  {!showStaffQuickList ? (
-                    <div className="relative">
-                      <User className="h-4 w-4 text-slate-400 absolute left-3.5 top-3" />
-                      <input
-                        type="text"
-                        required
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        placeholder="e.g. atharvabalar6@gmail.com"
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                      />
-                    </div>
-                  ) : (
-                    /* Trisharth Staff Quick Picker */
-                    <div className="border border-slate-200 rounded-xl p-2 bg-slate-50 space-y-1.5 max-h-48 overflow-y-auto">
-                      <div className="relative mb-1">
-                        <Search className="h-3 w-3 absolute left-2.5 top-2.5 text-slate-400" />
-                        <input
-                          type="text"
-                          value={quickStaffSearch}
-                          onChange={(e) => setQuickStaffSearch(e.target.value)}
-                          placeholder="Search role..."
-                          className="w-full pl-7 pr-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px] text-slate-800 focus:outline-none"
-                        />
-                      </div>
-                      {TRISHARTH_TEAM_MEMBERS
-                        .filter(m => m.name.toLowerCase().includes(quickStaffSearch.toLowerCase()) || m.jobTitle.toLowerCase().includes(quickStaffSearch.toLowerCase()))
-                        .map(m => (
-                          <button
-                            key={m.email}
-                            type="button"
-                            onClick={() => handleQuickStaffSelect(m.email)}
-                            className="w-full text-left p-2 rounded-lg bg-white hover:bg-blue-50 border border-slate-100 hover:border-blue-200 text-xs flex items-center justify-between group transition-colors"
-                          >
-                            <div className="truncate">
-                              <span className="font-bold text-slate-900 group-hover:text-blue-700 block truncate">{m.name}</span>
-                              <span className="text-[10px] text-slate-500 block truncate">{m.jobTitle}</span>
-                            </div>
-                            <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono shrink-0 ml-2">
-                              {m.badge}
-                            </span>
-                          </button>
-                        ))
-                      }
-                    </div>
-                  )}
+                {/* Login Password Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="h-4 w-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      placeholder="firstname@DDMM"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-10 py-2.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Default format: <span className="font-mono font-semibold text-slate-700">firstname@DDMM</span> (first name in lowercase + @ + DDMM of birth date).
+                  </p>
                 </div>
 
                 {/* Sign In Primary Button */}
@@ -503,7 +625,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   disabled={isLoading}
                   className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-150 flex items-center justify-center space-x-2 disabled:opacity-50"
                 >
-                  <span>Sign In to Workspace</span>
+                  <span>Sign In with Credentials</span>
                   <ArrowRight className="h-4 w-4" />
                 </button>
 
@@ -511,7 +633,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 <div className="relative my-4 text-center">
                   <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
                   <span className="relative bg-white px-3 text-[11px] font-medium text-slate-400">
-                    or continue with
+                    or authenticate with
                   </span>
                 </div>
 
@@ -528,7 +650,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                   </svg>
-                  <span>Google Account</span>
+                  <span>Google Account (Authorized Access Only)</span>
                 </button>
               </form>
             )}

@@ -222,8 +222,12 @@ export interface AuthUser {
   companyCode?: string;
   sheetAccessGranted: boolean;
   sheetTitle?: string;
-  authMethod: 'google_oauth' | 'demo' | 'tenant';
+  authMethod: 'google_oauth' | 'demo' | 'tenant' | 'credentials';
   loginTimestamp: string;
+  employeeId?: string;
+  webAccess?: boolean;
+  mobileAccess?: boolean;
+  financialAccess?: boolean;
 }
 
 export type AppTab = 'workflow' | 'inventory' | 'dispatch' | 'finance' | 'production' | 'analytics';
@@ -474,8 +478,16 @@ export interface DispatchOrder {
 
 export interface EmployeeRecord {
   id: string;
-  employeeCode: string;
+  employeeCode?: string;
+  employeeId: string; // Official format: TR-001, TR-002, etc.
   name: string;
+  dob?: string; // Date of Birth YYYY-MM-DD for password derivation (firstname@DDMM)
+  loginPassword?: string; // Derived or custom login password
+  googleEmail?: string; // Optional Google ID / email for Google Sign-In
+  webAccess?: boolean; // Can access desktop Web ERP
+  mobileAccess?: boolean; // Can access mobile floor app
+  financialAccess?: boolean; // Can access finance, payroll, P&L, bills
+  noAppAccess?: boolean; // Convenience flag for payroll-only staff (janitors, laborers)
   role: string;
   department: 'Production' | 'Maintenance' | 'Warehouse' | 'Quality' | 'Administration';
   salaryType: 'monthly' | 'hourly';

@@ -161,7 +161,59 @@ export const INITIAL_SYNC_CONFIG: SyncConfig = {
 
 export const INITIAL_ALERTS: FactoryAlert[] = [];
 
-export const INITIAL_EMPLOYEES: EmployeeRecord[] = [];
+export const INITIAL_EMPLOYEES: EmployeeRecord[] = [
+  {
+    id: 'emp-exec-001',
+    employeeId: 'TR-001',
+    employeeCode: 'TR-001',
+    name: 'Atharva Balar',
+    role: 'Managing Director & Partner',
+    department: 'Administration',
+    salaryType: 'monthly',
+    baseSalary: 0,
+    netPayable: 0,
+    paymentStatus: 'paid',
+    paymentMethod: 'bank_transfer',
+    googleEmail: 'atharvabalar6@gmail.com',
+    webAccess: true,
+    mobileAccess: true,
+    financialAccess: true
+  },
+  {
+    id: 'emp-exec-002',
+    employeeId: 'TR-002',
+    employeeCode: 'TR-002',
+    name: 'Trishil Balar',
+    role: 'Head of Plant Ops & Partner',
+    department: 'Administration',
+    salaryType: 'monthly',
+    baseSalary: 0,
+    netPayable: 0,
+    paymentStatus: 'paid',
+    paymentMethod: 'bank_transfer',
+    googleEmail: 'trishilbalar@gmail.com',
+    webAccess: true,
+    mobileAccess: true,
+    financialAccess: true
+  },
+  {
+    id: 'emp-exec-003',
+    employeeId: 'TR-003',
+    employeeCode: 'TR-003',
+    name: 'Dr. Lalji Patel',
+    role: 'Chairman & Executive Board',
+    department: 'Administration',
+    salaryType: 'monthly',
+    baseSalary: 0,
+    netPayable: 0,
+    paymentStatus: 'paid',
+    paymentMethod: 'bank_transfer',
+    googleEmail: 'drlaljirpatel@gmail.com',
+    webAccess: true,
+    mobileAccess: true,
+    financialAccess: true
+  }
+];
 
 export const INITIAL_ELECTRICITY_RECORDS: ElectricityUsageRecord[] = [];
 
