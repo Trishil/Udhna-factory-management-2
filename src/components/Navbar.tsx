@@ -82,9 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSwitchAccount
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isViewSwitcherOpen, setIsViewSwitcherOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const viewSwitcherRef = useRef<HTMLDivElement>(null);
 
   const lowStockCount = materials.filter(m => m.currentStock <= m.minThreshold).length;
   const readyDispatchCount = dispatchOrders.filter(o => o.status === 'ready_to_dispatch').length;
@@ -97,9 +95,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsUserMenuOpen(false);
-      }
-      if (viewSwitcherRef.current && !viewSwitcherRef.current.contains(event.target as Node)) {
-        setIsViewSwitcherOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -221,74 +216,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </button>
 
-            {/* Layout Mode Switcher */}
-            {onSetViewMode && (
-              <div className="relative shrink-0" ref={viewSwitcherRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsViewSwitcherOpen(!isViewSwitcherOpen)}
-                  className="flex items-center space-x-1.5 px-2.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-colors shrink-0 shadow-2xs"
-                  title="Switch Layout Mode (Mobile / Desktop / Auto)"
-                >
-                  {viewMode === 'mobile' ? (
-                    <Smartphone className="h-3.5 w-3.5 text-emerald-600" />
-                  ) : (
-                    <Monitor className="h-3.5 w-3.5 text-blue-600" />
-                  )}
-                  <span className="hidden sm:inline capitalize font-mono text-[11px]">
-                    {viewMode === 'auto' ? 'Auto' : viewMode}
-                  </span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </button>
-
-                {isViewSwitcherOpen && (
-                  <div className="absolute right-0 mt-1.5 w-44 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs animate-in fade-in slide-in-from-top-1">
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                      Layout Mode
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSetViewMode('mobile');
-                        setIsViewSwitcherOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2 transition-colors ${
-                        viewMode === 'mobile' ? 'bg-emerald-50 text-emerald-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <Smartphone className="h-3.5 w-3.5 text-emerald-600" />
-                      <span>Mobile Layout</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSetViewMode('desktop');
-                        setIsViewSwitcherOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2 transition-colors ${
-                        viewMode === 'desktop' ? 'bg-blue-50 text-blue-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <Monitor className="h-3.5 w-3.5 text-blue-600" />
-                      <span>Desktop Layout</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onSetViewMode('auto');
-                        setIsViewSwitcherOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 flex items-center space-x-2 transition-colors ${
-                        viewMode === 'auto' ? 'bg-slate-100 text-slate-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                      <span>Auto (Screen Width)</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* User Account Popover */}
             <div className="relative shrink-0" ref={menuRef}>

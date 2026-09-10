@@ -301,6 +301,7 @@ export interface WorkflowItem {
   priority: 'low' | 'normal' | 'high' | 'urgent';
   initialInspectionResult?: 'good' | 'bad_return' | 'pending';
   alterInspectionResult?: 'passed' | 'needs_alter' | 'pending';
+  qualityStatus?: 'good' | 'bad_return' | 'needs_alter' | 'passed' | string;
   alterationReason?: string;
   assignedOperator?: string;
   machineAssigned?: string;
