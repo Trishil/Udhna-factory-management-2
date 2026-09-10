@@ -25,7 +25,8 @@ import {
   registerNewCompany,
   registerEmployeeAccount,
   getRememberedCompanyCode,
-  setRememberedCompanyCode
+  setRememberedCompanyCode,
+  getEffectiveOAuthClientId
 } from '../services/googleAuth';
 import { logEmployeeLoginToMaster } from '../services/masterRegistryService';
 import { fetchCloudFinanceEmployees } from '../services/cloudDbService';
@@ -51,6 +52,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Register company form state
+  const [regCompanyName, setRegCompanyName] = useState('');
+  const [regCompanyCode, setRegCompanyCode] = useState('');
+  const [regOwnerName, setRegOwnerName] = useState('');
+  const [regOwnerEmail, setRegOwnerEmail] = useState('');
+  const [regSheetId, setRegSheetId] = useState('');
+
+  // Join company form state
+  const [joinCompanyCode, setJoinCompanyCode] = useState(() => getRememberedCompanyCode() || 'TRISHARTH-HQ');
+  const [joinEmployeeName, setJoinEmployeeName] = useState('');
+  const [joinEmployeeEmail, setJoinEmployeeEmail] = useState('');
+  const [joinJobRole, setJoinJobRole] = useState('Floor Lead');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [authStep, setAuthStep] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
   // Handle Log In via Employee ID + Password
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

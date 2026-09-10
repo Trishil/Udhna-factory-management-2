@@ -513,7 +513,6 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
 
     onAddEmployee({
       employeeId: assignedId,
-      employeeCode: assignedId,
       name: newEmp.name.trim(),
       dob: newEmp.dob || undefined,
       loginPassword: effectivePass,

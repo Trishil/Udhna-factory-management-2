@@ -790,6 +790,7 @@ export async function syncWithAppsScript(config: SyncConfig): Promise<SheetFetch
 
         parsedEmployees.push({
           id: `emp-${empId.replace(/[^a-zA-Z0-9]/g, '_')}`,
+          employeeId: empId.startsWith('TR-') ? empId : `TR-${empId}`,
           employeeCode: empId,
           name,
           role,
