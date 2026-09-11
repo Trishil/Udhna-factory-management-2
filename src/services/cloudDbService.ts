@@ -18,9 +18,10 @@ import {
   PartyInvoice,
   SupplierPayable,
   StockTransaction,
-  CompanyWorkspace
+  CompanyWorkspace,
+  Machine
 } from '../types';
-import { INITIAL_MATERIALS } from '../data/initialData';
+import { INITIAL_MATERIALS, INITIAL_MACHINES } from '../data/initialData';
 import { generateWorkflowItemsFromSlip } from '../utils/workflowData';
 import { TRISHARTH_WORKSPACE, getStoredWorkspaces, saveCustomWorkspace } from './googleAuth';
 
@@ -37,6 +38,7 @@ const WORKFLOW_DOC_ID = 'active_pipeline';
 const ORDER_SLIPS_DOC_ID = 'active_slips';
 const INVENTORY_DOC_ID = 'active_inventory';
 const DISPATCH_DOC_ID = 'active_dispatches';
+export const MACHINES_DOC_ID = 'active_machines';
 export const FINANCE_COLLECTION = ORDER_SLIPS_COLLECTION;
 export const FINANCE_DOC_ID = 'active_finance';
 export const FACTORIES_REGISTRY_DOC_ID = 'active_factories';
@@ -122,6 +124,90 @@ export async function saveCloudFactory(newFactory: CompanyWorkspace): Promise<Co
   }, { merge: true });
 
   saveCustomWorkspace(newFactory);
+
+  // Auto-provision isolated Firestore documents for this client factory if not HQ
+  const fCode = newFactory.code.trim().toUpperCase();
+  if (fCode !== 'TRISHARTH-HQ') {
+    const ownerEmp: EmployeeRecord = {
+      id: `emp-owner-${fCode.toLowerCase()}`,
+      employeeId: `${fCode}-OWNER`,
+      name: newFactory.ownerName || 'Factory Owner',
+      role: 'Factory Owner / Director',
+      department: 'Executive Management',
+      googleEmail: newFactory.ownerEmail || '',
+      loginPassword: newFactory.ownerPassword || 'admin@123',
+      salary: 0,
+      joiningDate: new Date().toISOString().split('T')[0],
+      webAccess: true,
+      mobileAccess: true,
+      financialAccess: true,
+      noAppAccess: false,
+    };
+
+    const initialMachines: Machine[] = [
+      { id: `M-01-${fCode}`, name: 'Machine 01', model: 'Single Head 12-Needle', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+      { id: `M-02-${fCode}`, name: 'Machine 02', model: 'Multi-Head 15-Needle', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+      { id: `M-03-${fCode}`, name: 'Machine 03', model: 'High Speed Embroidery', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+      { id: `M-04-${fCode}`, name: 'Machine 04', model: 'Standard Flatbed', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+    ];
+
+    const finDocId = getFactoryDocId(FINANCE_DOC_ID, fCode);
+    const pipeDocId = getFactoryDocId(WORKFLOW_DOC_ID, fCode);
+    const slipsDocId = getFactoryDocId(ORDER_SLIPS_DOC_ID, fCode);
+    const invDocId = getFactoryDocId(INVENTORY_DOC_ID, fCode);
+    const dspDocId = getFactoryDocId(DISPATCH_DOC_ID, fCode);
+    const machDocId = getFactoryDocId(MACHINES_DOC_ID, fCode);
+
+    setDoc(doc(db, FINANCE_COLLECTION, finDocId), {
+      employees: [ownerEmp],
+      electricityRecords: [],
+      expenses: [],
+      partyInvoices: [],
+      supplierPayables: [],
+      transactions: [],
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(() => {});
+
+    setDoc(doc(db, WORKFLOW_COLLECTION, pipeDocId), {
+      items: [],
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(() => {});
+
+    setDoc(doc(db, ORDER_SLIPS_COLLECTION, slipsDocId), {
+      slips: [],
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(() => {});
+
+    setDoc(doc(db, INVENTORY_COLLECTION, invDocId), {
+      materials: [],
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(() => {});
+
+    setDoc(doc(db, DISPATCH_COLLECTION, dspDocId), {
+      orders: [],
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(() => {});
+
+    setDoc(doc(db, ORDER_SLIPS_COLLECTION, machDocId), {
+      machines: initialMachines,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(() => {});
+
+    memoryFinanceMap[fCode] = {
+      employees: [ownerEmp],
+      electricityRecords: [],
+      expenses: [],
+      partyInvoices: [],
+      supplierPayables: [],
+      transactions: []
+    };
+    memoryWorkflowMap[fCode] = [];
+    memorySlipsMap[fCode] = [];
+    memoryMaterialsMap[fCode] = [];
+    memoryDispatchesMap[fCode] = [];
+    memoryMachinesMap[fCode] = initialMachines;
+  }
+
   return updatedList;
 }
 
@@ -135,11 +221,12 @@ export interface CloudFinanceData {
 }
 
 // Local synchronized memory caches per factory
-const memoryWorkflowMap: Record<string, WorkflowItem[]> = {};
-const memorySlipsMap: Record<string, OrderSlip[]> = {};
-const memoryMaterialsMap: Record<string, RawMaterial[]> = {};
-const memoryDispatchesMap: Record<string, DispatchOrder[]> = {};
-const memoryFinanceMap: Record<string, CloudFinanceData> = {};
+export const memoryWorkflowMap: Record<string, WorkflowItem[]> = {};
+export const memorySlipsMap: Record<string, OrderSlip[]> = {};
+export const memoryMaterialsMap: Record<string, RawMaterial[]> = {};
+export const memoryDispatchesMap: Record<string, DispatchOrder[]> = {};
+export const memoryFinanceMap: Record<string, CloudFinanceData> = {};
+export const memoryMachinesMap: Record<string, Machine[]> = {};
 
 function getFactoryKey(code?: string): string {
   return (code || DEFAULT_FACTORY_CODE).trim().toUpperCase();
@@ -227,6 +314,10 @@ export function subscribeToCloudWorkflow(
             onUpdate(memoryWorkflowMap[fKey]);
             return;
           }
+        }
+        if (fKey !== 'TRISHARTH-HQ') {
+          memoryWorkflowMap[fKey] = [];
+          onUpdate([]);
         }
       },
       (err) => {
@@ -402,6 +493,10 @@ export function subscribeToCloudOrderSlips(
             return;
           }
         }
+        if (fKey !== 'TRISHARTH-HQ') {
+          memorySlipsMap[fKey] = [];
+          onUpdate([]);
+        }
       },
       (err) => {
         console.warn('Cloud Order Slips snapshot listener error:', err);
@@ -504,7 +599,14 @@ export function subscribeToCloudInventory(
               materials: JSON.parse(JSON.stringify(INITIAL_MATERIALS)),
               updatedAt: new Date().toISOString()
             }, { merge: true }).catch(() => {});
+            memoryMaterialsMap[fKey] = INITIAL_MATERIALS;
+            onUpdate(INITIAL_MATERIALS);
+            return;
           }
+        }
+        if (fKey !== 'TRISHARTH-HQ') {
+          memoryMaterialsMap[fKey] = [];
+          onUpdate([]);
         }
       },
       (err) => {
@@ -604,6 +706,10 @@ export function subscribeToCloudDispatch(
             onUpdate(memoryDispatchesMap[fKey]);
             return;
           }
+        }
+        if (fKey !== 'TRISHARTH-HQ') {
+          memoryDispatchesMap[fKey] = [];
+          onUpdate([]);
         }
       },
       (err) => {
@@ -713,26 +819,31 @@ export function subscribeToCloudFinance(
             memoryFinanceMap[fKey] = currentFin;
 
             onUpdate({
-              employees: Array.isArray(data.employees) ? data.employees : undefined,
-              electricityRecords: Array.isArray(data.electricityRecords) ? data.electricityRecords : undefined,
-              expenses: Array.isArray(data.expenses) ? data.expenses : undefined,
-              partyInvoices: Array.isArray(data.partyInvoices) ? data.partyInvoices : undefined,
-              supplierPayables: Array.isArray(data.supplierPayables) ? data.supplierPayables : undefined,
-              transactions: Array.isArray(data.transactions) ? data.transactions : undefined,
+              employees: Array.isArray(data.employees) ? data.employees : [],
+              electricityRecords: Array.isArray(data.electricityRecords) ? data.electricityRecords : [],
+              expenses: Array.isArray(data.expenses) ? data.expenses : [],
+              partyInvoices: Array.isArray(data.partyInvoices) ? data.partyInvoices : [],
+              supplierPayables: Array.isArray(data.supplierPayables) ? data.supplierPayables : [],
+              transactions: Array.isArray(data.transactions) ? data.transactions : [],
             });
           }
         } else {
-          // If active_finance is not yet in Firestore, seed it
-          const finRef = doc(db, FINANCE_COLLECTION, docId);
-          setDoc(finRef, {
+          // If active_finance is not yet in Firestore, seed it and notify with empty state
+          const emptyFin: CloudFinanceData = {
             employees: [],
             electricityRecords: [],
             expenses: [],
             partyInvoices: [],
             supplierPayables: [],
             transactions: [],
+          };
+          const finRef = doc(db, FINANCE_COLLECTION, docId);
+          setDoc(finRef, {
+            ...emptyFin,
             updatedAt: new Date().toISOString()
           }, { merge: true }).catch(() => {});
+          memoryFinanceMap[fKey] = emptyFin;
+          onUpdate(emptyFin);
         }
       },
       (err) => {
@@ -875,3 +986,75 @@ export async function fetchAllCloudEmployees(): Promise<{ employee: EmployeeReco
 
   return allResults;
 }
+
+// ================= 7. MACHINES FLEET =================
+
+export function subscribeToCloudMachines(
+  onUpdate: (machines: Machine[]) => void,
+  onError?: (err: any) => void,
+  factoryCode: string = DEFAULT_FACTORY_CODE
+) {
+  let unsubListener: (() => void) | null = null;
+  let isCancelled = false;
+  const fKey = getFactoryKey(factoryCode);
+  const docId = getFactoryDocId(MACHINES_DOC_ID, factoryCode);
+
+  ensureAuthReady().then(() => {
+    if (isCancelled) return;
+    const docRef = doc(db, ORDER_SLIPS_COLLECTION, docId);
+
+    unsubListener = onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as any;
+          if (Array.isArray(data?.machines)) {
+            memoryMachinesMap[fKey] = data.machines;
+            onUpdate(memoryMachinesMap[fKey]);
+            return;
+          }
+        }
+        // Seed machines if not exists
+        const defaultMachs: Machine[] = fKey === 'TRISHARTH-HQ'
+          ? INITIAL_MACHINES
+          : [
+              { id: `M-01-${fKey}`, name: 'Machine 01', model: 'Single Head 12-Needle', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+              { id: `M-02-${fKey}`, name: 'Machine 02', model: 'Multi-Head 15-Needle', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+              { id: `M-03-${fKey}`, name: 'Machine 03', model: 'High Speed Embroidery', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+              { id: `M-04-${fKey}`, name: 'Machine 04', model: 'Standard Flatbed', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+            ];
+
+        setDoc(docRef, {
+          machines: JSON.parse(JSON.stringify(defaultMachs)),
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+
+        memoryMachinesMap[fKey] = defaultMachs;
+        onUpdate(defaultMachs);
+      },
+      (err) => {
+        console.warn('Cloud Machines snapshot listener error:', err);
+        if (onError) onError(err);
+      }
+    );
+  });
+
+  return () => {
+    isCancelled = true;
+    if (unsubListener) unsubListener();
+  };
+}
+
+export async function saveCloudMachines(machines: Machine[], factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
+  if (!Array.isArray(machines)) return;
+  await ensureAuthReady();
+  const fKey = getFactoryKey(factoryCode);
+  memoryMachinesMap[fKey] = machines;
+  const docId = getFactoryDocId(MACHINES_DOC_ID, factoryCode);
+  const docRef = doc(db, ORDER_SLIPS_COLLECTION, docId);
+  await setDoc(docRef, {
+    machines: JSON.parse(JSON.stringify(machines)),
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+}
+

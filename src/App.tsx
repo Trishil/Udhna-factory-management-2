@@ -86,10 +86,17 @@ import {
   subscribeToCloudFinance,
   saveCloudFinance,
   clearAllCloudFinance,
-  clearAllCloudProductionOrders,
   subscribeToCloudFactories,
   saveCloudFactory,
   fetchCloudFactories,
+  subscribeToCloudMachines,
+  saveCloudMachines,
+  memoryWorkflowMap,
+  memorySlipsMap,
+  memoryMaterialsMap,
+  memoryDispatchesMap,
+  memoryFinanceMap,
+  memoryMachinesMap,
   DEFAULT_FACTORY_CODE
 } from './services/cloudDbService';
 import { FactorySwitcherModal } from './components/FactorySwitcherModal';
@@ -327,6 +334,23 @@ export default function App() {
     // 1. Pure Real-Time Cloud Database Synchronizers (Firebase Firestore)
     // Instant sub-second reflection across all computers & devices with factory isolation
     const currentCode = activeWorkspace.code;
+    const isHQ = currentCode.toUpperCase() === 'TRISHARTH-HQ';
+
+    // 0. Instantly clear & reset local state to this factory's memory cache or clean empty state
+    // Prevents stale data from the previous factory from bleeding into the new factory
+    setWorkflowItems(memoryWorkflowMap[currentCode] || []);
+    setOrderSlips(memorySlipsMap[currentCode] || []);
+    setMaterials(memoryMaterialsMap[currentCode] || (isHQ ? INITIAL_MATERIALS : []));
+    setDispatchOrders(memoryDispatchesMap[currentCode] || []);
+    setMachines(memoryMachinesMap[currentCode] || (isHQ ? INITIAL_MACHINES : []));
+
+    const fin = memoryFinanceMap[currentCode];
+    setEmployees(fin?.employees || (isHQ ? INITIAL_EMPLOYEES : []));
+    setElectricityRecords(fin?.electricityRecords || []);
+    setExpenses(fin?.expenses || []);
+    setPartyInvoices(fin?.partyInvoices || []);
+    setSupplierPayables(fin?.supplierPayables || []);
+    setTransactions(fin?.transactions || []);
 
     const unsubscribeFactories = subscribeToCloudFactories((cloudFactories) => {
       if (Array.isArray(cloudFactories) && cloudFactories.length > 0) {
@@ -378,14 +402,21 @@ export default function App() {
     const unsubscribeMaterials = subscribeToCloudInventory((cloudMats) => {
       if (Array.isArray(cloudMats)) {
         setMaterials(cloudMats);
-        localStorage.setItem('factory_materials', JSON.stringify(cloudMats));
+        localStorage.setItem(`factory_materials_${currentCode}`, JSON.stringify(cloudMats));
       }
     }, undefined, currentCode);
 
     const unsubscribeDispatches = subscribeToCloudDispatch((cloudDispatches) => {
       if (Array.isArray(cloudDispatches)) {
         setDispatchOrders(cloudDispatches);
-        localStorage.setItem('factory_dispatch_orders', JSON.stringify(cloudDispatches));
+        localStorage.setItem(`factory_dispatch_orders_${currentCode}`, JSON.stringify(cloudDispatches));
+      }
+    }, undefined, currentCode);
+
+    const unsubscribeMachines = subscribeToCloudMachines((cloudMachs) => {
+      if (Array.isArray(cloudMachs)) {
+        setMachines(cloudMachs);
+        localStorage.setItem(`factory_machines_${currentCode}`, JSON.stringify(cloudMachs));
       }
     }, undefined, currentCode);
 
@@ -393,30 +424,30 @@ export default function App() {
       if (Array.isArray(cloudFin.employees)) {
         const emps = cloudFin.employees.length > 0 ? cloudFin.employees : (currentCode === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
         setEmployees(emps);
-        localStorage.setItem('factory_employees', JSON.stringify(emps));
+        localStorage.setItem(`factory_employees_${currentCode}`, JSON.stringify(emps));
         if (cloudFin.employees.length === 0 && currentCode === 'TRISHARTH-HQ') {
           saveCloudFinance({ employees: INITIAL_EMPLOYEES }, currentCode).catch(() => {});
         }
       }
       if (Array.isArray(cloudFin.electricityRecords)) {
         setElectricityRecords(cloudFin.electricityRecords);
-        localStorage.setItem('factory_electricity', JSON.stringify(cloudFin.electricityRecords));
+        localStorage.setItem(`factory_electricity_${currentCode}`, JSON.stringify(cloudFin.electricityRecords));
       }
       if (Array.isArray(cloudFin.expenses)) {
         setExpenses(cloudFin.expenses);
-        localStorage.setItem('factory_expenses', JSON.stringify(cloudFin.expenses));
+        localStorage.setItem(`factory_expenses_${currentCode}`, JSON.stringify(cloudFin.expenses));
       }
       if (Array.isArray(cloudFin.partyInvoices)) {
         setPartyInvoices(cloudFin.partyInvoices);
-        localStorage.setItem('factory_party_invoices', JSON.stringify(cloudFin.partyInvoices));
+        localStorage.setItem(`factory_party_invoices_${currentCode}`, JSON.stringify(cloudFin.partyInvoices));
       }
       if (Array.isArray(cloudFin.supplierPayables)) {
         setSupplierPayables(cloudFin.supplierPayables);
-        localStorage.setItem('factory_supplier_payables', JSON.stringify(cloudFin.supplierPayables));
+        localStorage.setItem(`factory_supplier_payables_${currentCode}`, JSON.stringify(cloudFin.supplierPayables));
       }
       if (Array.isArray(cloudFin.transactions)) {
         setTransactions(cloudFin.transactions);
-        localStorage.setItem('factory_transactions', JSON.stringify(cloudFin.transactions));
+        localStorage.setItem(`factory_transactions_${currentCode}`, JSON.stringify(cloudFin.transactions));
       }
     }, undefined, currentCode);
 
@@ -444,6 +475,7 @@ export default function App() {
       if (unsubscribeSlips) unsubscribeSlips();
       if (unsubscribeMaterials) unsubscribeMaterials();
       if (unsubscribeDispatches) unsubscribeDispatches();
+      if (unsubscribeMachines) unsubscribeMachines();
       if (unsubscribeFinance) unsubscribeFinance();
       if (unsubscribeCompanyConfig) unsubscribeCompanyConfig();
     };
@@ -950,6 +982,7 @@ export default function App() {
       };
     });
     setMachines(updatedMachs);
+    saveCloudMachines(updatedMachs, activeWorkspace.code).catch(() => {});
 
     // Trigger auto-write to Google Sheets
     setTimeout(() => {
@@ -967,6 +1000,7 @@ export default function App() {
       };
     });
     setMachines(updatedMachs);
+    saveCloudMachines(updatedMachs, activeWorkspace.code).catch(() => {});
 
     setTimeout(() => {
       syncFullStateToGoogleSheets({ machinesList: updatedMachs });
@@ -980,6 +1014,7 @@ export default function App() {
     };
     const updated = [...machines, newMachine];
     setMachines(updated);
+    saveCloudMachines(updated, activeWorkspace.code).catch(() => {});
     confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
 
     syncFullStateToGoogleSheets({ machinesList: updated });
@@ -990,6 +1025,7 @@ export default function App() {
   const handleUpdateMachine = (updated: Machine) => {
     const updatedList = machines.map(m => m.id === updated.id ? updated : m);
     setMachines(updatedList);
+    saveCloudMachines(updatedList, activeWorkspace.code).catch(() => {});
     syncFullStateToGoogleSheets({ machinesList: updatedList });
   };
 
@@ -1006,6 +1042,7 @@ export default function App() {
     const m = machines.find(item => item.id === machineId);
     const updatedList = machines.filter(item => item.id !== machineId);
     setMachines(updatedList);
+    saveCloudMachines(updatedList, activeWorkspace.code).catch(() => {});
     setMachineToDelete(null);
     setIsMachineDetailOpen(false);
     setSelectedMachineForDetail(null);
