@@ -41,9 +41,12 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
   const [location, setLocation] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerPassword, setOwnerPassword] = useState('');
   const [sheetId, setSheetId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '');
 
   const isSuperAdmin = currentUser?.isSuperAdmin || isPlatformSuperAdmin(currentUser?.email);
 
@@ -55,7 +58,6 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
     setError(null);
 
     const cleanName = name.trim();
-    const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '');
 
     if (!cleanName) {
       setError('Please enter a factory or company name.');
@@ -90,6 +92,7 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
         isPrimary: false,
         ownerEmail: ownerEmail.trim().toLowerCase(),
         ownerName: ownerName.trim() || 'Factory Owner',
+        ownerPassword: ownerPassword.trim() || 'admin@123',
         createdAt: new Date().toISOString(),
         planStatus: 'active',
         membersCount: 1,
@@ -104,6 +107,7 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
       setLocation('');
       setOwnerName('');
       setOwnerEmail('');
+      setOwnerPassword('');
       onClose();
     } catch (err: any) {
       setError(err?.message || 'Failed to provision commercial client factory.');
@@ -282,6 +286,18 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
                 </div>
 
                 <div>
+                  <label className="block font-bold text-slate-700 mb-1">Client Owner Initial Password (Optional)</label>
+                  <input
+                    type="text"
+                    value={ownerPassword}
+                    onChange={(e) => setOwnerPassword(e.target.value)}
+                    placeholder="Defaults to admin@123"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Password used by the client factory owner to log in.</span>
+                </div>
+
+                <div>
                   <label className="block font-bold text-slate-700 mb-1">
                     Google Spreadsheet ID (Optional)
                   </label>
@@ -293,7 +309,7 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
                     className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono text-[11px]"
                   />
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    A dedicated isolated Firestore database (factory_{cleanCode || 'code'}_*) is provisioned automatically.
+                    A dedicated isolated Firestore database (factory_{cleanCode.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'code'}_*) is provisioned automatically.
                   </span>
                 </div>
 
