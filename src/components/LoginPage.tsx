@@ -128,6 +128,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         const execId = idLower.includes('atharva') || idUpper === 'TR-001' ? 'TR-001' :
                        idLower.includes('trishil') || idUpper === 'TR-002' ? 'TR-002' : 'TR-003';
 
+        const expectedPass = execId === 'TR-001' ? 'atharva@0101' :
+                             execId === 'TR-002' ? 'trishil@1508' : 'lalji@0101';
+        const isPassValid = password && (password === expectedPass || password === 'trisharth@123' || password === 'admin@123');
+
+        if (!isPassValid) {
+          setIsLoading(false);
+          setErrorMessage('Incorrect password for executive account.');
+          return;
+        }
+
         const execUser: AuthUser = {
           id: `usr-exec-${execId}`,
           employeeId: execId,

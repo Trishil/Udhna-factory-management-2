@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Trisharth Google Verification</title>
+  <!-- Firebase App & Auth SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #F8FAFC;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #0F172A;
+    }
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 16px;
+      padding: 32px 24px;
+      max-width: 360px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #E2E8F0;
+      border-top-color: #2563EB;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h2 {
+      font-size: 18px;
+      margin: 0 0 8px;
+      font-weight: 700;
+    }
+    p {
+      font-size: 13px;
+      color: #64748B;
+      margin: 0 0 24px;
+      line-height: 1.5;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #EA4335;
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 24px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      box-sizing: border-box;
+      text-decoration: none;
+    }
+    .btn-cancel {
+      margin-top: 12px;
+      background: transparent;
+      color: #64748B;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="spinner" id="spinner"></div>
+    <h2 id="title">Verifying Google Account...</h2>
+    <p id="subtitle">Please complete the Google authorization prompt to verify your identity.</p>
+    <button class="btn" id="authBtn" style="display:none;" onclick="triggerGoogleAuth()">
+      Sign In with Google
+    </button>
+    <br/>
+    <button class="btn-cancel" id="cancelBtn" onclick="cancelAuth()">
+      Cancel &amp; Return to App
+    </button>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD5QcxLwAL7xJk3GE5VgTruh-rvzlDcFpE",
+      authDomain: "excellent-nexus-442111-t5.firebaseapp.com",
+      projectId: "excellent-nexus-442111-t5"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('email');
+    provider.addScope('profile');
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectUri = urlParams.get('redirect_uri') || 'textiletracker://google-auth-callback';
+
+    function cancelAuth() {
+      window.location.href = redirectUri + (redirectUri.includes('?') ? '&' : '?') + 'error=cancelled';
+    }
+
+    function returnWithAuth(user, token) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('title').innerText = "Identity Verified!";
+      document.getElementById('subtitle').innerText = "Returning to Trisharth app...";
+      const params = new URLSearchParams();
+      params.set('email', (user.email || '').toLowerCase().trim());
+      params.set('name', user.displayName || '');
+      params.set('uid', user.uid || '');
+      params.set('token', token || '');
+      params.set('success', 'true');
+      const targetUrl = redirectUri + (redirectUri.includes('?') ? '&' : '?') + params.toString();
+      window.location.href = targetUrl;
+    }
+
+    function triggerGoogleAuth() {
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('authBtn').style.display = 'none';
+      document.getElementById('title').innerText = "Connecting to Google...";
+
+      auth.signInWithPopup(provider)
+        .then((result) => {
+          if (result && result.user) {
+            return result.user.getIdToken().then((token) => {
+              returnWithAuth(result.user, token);
+            });
+          } else {
+            throw new Error("No user returned from Google");
+          }
+        })
+        .catch((err) => {
+          console.warn("Popup failed, trying redirect:", err);
+          auth.signInWithRedirect(provider).catch((rErr) => {
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('authBtn').style.display = 'inline-flex';
+            document.getElementById('title').innerText = "Sign In Prompt Required";
+            document.getElementById('subtitle').innerText = rErr.message || "Please tap the button below to authorize with Google.";
+          });
+        });
+    }
+
+    // Check if returning from redirect
+    auth.getRedirectResult()
+      .then((result) => {
+        if (result && result.user) {
+          return result.user.getIdToken().then((token) => {
+            returnWithAuth(result.user, token);
+          });
+        } else {
+          // If no redirect result, trigger sign in immediately
+          triggerGoogleAuth();
+        }
+      })
+      .catch((err) => {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('authBtn').style.display = 'inline-flex';
+        document.getElementById('title').innerText = "Authentication Error";
+        document.getElementById('subtitle').innerText = err.message || "Please tap below to retry.";
+      });
+  </script>
+</body>
+</html>
