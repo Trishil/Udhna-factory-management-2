@@ -59,7 +59,7 @@ import {
   appendOrderSlipToGoogleSheet,
   appendDispatchOrderToGoogleSheet
 } from './services/googleSheetsApi';
-import { getStoredAuthUser, saveStoredAuthUser, getStoredSheetId, setStoredSheetId, getActiveWorkspace } from './services/googleAuth';
+import { getStoredAuthUser, saveStoredAuthUser, getStoredSheetId, setStoredSheetId, getActiveWorkspace, isPlatformOwnerTrishil } from './services/googleAuth';
 import { 
   fetchActiveMasterWorkspace, 
   publishActiveWorkspaceToMaster, 
@@ -592,6 +592,10 @@ export default function App() {
   };
 
   const handleAddFactory = async (newFactory: CompanyWorkspace) => {
+    if (!isPlatformOwnerTrishil(currentUser?.email)) {
+      alert('Access Denied: Only Trishil Balar (trishilbalar@gmail.com) has authorization to provision client factories.');
+      return;
+    }
     const updated = await saveCloudFactory(newFactory);
     setFactories(updated);
     setActiveWorkspace(newFactory);
@@ -601,6 +605,10 @@ export default function App() {
   };
 
   const handleTogglePauseFactory = async (factoryCode: string, paused: boolean, reason?: string) => {
+    if (!isPlatformOwnerTrishil(currentUser?.email)) {
+      alert('Access Denied: Only Trishil Balar (trishilbalar@gmail.com) has authorization to pause or resume factories.');
+      return;
+    }
     try {
       const updated = await toggleFactoryPauseStatus(factoryCode, paused, reason);
       setFactories(updated);
@@ -621,6 +629,10 @@ export default function App() {
   };
 
   const handleDeleteFactory = async (factoryCode: string) => {
+    if (!isPlatformOwnerTrishil(currentUser?.email)) {
+      alert('Access Denied: Only Trishil Balar (trishilbalar@gmail.com) has authorization to delete factories.');
+      return;
+    }
     try {
       const updated = await deleteCloudFactory(factoryCode);
       setFactories(updated);
@@ -854,10 +866,10 @@ export default function App() {
     // 1. Authoritative Cloud Database Synchronizer (Firebase Firestore)
     // Synchronizes sub-second to active_inventory, active_dispatches, active_finance across all clients
     if (overrides?.materialsList) {
-      saveCloudMaterials(overrides.materialsList).catch(() => {});
+      saveCloudMaterials(overrides.materialsList, activeWorkspace.code).catch(() => {});
     }
     if (overrides?.dispatchOrdersList) {
-      saveCloudDispatchOrders(overrides.dispatchOrdersList).catch(() => {});
+      saveCloudDispatchOrders(overrides.dispatchOrdersList, activeWorkspace.code).catch(() => {});
     }
     if (
       overrides?.employeesList !== undefined || 
@@ -874,7 +886,7 @@ export default function App() {
         partyInvoices: overrides.partyInvoicesList ?? partyInvoices,
         supplierPayables: overrides.payablesList ?? supplierPayables,
         transactions: overrides.transactionsList ?? transactions
-      }).catch(() => {});
+      }, activeWorkspace.code).catch(() => {});
     }
 
     // 2. Always push to active sheet via Google Apps Script Webhook
@@ -1208,8 +1220,8 @@ export default function App() {
 
     const targetMat = ('id' in materialData) ? (materialData as RawMaterial) : updatedList[0];
     saveMaterialToFirestore(targetMat);
-    saveCloudMaterial(targetMat).catch(() => {});
-    saveCloudMaterials(updatedList).catch(() => {});
+    saveCloudMaterial(targetMat, activeWorkspace.code).catch(() => {});
+    saveCloudMaterials(updatedList, activeWorkspace.code).catch(() => {});
     pushMaterialToAppsScript(syncConfig, targetMat);
     if (newTxList.length > transactions.length) {
       pushStockTransactionToAppsScript(syncConfig, newTxList[0], targetMat);
@@ -1264,8 +1276,8 @@ export default function App() {
     setEditingMaterial(null);
 
     deleteMaterialFromFirestore(materialId);
-    deleteCloudMaterial(materialId).catch(() => {});
-    saveCloudMaterials(updatedList).catch(() => {});
+    deleteCloudMaterial(materialId, activeWorkspace.code).catch(() => {});
+    saveCloudMaterials(updatedList, activeWorkspace.code).catch(() => {});
     pushDeleteMaterialToAppsScript(syncConfig, materialId);
     syncFullStateToGoogleSheets({ materialsList: updatedList, machinesList: updatedMachs });
     setLastAutoEntryNotice(`Deleted "${mat?.name || 'Material'}" from inventory`);
@@ -1354,10 +1366,10 @@ export default function App() {
     const targetMat = updatedMaterials.find(m => m.id === txData.materialId);
     if (targetMat) {
       saveMaterialToFirestore(targetMat);
-      saveCloudMaterial(targetMat).catch(() => {});
+      saveCloudMaterial(targetMat, activeWorkspace.code).catch(() => {});
       pushStockTransactionToAppsScript(syncConfig, newTx, targetMat);
     }
-    saveCloudMaterials(updatedMaterials).catch(() => {});
+    saveCloudMaterials(updatedMaterials, activeWorkspace.code).catch(() => {});
 
     syncFullStateToGoogleSheets({
       materialsList: updatedMaterials,
@@ -1802,8 +1814,8 @@ export default function App() {
 
     // 3. Delete Slip & associated lots from Cloud Database atomically in a single write
     await Promise.all([
-      deleteCloudOrderSlip(slipId),
-      deleteCloudWorkflowItemsBySlipId(slipId)
+      deleteCloudOrderSlip(slipId, activeWorkspace.code),
+      deleteCloudWorkflowItemsBySlipId(slipId, activeWorkspace.code)
     ]).catch(() => {});
 
     setLastAutoEntryNotice(`Deleted order slip (${slipJob}) & cleaned up component lots from Cloud`);
@@ -2436,8 +2448,8 @@ export default function App() {
     setTimeout(() => setLastAutoEntryNotice(null), 5000);
 
     saveDispatchOrderToFirestore(newDispatch).catch(() => {});
-    saveCloudDispatchOrder(newDispatch).catch(() => {});
-    saveCloudDispatchOrders(updatedDispatches).catch(() => {});
+    saveCloudDispatchOrder(newDispatch, activeWorkspace.code).catch(() => {});
+    saveCloudDispatchOrders(updatedDispatches, activeWorkspace.code).catch(() => {});
     pushDispatchOrderToAppsScript(syncConfig, newDispatch);
 
     syncFullStateToGoogleSheets({
@@ -2473,10 +2485,10 @@ export default function App() {
     const updatedTarget = updated.find(d => d.id === order.id);
     if (updatedTarget) {
       saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
-      saveCloudDispatchOrder(updatedTarget).catch(() => {});
+      saveCloudDispatchOrder(updatedTarget, activeWorkspace.code).catch(() => {});
       pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
     }
-    saveCloudDispatchOrders(updated).catch(() => {});
+    saveCloudDispatchOrders(updated, activeWorkspace.code).catch(() => {});
 
     setLastAutoEntryNotice(`Updated Dispatch Order ${order.dispatchNumber}`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
@@ -2521,10 +2533,10 @@ export default function App() {
     const updatedTarget = updated.find(d => d.id === orderId);
     if (updatedTarget) {
       saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
-      saveCloudDispatchOrder(updatedTarget).catch(() => {});
+      saveCloudDispatchOrder(updatedTarget, activeWorkspace.code).catch(() => {});
       pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
     }
-    saveCloudDispatchOrders(updated).catch(() => {});
+    saveCloudDispatchOrders(updated, activeWorkspace.code).catch(() => {});
 
     confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
     setLastAutoEntryNotice(`Order ${order.dispatchNumber} marked as DISPATCHED via ${dispatchData.transporterName}`);
@@ -2573,10 +2585,10 @@ export default function App() {
     const updatedTarget = updatedOrders.find(d => d.id === dispatchId);
     if (updatedTarget) {
       saveDispatchOrderToFirestore(updatedTarget).catch(() => {});
-      saveCloudDispatchOrder(updatedTarget).catch(() => {});
+      saveCloudDispatchOrder(updatedTarget, activeWorkspace.code).catch(() => {});
       pushDispatchOrderToAppsScript(syncConfig, updatedTarget);
     }
-    saveCloudDispatchOrders(updatedOrders).catch(() => {});
+    saveCloudDispatchOrders(updatedOrders, activeWorkspace.code).catch(() => {});
 
     // Sync into matching party invoice in Finance tab
     let updatedInvoices = [...partyInvoices];
@@ -2621,8 +2633,8 @@ export default function App() {
     const updated = dispatchOrders.filter(d => d.id !== orderId);
     setDispatchOrders(updated);
     deleteDispatchOrderFromFirestore(orderId).catch(() => {});
-    deleteCloudDispatchOrder(orderId).catch(() => {});
-    saveCloudDispatchOrders(updated).catch(() => {});
+    deleteCloudDispatchOrder(orderId, activeWorkspace.code).catch(() => {});
+    saveCloudDispatchOrders(updated, activeWorkspace.code).catch(() => {});
     setDispatchOrders(updated);
 
     // Also remove linked party invoice if present
@@ -2777,7 +2789,7 @@ export default function App() {
         currentStage: newStage,
         lastSyncedWithFirebase: nowIso
       };
-      saveCloudWorkflowItem(itemToSync).catch(err => {
+      saveCloudWorkflowItem(itemToSync, activeWorkspace.code).catch(err => {
         console.warn('Cloud Database workflow sync error:', err);
       });
     }
@@ -2798,7 +2810,7 @@ export default function App() {
     }
     const updated = [newItem, ...workflowItems];
     setWorkflowItems(updated);
-    saveCloudWorkflowItem(newItem).catch(err => console.warn('Cloud Database create error:', err));
+    saveCloudWorkflowItem(newItem, activeWorkspace.code).catch(err => console.warn('Cloud Database create error:', err));
     setLastAutoEntryNotice(`Registered ${newItem.designNumber} (Lot ${newItem.lotNumber}) in Cloud Database`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
     confetti({
@@ -2815,7 +2827,7 @@ export default function App() {
     }
     const updatedList = workflowItems.map(i => i.id === updated.id ? updated : i);
     setWorkflowItems(updatedList);
-    saveCloudWorkflowItem(updated).catch(err => console.warn('Cloud Database update error:', err));
+    saveCloudWorkflowItem(updated, activeWorkspace.code).catch(err => console.warn('Cloud Database update error:', err));
     setLastAutoEntryNotice(`Updated design ${updated.designNumber} in Cloud Database`);
     setTimeout(() => setLastAutoEntryNotice(null), 3000);
   };
@@ -2828,7 +2840,7 @@ export default function App() {
     const target = workflowItems.find(i => i.id === itemId);
     const updatedList = workflowItems.filter(i => i.id !== itemId);
     setWorkflowItems(updatedList);
-    deleteCloudWorkflowItem(itemId).catch(err => console.warn('Cloud Database delete error:', err));
+    deleteCloudWorkflowItem(itemId, activeWorkspace.code).catch(err => console.warn('Cloud Database delete error:', err));
     if (target) {
       setLastAutoEntryNotice(`Deleted job ${target.designNumber} (${target.lotNumber}) from Cloud Database`);
       setTimeout(() => setLastAutoEntryNotice(null), 3000);
@@ -2851,7 +2863,7 @@ export default function App() {
     saveStoredOrderSlips(updatedSlips);
 
     // Save Slip to Cloud Database
-    saveCloudOrderSlip(slip).catch(err => console.warn('Cloud Database order slip error:', err));
+    saveCloudOrderSlip(slip, activeWorkspace.code).catch(err => console.warn('Cloud Database order slip error:', err));
 
     // Replace all workflow items for this slip with generatedItems, preserving stage progress for matching items
     setWorkflowItems(prev => {
@@ -2875,7 +2887,7 @@ export default function App() {
     });
 
     // Atomically replace workflow items for this slip in Cloud Database
-    replaceCloudWorkflowItemsForSlip(slip.id, generatedItems).catch(err => console.warn('Cloud Database replace error:', err));
+    replaceCloudWorkflowItemsForSlip(slip.id, generatedItems, activeWorkspace.code).catch(err => console.warn('Cloud Database replace error:', err));
 
     confetti({
       particleCount: 50,
@@ -3009,7 +3021,7 @@ export default function App() {
                   <strong>Data Entry Paused:</strong> Read-Only mode active due to pending fees.
                 </span>
               </div>
-              {currentUser?.isSuperAdmin && (
+              {isPlatformOwnerTrishil(currentUser?.email) && (
                 <button
                   onClick={() => handleTogglePauseFactory(activeWorkspace.code, false)}
                   className="px-2 py-0.5 bg-emerald-500 text-slate-950 font-bold rounded text-[10px] shrink-0 ml-2"
@@ -3098,7 +3110,7 @@ export default function App() {
             onToggleCollapse={handleToggleSidebar}
             currentUser={currentUser}
             activeWorkspace={activeWorkspace}
-            onOpenFactorySwitcher={currentUser?.isSuperAdmin ? () => setIsFactorySwitcherOpen(true) : undefined}
+            onOpenFactorySwitcher={isPlatformOwnerTrishil(currentUser?.email) ? () => setIsFactorySwitcherOpen(true) : undefined}
           />
 
           <div className="flex-1 flex flex-col min-w-0 min-h-screen">
@@ -3119,7 +3131,7 @@ export default function App() {
                   <span className="text-[10px] uppercase font-bold text-rose-200 bg-rose-900/60 px-2 py-0.5 rounded border border-rose-500/40">
                     Read-Only Mode
                   </span>
-                  {currentUser?.isSuperAdmin && (
+                  {isPlatformOwnerTrishil(currentUser?.email) && (
                     <button
                       onClick={() => handleTogglePauseFactory(activeWorkspace.code, false)}
                       className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded text-[11px] transition-colors cursor-pointer shadow-xs"
@@ -3605,7 +3617,7 @@ export default function App() {
         }}
       />
 
-      {currentUser?.isSuperAdmin && (
+      {isPlatformOwnerTrishil(currentUser?.email) && (
         <FactorySwitcherModal
           isOpen={isFactorySwitcherOpen}
           onClose={() => setIsFactorySwitcherOpen(false)}

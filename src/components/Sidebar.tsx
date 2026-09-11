@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { AppTab, AuthUser, CompanyWorkspace } from '../types';
 import logoImg from '../assets/logo.png';
-import { isPlatformSuperAdmin } from '../services/googleAuth';
+import { isPlatformSuperAdmin, isPlatformOwnerTrishil } from '../services/googleAuth';
 
 interface SidebarProps {
   activeTab: AppTab;
@@ -50,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenCreateSheet
 }) => {
   const isSuperAdmin = currentUser?.isSuperAdmin || isPlatformSuperAdmin(currentUser?.email);
+  const isMasterOwner = isPlatformOwnerTrishil(currentUser?.email);
 
   const navItems = [
     {
@@ -163,8 +164,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Super Admin: Commercial Client Management Console */}
-        {!isCollapsed && onOpenFactorySwitcher && isSuperAdmin && (
+        {/* Super Admin: Commercial Client Management Console (Trishil Balar Only) */}
+        {!isCollapsed && onOpenFactorySwitcher && isMasterOwner && (
           <div className="px-3 pt-3 pb-1">
             <button
               type="button"

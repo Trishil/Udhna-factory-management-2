@@ -19,7 +19,7 @@ import {
   PauseCircle
 } from 'lucide-react';
 import { CompanyWorkspace, AuthUser } from '../types';
-import { DEFAULT_APPS_SCRIPT_URL, DEFAULT_SHEET_ID, isPlatformSuperAdmin } from '../services/googleAuth';
+import { DEFAULT_APPS_SCRIPT_URL, DEFAULT_SHEET_ID, isPlatformSuperAdmin, isPlatformOwnerTrishil } from '../services/googleAuth';
 
 interface FactorySwitcherModalProps {
   isOpen: boolean;
@@ -61,10 +61,10 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
 
   const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9\-]/g, '');
 
-  const isSuperAdmin = currentUser?.isSuperAdmin || isPlatformSuperAdmin(currentUser?.email);
+  const isMasterOwner = isPlatformOwnerTrishil(currentUser?.email);
 
-  // STRICT PRIVACY GUARD: Only platform super admins can ever view or open this console
-  if (!isOpen || !isSuperAdmin) return null;
+  // STRICT PRIVACY GUARD: Only Trishil Balar (trishilbalar@gmail.com) can ever view or open this console
+  if (!isOpen || !isMasterOwner) return null;
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

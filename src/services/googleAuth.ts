@@ -675,6 +675,11 @@ export function isPlatformSuperAdmin(email?: string): boolean {
   return PLATFORM_SUPER_ADMIN_EMAILS.includes(clean);
 }
 
+export function isPlatformOwnerTrishil(email?: string): boolean {
+  if (!email) return false;
+  return email.trim().toLowerCase() === 'trishilbalar@gmail.com';
+}
+
 export async function registerNewCompany(
   companyName: string,
   companyCode: string,
