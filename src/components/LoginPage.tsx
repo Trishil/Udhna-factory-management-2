@@ -111,22 +111,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const idUpper = identifier.toUpperCase();
       const idLower = identifier.toLowerCase();
 
-      // Fetch real-time active employees from Firestore for this factory
-      const activeEmployees = await fetchCloudFinanceEmployees(workspace.code);
-      const allStaff = activeEmployees.length > 0 ? activeEmployees : INITIAL_EMPLOYEES;
+      // Determine if logging into Trisharth HQ
+      const isHQ = (workspace.code || '').trim().toUpperCase() === 'TRISHARTH-HQ' || (workspace.code || '').trim().toUpperCase() === 'TRISHARTH';
+      const allStaff = activeEmployees.length > 0 ? activeEmployees : (isHQ ? INITIAL_EMPLOYEES : []);
 
-      // 1. Check Executive Whitelist
-      const isExecutive = 
+      // 1. Check Executive Whitelist (Trisharth HQ ONLY - Never for Client Factories)
+      const isExecutive = isHQ && (
         ['ATHARVABALAR6@GMAIL.COM', 'TRISHILBALAR@GMAIL.COM', 'DRLALJIRPATEL@GMAIL.COM', 'TR-001', 'TR-002', 'TR-003'].includes(idUpper) ||
-        ['atharva balar', 'trishil balar', 'dr. lalji patel', 'atharva', 'trishil'].includes(idLower);
+        ['atharva balar', 'trishil balar', 'dr. lalji patel'].includes(idLower)
+      );
 
       if (isExecutive) {
-        const execName = idLower.includes('atharva') || idUpper === 'TR-001' ? 'Atharva Balar' :
-                         idLower.includes('trishil') || idUpper === 'TR-002' ? 'Trishil Balar' : 'Dr. Lalji Patel';
-        const execEmail = idLower.includes('atharva') || idUpper === 'TR-001' ? 'atharvabalar6@gmail.com' :
-                          idLower.includes('trishil') || idUpper === 'TR-002' ? 'trishilbalar@gmail.com' : 'drlaljirpatel@gmail.com';
-        const execId = idLower.includes('atharva') || idUpper === 'TR-001' ? 'TR-001' :
-                       idLower.includes('trishil') || idUpper === 'TR-002' ? 'TR-002' : 'TR-003';
+        const execName = idLower === 'atharva balar' || idUpper === 'TR-001' || idUpper === 'ATHARVABALAR6@GMAIL.COM' ? 'Atharva Balar' :
+                         idLower === 'trishil balar' || idUpper === 'TR-002' || idUpper === 'TRISHILBALAR@GMAIL.COM' ? 'Trishil Balar' : 'Dr. Lalji Patel';
+        const execEmail = idLower === 'atharva balar' || idUpper === 'TR-001' || idUpper === 'ATHARVABALAR6@GMAIL.COM' ? 'atharvabalar6@gmail.com' :
+                          idLower === 'trishil balar' || idUpper === 'TR-002' || idUpper === 'TRISHILBALAR@GMAIL.COM' ? 'trishilbalar@gmail.com' : 'drlaljirpatel@gmail.com';
+        const execId = idLower === 'atharva balar' || idUpper === 'TR-001' || idUpper === 'ATHARVABALAR6@GMAIL.COM' ? 'TR-001' :
+                       idLower === 'trishil balar' || idUpper === 'TR-002' || idUpper === 'TRISHILBALAR@GMAIL.COM' ? 'TR-002' : 'TR-003';
 
         const matchedEmp = allStaff.find(e => 
           (e.employeeId && e.employeeId.toUpperCase() === execId) ||
@@ -296,14 +297,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const authUser: AuthUser = {
         id: matchedEmp.id,
         employeeId: matchedEmp.employeeId,
-        email: matchedEmp.googleEmail || `${matchedEmp.name.toLowerCase().replace(/\s+/g, '.')}@trisharth.internal`,
+        email: matchedEmp.googleEmail || `${matchedEmp.name.toLowerCase().replace(/\s+/g, '.')}@${workspace.code.toLowerCase()}.internal`,
         name: matchedEmp.name,
-        role: (matchedEmp.role.toLowerCase().includes('director') || matchedEmp.role.toLowerCase().includes('owner')) ? 'owner' : 'editor',
+        role: (matchedEmp.role && (matchedEmp.role.toLowerCase().includes('director') || matchedEmp.role.toLowerCase().includes('owner'))) ? 'owner' : 'editor',
+        isSuperAdmin: false,
         companyId: workspace.id,
         companyName: workspace.name,
         companyCode: workspace.code,
         sheetAccessGranted: true,
-        sheetTitle: 'Trisharth Production & Inventory Sheet',
+        sheetTitle: `${workspace.name} Operations Sheet`,
         authMethod: 'credentials',
         loginTimestamp: new Date().toISOString(),
         webAccess: true,

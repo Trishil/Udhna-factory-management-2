@@ -61,18 +61,32 @@ export function computeEmployeePassword(name: string, dob?: string): string {
   return `${firstName}@1234`;
 }
 
-export function getNextEmployeeId(existingEmployees: EmployeeRecord[]): string {
+export function getNextEmployeeId(existingEmployees: EmployeeRecord[], factoryCode?: string): string {
+  let cleanCode = (factoryCode || '').trim().toUpperCase();
+  if (!cleanCode) {
+    try {
+      const active = localStorage.getItem('active_factory_workspace');
+      if (active) cleanCode = (JSON.parse(active).code || 'TRISHARTH-HQ').trim().toUpperCase();
+    } catch {}
+  }
+  if (!cleanCode) cleanCode = 'TRISHARTH-HQ';
+
+  const prefix = cleanCode === 'TRISHARTH-HQ' || cleanCode === 'TRISHARTH'
+    ? 'TR'
+    : cleanCode.replace(/[^A-Z0-9]/g, '').slice(0, 4);
+
+  const prefixRegex = new RegExp(`^${prefix}-(\\d+)`, 'i');
   let maxNum = 0;
   for (const emp of existingEmployees) {
     const raw = emp.employeeId || emp.employeeCode || '';
-    const match = raw.match(/TR-(\d+)/i) || raw.match(/EMP-(\d+)/i);
+    const match = raw.match(prefixRegex) || raw.match(/EMP-(\d+)/i) || (prefix === 'TR' ? raw.match(/TR-(\d+)/i) : null);
     if (match) {
       const num = parseInt(match[1], 10);
       if (num > maxNum) maxNum = num;
     }
   }
   const nextNum = maxNum > 0 ? maxNum + 1 : (existingEmployees.length + 1);
-  return `TR-${String(nextNum).padStart(3, '0')}`;
+  return `${prefix}-${String(nextNum).padStart(3, '0')}`;
 }
 import {
   DEFAULT_CATEGORIES,

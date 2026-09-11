@@ -971,10 +971,10 @@ export function generateWorkflowItemsFromSlip(slip: OrderSlip): WorkflowItem[] {
   const slipId = slip.id;
   const jobNo = slip.jobNo || 'JOB-01';
   const jobClean = jobNo.trim().replace(/[^a-zA-Z0-9]/g, '_');
-  const partyName = slip.partyName || 'Direct Client';
+  const partyName = (slip.partyName || '').trim();
   const date = slip.date || new Date().toISOString().split('T')[0];
   const chalanNo = slip.chalanNo || 'CH-01';
-  const firmName = slip.firmName || 'Trisharth';
+  const firmName = slip.firmName || 'Factory';
   const calculationNotes = slip.calculationNotes || '';
   const inwardChallanNotes = slip.inwardChallanNotes || '';
   const deliveryChalanNo = slip.deliveryChalanNo || '';
@@ -994,13 +994,17 @@ export function generateWorkflowItemsFromSlip(slip: OrderSlip): WorkflowItem[] {
         const itemId = `wf-${slipId}-${rIdx}-${cIdx}`;
         const itemDNo = row.designNumber || 'DSG-101';
         const lotNum = `LOT-${jobClean}-${colClean}-${rIdx + 1}`;
+        const colorLabel = row.colorName ? ` (${row.colorName})` : '';
+        const generatedDesignName = partyName 
+          ? `${partyName} ${colName}${colorLabel}` 
+          : `${colName}${colorLabel}`;
 
         const newItem: WorkflowItem = {
           id: itemId,
           lotNumber: lotNum,
           jobNo: jobNo,
           designNumber: itemDNo,
-          designName: `${partyName} ${colName} (${row.colorName})`,
+          designName: generatedDesignName,
           fabricType: colName,
           fabricColor: row.colorName,
           colorSwatchHex: row.colorHex,

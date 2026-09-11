@@ -27,6 +27,7 @@ import {
   generateWorkflowItemsFromSlip
 } from '../utils/workflowData';
 import { printOrderSlipDocument } from '../utils/orderSlipPrinter';
+import { getActiveWorkspace } from '../services/googleAuth';
 
 interface OrderSlipModalProps {
   isOpen: boolean;
@@ -45,8 +46,9 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
   items = [],
   onDeleteSlip
 }) => {
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const activeWs = getActiveWorkspace();
+  const defaultFirmName = activeWs?.name || 'Factory';
+  const todayStr = new Date().toISOString().split('T')[0];
 
   // Slip Header states
   const [jobNo, setJobNo] = useState(existingSlip?.jobNo || '');
@@ -54,7 +56,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
   const [chalanNo, setChalanNo] = useState(existingSlip?.chalanNo || '');
   const [partyName, setPartyName] = useState(existingSlip?.partyName || '');
   const [firmName, setFirmName] = useState(
-    existingSlip?.firmName && !existingSlip.firmName.includes('S V ART') ? existingSlip.firmName : 'Trisharth'
+    existingSlip?.firmName && !existingSlip.firmName.includes('S V ART') ? existingSlip.firmName : defaultFirmName
   );
 
   // Columns: Fabric types in the slip matrix (starts empty for new slips, fully customizable)
@@ -231,7 +233,7 @@ export const OrderSlipModal: React.FC<OrderSlipModalProps> = ({
       billNo,
       billDate,
       piecesCompleted,
-      firmName: firmName || 'TRISHARTH',
+      firmName: firmName || defaultFirmName,
       status: piecesCompleted >= totalOrderedPcs && totalOrderedPcs > 0 ? 'completed' : 'in_progress',
       createdAt: existingSlip?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()

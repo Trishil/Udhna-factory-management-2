@@ -144,7 +144,7 @@ import { OverviewMetrics } from './components/OverviewMetrics';
 import { MachineMonitor } from './components/MachineMonitor';
 import { InventoryManager } from './components/InventoryManager';
 import { AnalyticsPanel } from './components/AnalyticsPanel';
-import { FinanceManager } from './components/FinanceManager';
+import { FinanceManager, getNextEmployeeId } from './components/FinanceManager';
 import { DispatchManager } from './components/DispatchManager';
 import { WorkflowManager } from './components/WorkflowManager';
 
@@ -188,20 +188,23 @@ export default function App() {
   const [isFactorySwitcherOpen, setIsFactorySwitcherOpen] = useState<boolean>(false);
   const isDataEntryPaused = Boolean(activeWorkspace?.dataEntryPaused || activeWorkspace?.planStatus === 'suspended');
 
-  // State initialization with localStorage fallback
+  // State initialization with localStorage fallback (factory scoped)
   const [machines, setMachines] = useState<Machine[]>(() => {
-    const saved = localStorage.getItem('factory_machines');
-    return saved ? JSON.parse(saved) : INITIAL_MACHINES;
+    const wsCode = activeWorkspace?.code || 'TRISHARTH-HQ';
+    const saved = localStorage.getItem(`factory_machines_${wsCode}`) || (wsCode === 'TRISHARTH-HQ' ? localStorage.getItem('factory_machines') : null);
+    return saved ? JSON.parse(saved) : (wsCode === 'TRISHARTH-HQ' ? INITIAL_MACHINES : []);
   });
 
   const [materials, setMaterials] = useState<RawMaterial[]>(() => {
-    const saved = localStorage.getItem('factory_materials');
-    return saved ? JSON.parse(saved) : INITIAL_MATERIALS;
+    const wsCode = activeWorkspace?.code || 'TRISHARTH-HQ';
+    const saved = localStorage.getItem(`factory_materials_${wsCode}`) || (wsCode === 'TRISHARTH-HQ' ? localStorage.getItem('factory_materials') : null);
+    return saved ? JSON.parse(saved) : (wsCode === 'TRISHARTH-HQ' ? INITIAL_MATERIALS : []);
   });
 
   const [transactions, setTransactions] = useState<StockTransaction[]>(() => {
-    const saved = localStorage.getItem('factory_transactions');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+    const wsCode = activeWorkspace?.code || 'TRISHARTH-HQ';
+    const saved = localStorage.getItem(`factory_transactions_${wsCode}`) || (wsCode === 'TRISHARTH-HQ' ? localStorage.getItem('factory_transactions') : null);
+    return saved ? JSON.parse(saved) : (wsCode === 'TRISHARTH-HQ' ? INITIAL_TRANSACTIONS : []);
   });
 
   const [syncConfig, setSyncConfig] = useState<SyncConfig>(() => {
@@ -1907,7 +1910,7 @@ export default function App() {
     const bonus = Number(newEmpData.bonusOrOvertime || 0);
     const ded = Number(newEmpData.deductions || 0);
     const net = base + bonus - ded;
-    const assignedId = newEmpData.employeeId || `TR-${String(employees.length + 1).padStart(3, '0')}`;
+    const assignedId = newEmpData.employeeId || getNextEmployeeId(employees, activeWorkspace.code);
     const newRecord: EmployeeRecord = normalizeEmployeeRecord({
       ...newEmpData,
       id: `emp-${Date.now()}`,
