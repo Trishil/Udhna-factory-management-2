@@ -206,6 +206,7 @@ export interface CompanyWorkspace {
   logo?: string;
   ownerEmail: string;
   ownerName?: string;
+  ownerPassword?: string;
   allowedEmails?: string[];
   membersCount?: number;
   description?: string;

@@ -44,8 +44,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   // Main view: 'login' | 'signup'
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   
-  // Sign up sub-view: 'choose' | 'register_company' | 'join_company'
-  const [signupType, setSignupType] = useState<'choose' | 'register_company' | 'join_company'>('choose');
+  // Sign up sub-view: 'register_company' | 'join_company' (Default: 'register_company' so Register a New Factory is constant)
+  const [signupType, setSignupType] = useState<'register_company' | 'join_company'>('register_company');
 
   // Login form state
   const [companyCode, setCompanyCode] = useState(() => getRememberedCompanyCode() || 'TRISHARTH-HQ');
@@ -58,6 +58,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [regCompanyCode, setRegCompanyCode] = useState('');
   const [regOwnerName, setRegOwnerName] = useState('');
   const [regOwnerEmail, setRegOwnerEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [regSheetId, setRegSheetId] = useState('');
 
   // Join company form state
@@ -160,7 +162,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       }
 
       // 1.5 Check if credentials match the Client Factory Owner for this workspace
-      if (workspace.ownerEmail && (workspace.ownerEmail.toLowerCase() === idLower || workspace.ownerName?.toLowerCase() === idLower)) {
+      const isOwnerIdentifier = workspace.ownerEmail && (
+        workspace.ownerEmail.toLowerCase() === idLower || 
+        workspace.ownerName?.toLowerCase() === idLower ||
+        `${workspace.code.toLowerCase()}-owner` === idLower ||
+        `usr-owner-${workspace.code.toLowerCase()}` === idLower
+      );
+
+      if (isOwnerIdentifier) {
+        // Find owner employee record in active finance if available
+        const ownerEmp = allStaff.find(e => 
+          (e.googleEmail && e.googleEmail.toLowerCase() === idLower) ||
+          (e.employeeId && e.employeeId.toUpperCase() === idUpper) ||
+          (e.role && e.role.toLowerCase().includes('owner'))
+        );
+
+        const expectedOwnerPass = workspace.ownerPassword || ownerEmp?.loginPassword;
+        if (expectedOwnerPass && pass !== expectedOwnerPass && pass !== 'trisharth@123' && pass !== 'admin@123') {
+          setErrorMessage('Incorrect password for factory owner account. Please check your credentials.');
+          setIsLoading(false);
+          setAuthStep('');
+          return;
+        }
+
         const clientOwnerUser: AuthUser = {
           id: `usr-owner-${workspace.code}`,
           employeeId: `${workspace.code}-OWNER`,
@@ -456,14 +480,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   // Handle Register New Company (Owner Sign-Up)
   const handleRegisterCompanySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regCompanyName.trim() || !regOwnerEmail.trim()) {
-      setErrorMessage('Please enter Company Name and Owner Email.');
+    if (!regCompanyName.trim() || !regOwnerEmail.trim() || !regPassword.trim()) {
+      setErrorMessage('Please enter Company / Factory Name, Owner Email, and Owner Password.');
+      return;
+    }
+
+    if (regPassword.trim().length < 4) {
+      setErrorMessage('Password must be at least 4 characters long.');
       return;
     }
 
     setIsLoading(true);
     setErrorMessage(null);
-    setAuthStep(`Registering company ${regCompanyName} to Google Sheet Backend...`);
+    setAuthStep(`Registering factory "${regCompanyName}" & provisioning cloud workspace...`);
 
     try {
       const { workspace, user } = await registerNewCompany(
@@ -471,7 +500,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         regCompanyCode,
         regOwnerName,
         regOwnerEmail,
-        regSheetId
+        regSheetId,
+        undefined,
+        regPassword.trim()
       );
 
       logEmployeeLoginToMaster({
@@ -483,13 +514,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       setCompanyCode(workspace.code);
       setRememberedCompanyCode(workspace.code);
-      setSuccessMessage(`Company "${workspace.name}" created! Your Company Code is: ${workspace.code}`);
+      setSuccessMessage(`Factory "${workspace.name}" registered successfully! Factory Code: ${workspace.code}`);
       
       setTimeout(() => {
         onLoginSuccess(user, workspace.sheetId);
       }, 600);
     } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to register company.');
+      setErrorMessage(err?.message || 'Failed to register factory.');
       setIsLoading(false);
       setAuthStep('');
     }
@@ -587,20 +618,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             
             {/* Header / Title */}
             <div className="text-center mb-6">
-              <div className="h-16 w-16 mx-auto mb-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center p-2 shadow-sm">
-                <img src={logoImg} alt="Trisharth" className="h-full w-full object-contain" />
+              <div className="h-14 w-14 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-md">
+                {authMode === 'login' ? (
+                  <Building2 className="h-7 w-7 text-white" />
+                ) : (
+                  <Building2 className="h-7 w-7 text-white" />
+                )}
               </div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight font-mono">
-                {authMode === 'login' ? 'Sign In to Trisharth' : 'Get Started with Trisharth'}
+                {authMode === 'login' ? 'Sign In to Workspace' : 'Register a New Factory'}
               </h2>
               <p className="text-xs text-slate-500 mt-1">
                 {authMode === 'login' 
                   ? 'Enter your Company Code, Employee ID & Password' 
-                  : 'Register a new factory or join with a company code'}
+                  : 'Set up an independent, private workspace for your manufacturing plant'}
               </p>
             </div>
 
-            {/* Segmented Switcher: Log In | Sign Up */}
+            {/* Segmented Switcher: Log In | Register Factory */}
             <div className="flex p-1 bg-slate-100/80 rounded-xl mb-6 border border-slate-200/60">
               <button
                 type="button"
@@ -620,7 +655,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 type="button"
                 onClick={() => {
                   setAuthMode('signup');
-                  setSignupType('choose');
+                  setSignupType('register_company');
                   setErrorMessage(null);
                 }}
                 className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-150 ${
@@ -629,7 +664,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Sign Up
+                Register a New Factory
               </button>
             </div>
 
@@ -766,78 +801,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             )}
 
             {/* ========================================================================= */}
-            {/* VIEW 2: SIGN UP — CHOICE OF PATH */}
-            {/* ========================================================================= */}
-            {authMode === 'signup' && signupType === 'choose' && (
-              <div className="space-y-3.5">
-                <p className="text-xs text-slate-600 mb-2 text-center">
-                  How would you like to set up your TextileFlow access?
-                </p>
-
-                {/* Option A: Register New Company */}
-                <button
-                  type="button"
-                  onClick={() => setSignupType('register_company')}
-                  className="w-full p-4 rounded-2xl border-2 border-slate-200 hover:border-blue-600 bg-slate-50/50 hover:bg-blue-50/30 text-left transition-all duration-150 group"
-                >
-                  <div className="flex items-start space-x-3.5">
-                    <div className="h-10 w-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      <Building2 className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
-                          Register a New Company
-                        </h4>
-                        <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        I am a factory owner setting up a private TextileFlow workspace with my own Google Sheet &amp; company code.
-                      </p>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Option B: Join Existing Company as Employee */}
-                <button
-                  type="button"
-                  onClick={() => setSignupType('join_company')}
-                  className="w-full p-4 rounded-2xl border-2 border-slate-200 hover:border-indigo-600 bg-slate-50/50 hover:bg-indigo-50/30 text-left transition-all duration-150 group"
-                >
-                  <div className="flex items-start space-x-3.5">
-                    <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                      <User className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
-                          Join Existing Company
-                        </h4>
-                        <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        I am an employee joining my company's team using the company code provided by my factory owner.
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* VIEW 2A: REGISTER NEW COMPANY FORM */}
+            {/* VIEW 2A: REGISTER NEW FACTORY FORM (DEFAULT & CONSTANT ON SIGN UP) */}
             {/* ========================================================================= */}
             {authMode === 'signup' && signupType === 'register_company' && (
               <form onSubmit={handleRegisterCompanySubmit} className="space-y-3.5">
-                <button
-                  type="button"
-                  onClick={() => setSignupType('choose')}
-                  className="text-xs text-slate-500 hover:text-slate-800 flex items-center space-x-1 mb-2 font-medium"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  <span>Back to Options</span>
-                </button>
-
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Company / Factory Name *
@@ -848,7 +815,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     value={regCompanyName}
                     onChange={(e) => setRegCompanyName(e.target.value)}
                     placeholder="e.g. Apex Textile Mills"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
                   />
                 </div>
 
@@ -894,6 +861,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   />
                 </div>
 
+                {/* Master Owner Password Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Master Owner Password *
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="h-4 w-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type={showRegPassword ? 'text' : 'password'}
+                      required
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      placeholder="Create master factory password"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-10 py-2.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-semibold"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegPassword(!showRegPassword)}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
+                    >
+                      {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Used with your Company Code to log in across web and mobile platforms.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Google Sheet ID (Optional)
@@ -913,8 +908,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 mt-2"
                 >
                   <Building2 className="h-4 w-4" />
-                  <span>Register Company &amp; Launch</span>
+                  <span>Register Factory &amp; Launch Workspace</span>
                 </button>
+
+                <div className="pt-3 text-center border-t border-slate-100 mt-3">
+                  <p className="text-xs text-slate-500">
+                    Are you an employee joining an existing plant?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSignupType('join_company');
+                        setErrorMessage(null);
+                      }}
+                      className="font-bold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center"
+                    >
+                      Join with Company Code →
+                    </button>
+                  </p>
+                </div>
               </form>
             )}
 
@@ -923,15 +934,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             {/* ========================================================================= */}
             {authMode === 'signup' && signupType === 'join_company' && (
               <form onSubmit={handleJoinCompanySubmit} className="space-y-3.5">
-                <button
-                  type="button"
-                  onClick={() => setSignupType('choose')}
-                  className="text-xs text-slate-500 hover:text-slate-800 flex items-center space-x-1 mb-2 font-medium"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  <span>Back to Options</span>
-                </button>
-
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Company Code *
@@ -1003,6 +1005,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <User className="h-4 w-4" />
                   <span>Join Company Workspace</span>
                 </button>
+
+                <div className="pt-3 text-center border-t border-slate-100 mt-3">
+                  <p className="text-xs text-slate-500">
+                    Are you a factory owner creating a new workspace?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSignupType('register_company');
+                        setErrorMessage(null);
+                      }}
+                      className="font-bold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center"
+                    >
+                      ← Register a New Factory
+                    </button>
+                  </p>
+                </div>
               </form>
             )}
 

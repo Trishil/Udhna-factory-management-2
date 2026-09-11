@@ -681,7 +681,8 @@ export async function registerNewCompany(
   ownerName: string,
   ownerEmail: string,
   sheetId?: string,
-  scriptUrl?: string
+  scriptUrl?: string,
+  ownerPassword?: string
 ): Promise<{ workspace: CompanyWorkspace; user: AuthUser }> {
   const code = (companyCode.trim() || companyName.trim().slice(0, 4) + '-' + Math.floor(1000 + Math.random() * 9000)).toUpperCase();
   const effectiveSheetId = sheetId?.trim() || `1SHEET_${code}_${Date.now()}`;
@@ -695,6 +696,7 @@ export async function registerNewCompany(
     isPrimary: false,
     ownerEmail: ownerEmail.trim() || 'admin@' + code.toLowerCase() + '.internal',
     ownerName: ownerName.trim() || 'Factory Owner',
+    ownerPassword: ownerPassword?.trim() || '',
     createdAt: new Date().toISOString(),
     planStatus: 'active',
     membersCount: 1,
@@ -711,6 +713,43 @@ export async function registerNewCompany(
     await saveCloudFactory(newWs);
   } catch (e) {
     console.warn('Failed to save new company to cloud factories registry:', e);
+  }
+
+  // CRITICAL: Seed owner in factory finance employee directory so credentials login works immediately
+  try {
+    const { saveCloudFinance, fetchCloudFinanceEmployees } = await import('./cloudDbService');
+    const existingStaff = await fetchCloudFinanceEmployees(newWs.code);
+    const ownerStaffRecord = {
+      id: `emp-owner-${code.toLowerCase()}`,
+      name: ownerName.trim() || `${companyName.trim()} Owner`,
+      role: 'Managing Director / Owner',
+      employeeId: `${code}-OWNER`,
+      phone: '',
+      email: ownerEmail.trim(),
+      googleEmail: ownerEmail.trim(),
+      loginPassword: ownerPassword?.trim() || '',
+      joinedDate: new Date().toISOString().split('T')[0],
+      status: 'active' as const,
+      salaryType: 'monthly' as const,
+      monthlySalary: 0,
+      dailyRate: 0,
+      hourlyRate: 0,
+      currentBalance: 0,
+      bankDetails: {
+        accountNumber: '',
+        ifscCode: '',
+        bankName: '',
+        holderName: ownerName.trim() || companyName.trim()
+      },
+      webAccess: true,
+      mobileAccess: true,
+      financialAccess: true
+    };
+    if (!existingStaff.some(e => e.employeeId === ownerStaffRecord.employeeId)) {
+      await saveCloudFinance({ employees: [ownerStaffRecord, ...existingStaff] }, newWs.code);
+    }
+  } catch (e) {
+    console.warn('Failed to seed owner employee record in cloud finance:', e);
   }
 
   // Sync to Master Registry Google Sheet in background
