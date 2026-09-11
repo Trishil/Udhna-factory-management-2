@@ -176,6 +176,18 @@ export default function App() {
     return getStoredAuthUser();
   });
 
+  // Multi-Factory Workspace state
+  const [activeWorkspace, setActiveWorkspace] = useState<CompanyWorkspace>(() => {
+    try {
+      const saved = localStorage.getItem('active_factory_workspace');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return TRISHARTH_WORKSPACE;
+  });
+  const [factories, setFactories] = useState<CompanyWorkspace[]>(() => getStoredWorkspaces());
+  const [isFactorySwitcherOpen, setIsFactorySwitcherOpen] = useState<boolean>(false);
+  const isDataEntryPaused = Boolean(activeWorkspace?.dataEntryPaused || activeWorkspace?.planStatus === 'suspended');
+
   // State initialization with localStorage fallback
   const [machines, setMachines] = useState<Machine[]>(() => {
     const saved = localStorage.getItem('factory_machines');
@@ -215,8 +227,9 @@ export default function App() {
 
   // Finance State with Persistence
   const [employees, setEmployees] = useState<EmployeeRecord[]>(() => {
-    const saved = localStorage.getItem(`factory_employees_${activeWorkspace.code}`) || localStorage.getItem('factory_employees');
-    const parsed = saved ? JSON.parse(saved) : (activeWorkspace.code === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
+    const wsCode = activeWorkspace?.code || 'TRISHARTH-HQ';
+    const saved = localStorage.getItem(`factory_employees_${wsCode}`) || localStorage.getItem('factory_employees');
+    const parsed = saved ? JSON.parse(saved) : (wsCode === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
     return Array.isArray(parsed) ? parsed.map(normalizeEmployeeRecord) : [];
   });
 
@@ -252,18 +265,6 @@ export default function App() {
   const [orderSlips, setOrderSlips] = useState<OrderSlip[]>(() => {
     return getStoredOrderSlips();
   });
-
-  // Multi-Factory Workspace state
-  const [activeWorkspace, setActiveWorkspace] = useState<CompanyWorkspace>(() => {
-    try {
-      const saved = localStorage.getItem('active_factory_workspace');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return TRISHARTH_WORKSPACE;
-  });
-  const [factories, setFactories] = useState<CompanyWorkspace[]>(() => getStoredWorkspaces());
-  const [isFactorySwitcherOpen, setIsFactorySwitcherOpen] = useState<boolean>(false);
-  const isDataEntryPaused = Boolean(activeWorkspace.dataEntryPaused || activeWorkspace.planStatus === 'suspended');
 
   // UI state
   const [activeMainTab, setActiveMainTab] = useState<AppTab>('workflow');
