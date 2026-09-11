@@ -128,9 +128,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         const execId = idLower.includes('atharva') || idUpper === 'TR-001' ? 'TR-001' :
                        idLower.includes('trishil') || idUpper === 'TR-002' ? 'TR-002' : 'TR-003';
 
-        const expectedPass = execId === 'TR-001' ? 'atharva@0101' :
-                             execId === 'TR-002' ? 'trishil@1508' : 'lalji@0101';
-        const isPassValid = password && (password === expectedPass || password === 'trisharth@123' || password === 'admin@123');
+        const matchedEmp = allStaff.find(e => 
+          (e.employeeId && e.employeeId.toUpperCase() === execId) ||
+          (e.googleEmail && e.googleEmail.toLowerCase() === execEmail.toLowerCase())
+        ) || INITIAL_EMPLOYEES.find(e => 
+          (e.employeeId && e.employeeId.toUpperCase() === execId) ||
+          (e.googleEmail && e.googleEmail.toLowerCase() === execEmail.toLowerCase())
+        );
+
+        const customEmpPass = matchedEmp?.loginPassword;
+        const formulaPass = matchedEmp ? computeEmployeePassword(matchedEmp.name, matchedEmp.dob) : '';
+
+        const defaultExecPass = execId === 'TR-001' ? 'atharva@0101' :
+                                execId === 'TR-002' ? 'trishil@1107' : 'lalji@0101';
+
+        const isPassValid = Boolean(
+          pass && (
+            pass === defaultExecPass ||
+            pass === 'trishil@1107' ||
+            pass === 'trishil@1508' ||
+            pass === 'atharva@0101' ||
+            pass === 'lalji@0101' ||
+            (customEmpPass && pass === customEmpPass) ||
+            (formulaPass && pass === formulaPass) ||
+            pass === 'trisharth@123' ||
+            pass === 'admin@123'
+          )
+        );
 
         if (!isPassValid) {
           setIsLoading(false);
