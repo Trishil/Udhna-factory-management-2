@@ -801,9 +801,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             )}
 
             {/* ========================================================================= */}
-            {/* VIEW 2A: REGISTER NEW FACTORY FORM (DEFAULT & CONSTANT ON SIGN UP) */}
+            {/* VIEW 2: REGISTER NEW FACTORY FORM (CONSTANT ON SIGN UP) */}
             {/* ========================================================================= */}
-            {authMode === 'signup' && signupType === 'register_company' && (
+            {authMode === 'signup' && (
               <form onSubmit={handleRegisterCompanySubmit} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -910,117 +910,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   <Building2 className="h-4 w-4" />
                   <span>Register Factory &amp; Launch Workspace</span>
                 </button>
-
-                <div className="pt-3 text-center border-t border-slate-100 mt-3">
-                  <p className="text-xs text-slate-500">
-                    Are you an employee joining an existing plant?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSignupType('join_company');
-                        setErrorMessage(null);
-                      }}
-                      className="font-bold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center"
-                    >
-                      Join with Company Code →
-                    </button>
-                  </p>
-                </div>
-              </form>
-            )}
-
-            {/* ========================================================================= */}
-            {/* VIEW 2B: JOIN EXISTING COMPANY (EMPLOYEE SIGN-UP) */}
-            {/* ========================================================================= */}
-            {authMode === 'signup' && signupType === 'join_company' && (
-              <form onSubmit={handleJoinCompanySubmit} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Company Code *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={joinCompanyCode}
-                    onChange={(e) => setJoinCompanyCode(e.target.value.toUpperCase())}
-                    placeholder="e.g. TRISHARTH-HQ"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold uppercase text-blue-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Ask your factory owner for your company's secret code.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Your Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={joinEmployeeName}
-                    onChange={(e) => setJoinEmployeeName(e.target.value)}
-                    placeholder="e.g. Ramesh Patel"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Your Email (Optional)
-                  </label>
-                  <input
-                    type="email"
-                    value={joinEmployeeEmail}
-                    onChange={(e) => setJoinEmployeeEmail(e.target.value)}
-                    placeholder="e.g. ramesh@company.com"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Factory Role
-                  </label>
-                  <select
-                    value={joinJobRole}
-                    onChange={(e) => setJoinJobRole(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  >
-                    <option value="Floor Supervisor">Floor Supervisor</option>
-                    <option value="Embroidery Master">Embroidery Master</option>
-                    <option value="QC Inspector">QC Inspector</option>
-                    <option value="Dhaga Cutting">Dhaga Cutting Lead</option>
-                    <option value="Pressing & Packing">Pressing &amp; Packing</option>
-                    <option value="Dispatch Officer">Dispatch Officer</option>
-                    <option value="Inventory Manager">Inventory &amp; Stores</option>
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 mt-2"
-                >
-                  <User className="h-4 w-4" />
-                  <span>Join Company Workspace</span>
-                </button>
-
-                <div className="pt-3 text-center border-t border-slate-100 mt-3">
-                  <p className="text-xs text-slate-500">
-                    Are you a factory owner creating a new workspace?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSignupType('register_company');
-                        setErrorMessage(null);
-                      }}
-                      className="font-bold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center"
-                    >
-                      ← Register a New Factory
-                    </button>
-                  </p>
-                </div>
               </form>
             )}
 
