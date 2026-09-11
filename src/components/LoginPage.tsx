@@ -29,7 +29,7 @@ import {
   getEffectiveOAuthClientId
 } from '../services/googleAuth';
 import { logEmployeeLoginToMaster } from '../services/masterRegistryService';
-import { fetchCloudFinanceEmployees } from '../services/cloudDbService';
+import { fetchCloudFinanceEmployees, fetchAllCloudEmployees } from '../services/cloudDbService';
 import { computeEmployeePassword } from './FinanceManager';
 import { INITIAL_EMPLOYEES } from '../data/initialData';
 
@@ -109,8 +109,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const idUpper = identifier.toUpperCase();
       const idLower = identifier.toLowerCase();
 
-      // Fetch real-time active employees from Firestore
-      const activeEmployees = await fetchCloudFinanceEmployees();
+      // Fetch real-time active employees from Firestore for this factory
+      const activeEmployees = await fetchCloudFinanceEmployees(workspace.code);
       const allStaff = activeEmployees.length > 0 ? activeEmployees : INITIAL_EMPLOYEES;
 
       // 1. Check Executive Whitelist
@@ -132,6 +132,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           email: execEmail,
           name: execName,
           role: 'owner',
+          isSuperAdmin: true,
           companyId: workspace.id,
           companyName: workspace.name,
           companyCode: workspace.code,
@@ -154,6 +155,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         setAuthStep(`Verified Executive Owner (${execName})! Launching workspace...`);
         setTimeout(() => {
           onLoginSuccess(execUser, workspace.sheetId);
+        }, 350);
+        return;
+      }
+
+      // 1.5 Check if credentials match the Client Factory Owner for this workspace
+      if (workspace.ownerEmail && (workspace.ownerEmail.toLowerCase() === idLower || workspace.ownerName?.toLowerCase() === idLower)) {
+        const clientOwnerUser: AuthUser = {
+          id: `usr-owner-${workspace.code}`,
+          employeeId: `${workspace.code}-OWNER`,
+          email: workspace.ownerEmail,
+          name: workspace.ownerName || `${workspace.name} Owner`,
+          role: 'owner',
+          isSuperAdmin: false,
+          companyId: workspace.id,
+          companyName: workspace.name,
+          companyCode: workspace.code,
+          sheetAccessGranted: true,
+          sheetTitle: `${workspace.name} Operations Sheet`,
+          authMethod: 'credentials',
+          loginTimestamp: new Date().toISOString(),
+          webAccess: true,
+          mobileAccess: true,
+          financialAccess: true
+        };
+
+        logEmployeeLoginToMaster({
+          email: clientOwnerUser.email,
+          name: clientOwnerUser.name,
+          role: 'Client Factory Owner',
+          companyCode: workspace.code
+        }).catch(() => {});
+
+        setAuthStep(`Verified Factory Owner (${clientOwnerUser.name})! Launching workspace...`);
+        setTimeout(() => {
+          onLoginSuccess(clientOwnerUser, workspace.sheetId);
         }, 350);
         return;
       }
@@ -249,9 +285,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
       setAuthStep(`Verifying Google account (${googleEmail})...`);
 
-      const workspace = TRISHARTH_WORKSPACE;
-      setRememberedCompanyCode(workspace.code);
-
       // 1. Check Executive Whitelist
       const isExecutive = ['atharvabalar6@gmail.com', 'trishilbalar@gmail.com', 'drlaljirpatel@gmail.com'].includes(googleEmail);
 
@@ -261,6 +294,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         const execId = googleEmail.includes('atharva') ? 'TR-001' :
                        googleEmail.includes('trishil') ? 'TR-002' : 'TR-003';
 
+        const execWorkspace = TRISHARTH_WORKSPACE;
+        setRememberedCompanyCode(execWorkspace.code);
+
         const execUser: AuthUser = {
           id: profile.uid || `g_${Date.now()}`,
           employeeId: execId,
@@ -268,11 +304,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           name: profile.name || execName,
           picture: profile.picture,
           role: 'owner',
-          companyId: workspace.id,
-          companyName: workspace.name,
-          companyCode: workspace.code,
+          isSuperAdmin: true,
+          companyId: execWorkspace.id,
+          companyName: execWorkspace.name,
+          companyCode: execWorkspace.code,
           sheetAccessGranted: true,
-          sheetTitle: 'Trisharth Production & Inventory Sheet',
+          sheetTitle: `${execWorkspace.name} Operations Sheet`,
           authMethod: 'google_oauth',
           loginTimestamp: new Date().toISOString(),
           webAccess: true,
@@ -284,30 +321,83 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           email: execUser.email,
           name: execUser.name,
           role: 'Owner',
-          companyCode: workspace.code
+          companyCode: execWorkspace.code
         }).catch(() => {});
 
         setAuthStep(`Welcome, ${execName}! Launching Trisharth ERP...`);
         setTimeout(() => {
-          onLoginSuccess(execUser, workspace.sheetId);
+          onLoginSuccess(execUser, execWorkspace.sheetId);
         }, 350);
         return;
       }
 
-      // 2. Check Registered Employees in Firestore Directory
-      const activeEmployees = await fetchCloudFinanceEmployees();
-      const allStaff = activeEmployees.length > 0 ? activeEmployees : INITIAL_EMPLOYEES;
-
-      const matchedEmp = allStaff.find(e => 
-        (e.googleEmail && e.googleEmail.toLowerCase() === googleEmail)
+      // 1.5 Check if user is a registered Client Factory Owner in Firestore active_factories
+      const { fetchCloudFactories } = await import('../services/cloudDbService');
+      const allFactories = await fetchCloudFactories();
+      const matchedClientFactory = allFactories.find(f => 
+        f.ownerEmail && f.ownerEmail.trim().toLowerCase() === googleEmail
       );
 
+      if (matchedClientFactory) {
+        const clientOwnerUser: AuthUser = {
+          id: profile.uid || `g_owner_${matchedClientFactory.code}`,
+          email: googleEmail,
+          name: profile.name || matchedClientFactory.ownerName || `${matchedClientFactory.name} Owner`,
+          picture: profile.picture,
+          role: 'owner',
+          isSuperAdmin: false,
+          companyId: matchedClientFactory.id,
+          companyName: matchedClientFactory.name,
+          companyCode: matchedClientFactory.code,
+          sheetAccessGranted: true,
+          sheetTitle: `${matchedClientFactory.name} Operations Sheet`,
+          authMethod: 'google_oauth',
+          loginTimestamp: new Date().toISOString(),
+          webAccess: true,
+          mobileAccess: true,
+          financialAccess: true
+        };
+
+        setRememberedCompanyCode(matchedClientFactory.code);
+        logEmployeeLoginToMaster({
+          email: clientOwnerUser.email,
+          name: clientOwnerUser.name,
+          role: 'Client Factory Owner',
+          companyCode: matchedClientFactory.code
+        }).catch(() => {});
+
+        setAuthStep(`Welcome, ${clientOwnerUser.name}! Launching ${matchedClientFactory.name}...`);
+        setTimeout(() => {
+          onLoginSuccess(clientOwnerUser, matchedClientFactory.sheetId);
+        }, 350);
+        return;
+      }
+
+      // 2. Check Registered Employees across all factory directories in Firestore
+      const allCloudRecords = await fetchAllCloudEmployees();
+      const matchedRecord = allCloudRecords.find(rec => 
+        rec.employee.googleEmail && rec.employee.googleEmail.trim().toLowerCase() === googleEmail
+      );
+
+      let matchedEmp: EmployeeRecord | undefined = matchedRecord?.employee;
+      let workspace: CompanyWorkspace = matchedRecord?.factory || TRISHARTH_WORKSPACE;
+
+      // Fallback: check INITIAL_EMPLOYEES
       if (!matchedEmp) {
-        setErrorMessage(`Access Denied: Google account "${googleEmail}" is not linked to any registered Trisharth employee. Please sign in with your Employee ID & Password, or contact administration.`);
+        matchedEmp = INITIAL_EMPLOYEES.find(e => 
+          e.googleEmail && e.googleEmail.trim().toLowerCase() === googleEmail
+        );
+        workspace = TRISHARTH_WORKSPACE;
+      }
+
+      if (!matchedEmp) {
+        setErrorMessage(`Access Denied: Google account "${googleEmail}" is not linked to any registered factory owner or employee. Please sign in with your Company Code & Password, or ask your factory administrator to link your Google Email.`);
         setIsLoading(false);
         setAuthStep('');
         return;
       }
+
+      setRememberedCompanyCode(workspace.code);
 
       if (matchedEmp.noAppAccess || (!matchedEmp.webAccess && !matchedEmp.mobileAccess)) {
         setErrorMessage(`Access Denied: Employee "${matchedEmp.name}" is on Payroll Only (No Web/Mobile access).`);
@@ -317,7 +407,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       }
 
       if (matchedEmp.webAccess !== true) {
-        setErrorMessage(`Access Denied: Employee "${matchedEmp.name}" does not have Web ERP clearance.`);
+        setErrorMessage(`Access Denied: Employee "${matchedEmp.name}" does not have Web ERP clearance. Mobile app only.`);
         setIsLoading(false);
         setAuthStep('');
         return;
@@ -334,7 +424,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         companyName: workspace.name,
         companyCode: workspace.code,
         sheetAccessGranted: true,
-        sheetTitle: 'Trisharth Production & Inventory Sheet',
+        sheetTitle: `${workspace.name} Operations Sheet`,
         authMethod: 'google_oauth',
         loginTimestamp: new Date().toISOString(),
         webAccess: true,
@@ -349,7 +439,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         companyCode: workspace.code
       }).catch(() => {});
 
-      setAuthStep(`Welcome, ${authUser.name}! Launching Trisharth ERP...`);
+      setAuthStep(`Welcome, ${authUser.name}! Launching ${workspace.name}...`);
       setTimeout(() => {
         onLoginSuccess(authUser, workspace.sheetId);
       }, 350);

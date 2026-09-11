@@ -205,9 +205,13 @@ export interface CompanyWorkspace {
   isPrimary?: boolean;
   logo?: string;
   ownerEmail: string;
+  ownerName?: string;
   allowedEmails?: string[];
   membersCount?: number;
   description?: string;
+  createdAt?: string;
+  planStatus?: 'active' | 'trial' | 'suspended';
+  maxUsers?: number;
 }
 
 export interface AuthUser {
@@ -217,6 +221,7 @@ export interface AuthUser {
   picture?: string;
   accessToken?: string;
   role: 'owner' | 'editor' | 'viewer' | 'operator';
+  isSuperAdmin?: boolean; // Platform vendor admin (Trishil, Atharva)
   companyId?: string;
   companyName?: string;
   companyCode?: string;

@@ -34,7 +34,8 @@ import {
   WorkflowItem,
   WorkflowStageId,
   OrderSlip,
-  IndividualPieceUnit
+  IndividualPieceUnit,
+  CompanyWorkspace
 } from './types';
 import { 
   syncWithAppsScript, 
@@ -85,8 +86,14 @@ import {
   subscribeToCloudFinance,
   saveCloudFinance,
   clearAllCloudFinance,
-  clearAllCloudProductionOrders
+  clearAllCloudProductionOrders,
+  subscribeToCloudFactories,
+  saveCloudFactory,
+  fetchCloudFactories,
+  DEFAULT_FACTORY_CODE
 } from './services/cloudDbService';
+import { FactorySwitcherModal } from './components/FactorySwitcherModal';
+import { TRISHARTH_WORKSPACE, getStoredWorkspaces } from './services/googleAuth';
 import { exportFactoryDataToExcel } from './services/excelExportService';
 import { 
   getStoredWorkflowItems, 
@@ -235,6 +242,17 @@ export default function App() {
     return getStoredOrderSlips();
   });
 
+  // Multi-Factory Workspace state
+  const [activeWorkspace, setActiveWorkspace] = useState<CompanyWorkspace>(() => {
+    try {
+      const saved = localStorage.getItem('active_factory_workspace');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return TRISHARTH_WORKSPACE;
+  });
+  const [factories, setFactories] = useState<CompanyWorkspace[]>(() => getStoredWorkspaces());
+  const [isFactorySwitcherOpen, setIsFactorySwitcherOpen] = useState<boolean>(false);
+
   // UI state
   const [activeMainTab, setActiveMainTab] = useState<AppTab>('workflow');
 
@@ -307,7 +325,15 @@ export default function App() {
     }
 
     // 1. Pure Real-Time Cloud Database Synchronizers (Firebase Firestore)
-    // Instant sub-second reflection across all computers & devices without cache ghosting
+    // Instant sub-second reflection across all computers & devices with factory isolation
+    const currentCode = activeWorkspace.code;
+
+    const unsubscribeFactories = subscribeToCloudFactories((cloudFactories) => {
+      if (Array.isArray(cloudFactories) && cloudFactories.length > 0) {
+        setFactories(cloudFactories);
+      }
+    });
+
     let isEnrichingPhotos = false;
     const unsubscribeDesigns = subscribeToCloudWorkflow((cloudItems) => {
       if (Array.isArray(cloudItems)) {
@@ -329,7 +355,7 @@ export default function App() {
               if (changed) {
                 setWorkflowItems(enriched);
                 saveStoredWorkflowItems(enriched);
-                saveCloudWorkflowItems(enriched).catch(() => {});
+                saveCloudWorkflowItems(enriched, currentCode).catch(() => {});
               }
             })
             .catch((err) => {
@@ -340,36 +366,36 @@ export default function App() {
             });
         }
       }
-    });
+    }, undefined, currentCode);
 
     const unsubscribeSlips = subscribeToCloudOrderSlips((cloudSlips) => {
       if (Array.isArray(cloudSlips)) {
         setOrderSlips(cloudSlips);
         saveStoredOrderSlips(cloudSlips);
       }
-    });
+    }, undefined, currentCode);
 
     const unsubscribeMaterials = subscribeToCloudInventory((cloudMats) => {
       if (Array.isArray(cloudMats)) {
         setMaterials(cloudMats);
         localStorage.setItem('factory_materials', JSON.stringify(cloudMats));
       }
-    });
+    }, undefined, currentCode);
 
     const unsubscribeDispatches = subscribeToCloudDispatch((cloudDispatches) => {
       if (Array.isArray(cloudDispatches)) {
         setDispatchOrders(cloudDispatches);
         localStorage.setItem('factory_dispatch_orders', JSON.stringify(cloudDispatches));
       }
-    });
+    }, undefined, currentCode);
 
     const unsubscribeFinance = subscribeToCloudFinance((cloudFin) => {
       if (Array.isArray(cloudFin.employees)) {
-        const emps = cloudFin.employees.length > 0 ? cloudFin.employees : INITIAL_EMPLOYEES;
+        const emps = cloudFin.employees.length > 0 ? cloudFin.employees : (currentCode === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
         setEmployees(emps);
         localStorage.setItem('factory_employees', JSON.stringify(emps));
-        if (cloudFin.employees.length === 0) {
-          saveCloudFinance({ employees: INITIAL_EMPLOYEES }).catch(() => {});
+        if (cloudFin.employees.length === 0 && currentCode === 'TRISHARTH-HQ') {
+          saveCloudFinance({ employees: INITIAL_EMPLOYEES }, currentCode).catch(() => {});
         }
       }
       if (Array.isArray(cloudFin.electricityRecords)) {
@@ -392,7 +418,7 @@ export default function App() {
         setTransactions(cloudFin.transactions);
         localStorage.setItem('factory_transactions', JSON.stringify(cloudFin.transactions));
       }
-    });
+    }, undefined, currentCode);
 
     // 3. Centralized Company Google Spreadsheet configuration listener (sync status & audit metadata)
     const unsubscribeCompanyConfig = subscribeToCompanySpreadsheetConfig((cloudCfg) => {
@@ -413,6 +439,7 @@ export default function App() {
     });
 
     return () => {
+      if (unsubscribeFactories) unsubscribeFactories();
       if (unsubscribeDesigns) unsubscribeDesigns();
       if (unsubscribeSlips) unsubscribeSlips();
       if (unsubscribeMaterials) unsubscribeMaterials();
@@ -420,7 +447,7 @@ export default function App() {
       if (unsubscribeFinance) unsubscribeFinance();
       if (unsubscribeCompanyConfig) unsubscribeCompanyConfig();
     };
-  }, []);
+  }, [activeWorkspace.code]);
 
   // Persistence effects
   useEffect(() => {
@@ -481,6 +508,19 @@ export default function App() {
       companyCode: user.companyCode || 'TRISHARTH-HQ'
     }).catch(() => {});
 
+    if (user.companyCode) {
+      const userFactory = factories.find(f => f.code.toUpperCase() === user.companyCode.toUpperCase()) || {
+        id: user.companyId || `factory_${user.companyCode.toLowerCase()}`,
+        name: user.companyName || user.companyCode,
+        code: user.companyCode,
+        sheetId,
+        scriptUrl: DEFAULT_APPS_SCRIPT_URL,
+        isPrimary: user.companyCode.toUpperCase() === 'TRISHARTH-HQ'
+      };
+      setActiveWorkspace(userFactory);
+      localStorage.setItem('active_factory_workspace', JSON.stringify(userFactory));
+    }
+
     const activeWs = getActiveWorkspace();
     const scriptUrl = activeWs.scriptUrl || syncConfig.scriptUrl;
 
@@ -503,6 +543,22 @@ export default function App() {
   const handleSwitchAccount = () => {
     setCurrentUser(null);
     saveStoredAuthUser(null);
+  };
+
+  const handleSwitchWorkspace = (ws: CompanyWorkspace) => {
+    setActiveWorkspace(ws);
+    localStorage.setItem('active_factory_workspace', JSON.stringify(ws));
+    setLastAutoEntryNotice(`Switched to Factory: ${ws.name} (${ws.code})`);
+    setTimeout(() => setLastAutoEntryNotice(null), 4000);
+  };
+
+  const handleAddFactory = async (newFactory: CompanyWorkspace) => {
+    const updated = await saveCloudFactory(newFactory);
+    setFactories(updated);
+    setActiveWorkspace(newFactory);
+    localStorage.setItem('active_factory_workspace', JSON.stringify(newFactory));
+    setLastAutoEntryNotice(`Created & Activated New Factory: ${newFactory.name} (${newFactory.code})`);
+    setTimeout(() => setLastAutoEntryNotice(null), 4000);
   };
 
   // Real-time Simulation Engine
@@ -1685,6 +1741,7 @@ export default function App() {
       lastPaidDate: today
     } : e);
     setEmployees(updatedEmployees);
+    localStorage.setItem('factory_employees', JSON.stringify(updatedEmployees));
 
     // Also auto-log as operational expense
     const salaryExpense: OperationalExpense = {
@@ -1704,6 +1761,8 @@ export default function App() {
 
     const updatedExpenses = [salaryExpense, ...expenses];
     setExpenses(updatedExpenses);
+
+    saveCloudFinance({ employees: updatedEmployees, expenses: updatedExpenses }, activeWorkspace.code).catch(e => console.warn('Cloud save error:', e));
 
     confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
     setLastAutoEntryNotice(`Disbursed salary of ₹${emp.netPayable.toLocaleString()} to ${emp.name}`);
@@ -1728,7 +1787,22 @@ export default function App() {
 
     const updatedEmployees = [...employees, newRecord];
     setEmployees(updatedEmployees);
+    localStorage.setItem('factory_employees', JSON.stringify(updatedEmployees));
+    saveCloudFinance({ employees: updatedEmployees }, activeWorkspace.code).catch(e => console.warn('Cloud employee add error:', e));
+
     setLastAutoEntryNotice(`Added staff member ${newRecord.name} (${assignedId})`);
+    setTimeout(() => setLastAutoEntryNotice(null), 4000);
+
+    syncFullStateToGoogleSheets({ employeesList: updatedEmployees });
+  };
+
+  const handleUpdateEmployee = (updatedEmp: EmployeeRecord) => {
+    const updatedEmployees = employees.map(e => e.id === updatedEmp.id ? updatedEmp : e);
+    setEmployees(updatedEmployees);
+    localStorage.setItem('factory_employees', JSON.stringify(updatedEmployees));
+    saveCloudFinance({ employees: updatedEmployees }, activeWorkspace.code).catch(e => console.warn('Cloud employee update error:', e));
+
+    setLastAutoEntryNotice(`Updated staff member ${updatedEmp.name} (${updatedEmp.employeeId})`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
 
     syncFullStateToGoogleSheets({ employeesList: updatedEmployees });
@@ -2070,6 +2144,8 @@ export default function App() {
     const target = employees.find(e => e.id === employeeId);
     const updated = employees.filter(e => e.id !== employeeId);
     setEmployees(updated);
+    localStorage.setItem('factory_employees', JSON.stringify(updated));
+    saveCloudFinance({ employees: updated }, activeWorkspace.code).catch(e => console.warn('Cloud employee delete error:', e));
 
     if (target) {
       setLastAutoEntryNotice(`Removed employee ${target.name}`);
@@ -2814,6 +2890,8 @@ export default function App() {
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={handleToggleSidebar}
             currentUser={currentUser}
+            activeWorkspace={activeWorkspace}
+            onOpenFactorySwitcher={currentUser?.isSuperAdmin ? () => setIsFactorySwitcherOpen(true) : undefined}
           />
 
           <div className="flex-1 flex flex-col min-w-0 min-h-screen">
@@ -3041,6 +3119,7 @@ export default function App() {
             onEditElectricityRecord={handleEditElectricityRecord}
             onDeleteElectricityRecord={handleDeleteElectricityRecord}
             onDeleteEmployee={handleDeleteEmployee}
+            onUpdateEmployee={handleUpdateEmployee}
             onDeleteExpense={handleDeleteExpense}
             onDeletePartyInvoice={handleDeletePartyInvoice}
             onDeleteSupplierPayable={handleDeleteSupplierPayable}
@@ -3290,6 +3369,18 @@ export default function App() {
           setIsStockAdjustOpen(true);
         }}
       />
+
+      {currentUser?.isSuperAdmin && (
+        <FactorySwitcherModal
+          isOpen={isFactorySwitcherOpen}
+          onClose={() => setIsFactorySwitcherOpen(false)}
+          activeWorkspace={activeWorkspace}
+          onSwitchWorkspace={handleSwitchWorkspace}
+          factories={factories}
+          onAddFactory={handleAddFactory}
+          currentUser={currentUser}
+        />
+      )}
 
     </div>
   );

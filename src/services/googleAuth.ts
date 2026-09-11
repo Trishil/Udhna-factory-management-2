@@ -208,14 +208,79 @@ export interface GoogleAuthProfile {
 export async function authenticateWithGoogle(): Promise<GoogleAuthProfile> {
   try {
     const provider = new GoogleAuthProvider();
+    provider.addScope('email');
+    provider.addScope('profile');
     provider.setCustomParameters({ prompt: 'select_account' });
 
     const credential = await signInWithPopup(firebaseAuth, provider);
     if (credential && credential.user) {
       const fbUser = credential.user;
-      const email = fbUser.email || '';
-      const name = fbUser.displayName || email.split('@')[0];
-      const picture = fbUser.photoURL || undefined;
+      
+      // Try multiple extraction methods for email — Cross-Origin-Opener-Policy 
+      // on some browsers can cause fbUser.email to be null despite successful auth
+      let email = '';
+      
+      // Method 1: Direct user.email
+      if (fbUser.email) {
+        email = fbUser.email.trim().toLowerCase();
+      }
+      
+      // Method 2: providerData array
+      if (!email && fbUser.providerData && fbUser.providerData.length > 0) {
+        for (const pd of fbUser.providerData) {
+          if (pd.email) {
+            email = pd.email.trim().toLowerCase();
+            break;
+          }
+        }
+      }
+      
+      // Method 3: Reload the user object and try again
+      if (!email) {
+        try {
+          await fbUser.reload();
+          const refreshedUser = firebaseAuth.currentUser;
+          if (refreshedUser?.email) {
+            email = refreshedUser.email.trim().toLowerCase();
+          } else if (refreshedUser?.providerData) {
+            for (const pd of refreshedUser.providerData) {
+              if (pd.email) {
+                email = pd.email.trim().toLowerCase();
+                break;
+              }
+            }
+          }
+        } catch (reloadErr) {
+          console.warn('User reload failed:', reloadErr);
+        }
+      }
+      
+      // Method 4: Extract from OAuthCredential token
+      if (!email) {
+        try {
+          const oauthCred = GoogleAuthProvider.credentialFromResult(credential);
+          if (oauthCred?.accessToken) {
+            const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { 'Authorization': `Bearer ${(oauthCred as any).accessToken}` }
+            });
+            if (profileRes.ok) {
+              const profileData = await profileRes.json();
+              if (profileData.email) {
+                email = profileData.email.trim().toLowerCase();
+              }
+            }
+          }
+        } catch (tokenErr) {
+          console.warn('OAuth token email extraction failed:', tokenErr);
+        }
+      }
+      
+      if (!email) {
+        throw new Error('Google did not return an email address. Please check your Google account permissions and try again.');
+      }
+      
+      const name = fbUser.displayName || fbUser.providerData?.[0]?.displayName || email.split('@')[0];
+      const picture = fbUser.photoURL || fbUser.providerData?.[0]?.photoURL || undefined;
       return {
         uid: fbUser.uid,
         email,
@@ -230,7 +295,7 @@ export async function authenticateWithGoogle(): Promise<GoogleAuthProfile> {
       throw new Error('Google Sign-In popup was closed before completing authentication.');
     }
     if (fbErr?.code === 'auth/unauthorized-domain') {
-      throw new Error('Firebase Authorized Domain required: Please add "ai.studio" and "textileflow.ai.studio" in Firebase Console > Authentication > Settings > Authorized domains.');
+      throw new Error('Firebase Authorized Domain required: Please add your current domain in Firebase Console > Authentication > Settings > Authorized domains.');
     }
     if (fbErr?.code === 'auth/operation-not-allowed' || fbErr?.code === 'auth/configuration-not-found') {
       throw new Error('Google Sign-In is disabled: Please enable Google in Firebase Console > Authentication > Sign-in method.');
@@ -551,7 +616,18 @@ export async function lookupCompanyByCode(code: string): Promise<CompanyWorkspac
   const localFound = localList.find(w => w.code.toUpperCase() === cleanCode || w.id.toUpperCase() === cleanCode);
   if (localFound) return localFound;
 
-  // 3. Query Master Registry Google Sheet via Apps Script Backend
+  // 3. Check Cloud Firestore Registry
+  try {
+    const { fetchCloudFactories } = await import('./cloudDbService');
+    const cloudFactories = await fetchCloudFactories();
+    const cloudFound = cloudFactories.find(w => w.code.toUpperCase() === cleanCode || w.id.toUpperCase() === cleanCode);
+    if (cloudFound) {
+      saveCustomWorkspace(cloudFound);
+      return cloudFound;
+    }
+  } catch {}
+
+  // 4. Query Master Registry Google Sheet via Apps Script Backend
   try {
     const url = `${DEFAULT_APPS_SCRIPT_URL}?action=get_company&code=${encodeURIComponent(cleanCode)}`;
     const res = await fetch(url, { method: 'GET', mode: 'cors' });
@@ -587,6 +663,18 @@ export function findWorkspaceByCode(code: string): CompanyWorkspace | undefined 
   return workspaces.find(w => w.code.toUpperCase() === clean || w.name.toUpperCase() === clean || w.id.toUpperCase() === clean);
 }
 
+export const PLATFORM_SUPER_ADMIN_EMAILS = [
+  'atharvabalar6@gmail.com',
+  'trishilbalar@gmail.com',
+  'drlaljirpatel@gmail.com'
+];
+
+export function isPlatformSuperAdmin(email?: string): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return PLATFORM_SUPER_ADMIN_EMAILS.includes(clean);
+}
+
 export async function registerNewCompany(
   companyName: string,
   companyCode: string,
@@ -599,20 +687,31 @@ export async function registerNewCompany(
   const effectiveSheetId = sheetId?.trim() || `1SHEET_${code}_${Date.now()}`;
   
   const newWs: CompanyWorkspace = {
-    id: `company_${Date.now()}`,
+    id: `company_${code.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
     name: companyName.trim(),
     code,
     sheetId: effectiveSheetId,
     scriptUrl: scriptUrl?.trim() || '',
     isPrimary: false,
     ownerEmail: ownerEmail.trim() || 'admin@' + code.toLowerCase() + '.internal',
+    ownerName: ownerName.trim() || 'Factory Owner',
+    createdAt: new Date().toISOString(),
+    planStatus: 'active',
     membersCount: 1,
-    description: `Private workspace for ${companyName.trim()}`
+    description: `Private commercial workspace for ${companyName.trim()}`
   };
 
   saveCustomWorkspace(newWs);
   setActiveWorkspace(newWs);
   setRememberedCompanyCode(newWs.code);
+
+  // CRITICAL: Persist to Firestore active_factories so it exists across all cloud sessions
+  try {
+    const { saveCloudFactory } = await import('./cloudDbService');
+    await saveCloudFactory(newWs);
+  } catch (e) {
+    console.warn('Failed to save new company to cloud factories registry:', e);
+  }
 
   // Sync to Master Registry Google Sheet in background
   try {
@@ -635,13 +734,17 @@ export async function registerNewCompany(
     email: ownerEmail.trim() || `owner@${code.toLowerCase()}.internal`,
     name: ownerName.trim() || 'Company Administrator',
     role: 'owner',
+    isSuperAdmin: isPlatformSuperAdmin(ownerEmail),
     companyId: newWs.id,
     companyName: newWs.name,
     companyCode: newWs.code,
     sheetAccessGranted: true,
     sheetTitle: `${newWs.name} Production Master`,
     authMethod: 'tenant',
-    loginTimestamp: new Date().toISOString()
+    loginTimestamp: new Date().toISOString(),
+    webAccess: true,
+    mobileAccess: true,
+    financialAccess: true
   };
 
   saveStoredAuthUser(user);

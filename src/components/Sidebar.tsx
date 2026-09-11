@@ -12,10 +12,13 @@ import {
   CheckCircle2, 
   ShieldCheck,
   Package,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Building2,
+  Crown
 } from 'lucide-react';
-import { AppTab, AuthUser } from '../types';
+import { AppTab, AuthUser, CompanyWorkspace } from '../types';
 import logoImg from '../assets/logo.png';
+import { isPlatformSuperAdmin } from '../services/googleAuth';
 
 interface SidebarProps {
   activeTab: AppTab;
@@ -26,6 +29,8 @@ interface SidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   currentUser?: AuthUser | null;
+  activeWorkspace?: CompanyWorkspace;
+  onOpenFactorySwitcher?: () => void;
   onOpenSyncModal?: () => void;
   onOpenCreateSheet?: () => void;
 }
@@ -39,9 +44,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
   currentUser,
+  activeWorkspace,
+  onOpenFactorySwitcher,
   onOpenSyncModal,
   onOpenCreateSheet
 }) => {
+  const isSuperAdmin = currentUser?.isSuperAdmin || isPlatformSuperAdmin(currentUser?.email);
+
   const navItems = [
     {
       id: 'workflow' as AppTab,
@@ -151,6 +160,78 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <ChevronRight className="h-4 w-4 text-slate-500" />
             </button>
+          </div>
+        )}
+
+        {/* Super Admin: Commercial Client Management Console */}
+        {!isCollapsed && onOpenFactorySwitcher && isSuperAdmin && (
+          <div className="px-3 pt-3 pb-1">
+            <button
+              type="button"
+              onClick={onOpenFactorySwitcher}
+              className="w-full flex items-center justify-between p-2 rounded-xl bg-amber-50/80 hover:bg-amber-100/80 border border-amber-200 hover:border-amber-300 transition-all text-left group cursor-pointer shadow-2xs"
+              title="Commercial Client Accounts & Provisioning (Super Admin)"
+            >
+              <div className="flex items-center space-x-2 truncate">
+                <div className="p-1.5 rounded-lg bg-white border border-amber-200 text-amber-600 group-hover:text-amber-700 shrink-0">
+                  <Crown className="h-3.5 w-3.5" />
+                </div>
+                <div className="truncate">
+                  <span className="block text-[11px] font-black text-amber-900 truncate leading-tight">
+                    👑 Platform Admin
+                  </span>
+                  <span className="block text-[9px] font-mono text-amber-700 font-bold leading-tight truncate">
+                    {activeWorkspace?.name || 'Trisharth HQ'} ({activeWorkspace?.code})
+                  </span>
+                </div>
+              </div>
+              <span className="text-[10px] text-amber-800 font-black ml-1 shrink-0 bg-amber-200/80 px-1.5 py-0.5 rounded">
+                Clients ▾
+              </span>
+            </button>
+          </div>
+        )}
+
+        {isCollapsed && onOpenFactorySwitcher && isSuperAdmin && (
+          <div className="pt-2 px-3 flex justify-center">
+            <button
+              type="button"
+              onClick={onOpenFactorySwitcher}
+              className="p-1.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-colors cursor-pointer"
+              title={`Platform Admin: Inspecting ${activeWorkspace?.name || 'Trisharth'}`}
+            >
+              <Crown className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Regular Commercial Client: Static Private Company Badge (NO Switch Button!) */}
+        {!isCollapsed && !isSuperAdmin && (
+          <div className="px-3 pt-3 pb-1">
+            <div className="w-full flex items-center p-2 rounded-xl bg-slate-50 border border-slate-200 text-left">
+              <div className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 shrink-0 mr-2">
+                <Building2 className="h-3.5 w-3.5" />
+              </div>
+              <div className="truncate">
+                <span className="block text-[11px] font-black text-slate-900 truncate leading-tight">
+                  {activeWorkspace?.name || 'My Factory'}
+                </span>
+                <span className="block text-[9px] font-mono text-slate-500 font-bold leading-tight">
+                  {activeWorkspace?.code || 'PLANT-01'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isCollapsed && !isSuperAdmin && (
+          <div className="pt-2 px-3 flex justify-center">
+            <div
+              className="p-1.5 rounded-lg text-slate-600"
+              title={`Factory: ${activeWorkspace?.name || 'My Factory'}`}
+            >
+              <Building2 className="h-4 w-4" />
+            </div>
           </div>
         )}
 

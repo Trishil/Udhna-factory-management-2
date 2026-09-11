@@ -136,6 +136,7 @@ interface FinanceManagerProps {
   onEditElectricityRecord?: (record: ElectricityUsageRecord) => void;
   onDeleteElectricityRecord?: (recordId: string) => void;
   onDeleteEmployee?: (employeeId: string) => void;
+  onUpdateEmployee?: (updated: EmployeeRecord) => void;
   onDeleteExpense?: (expenseId: string) => void;
   onDeletePartyInvoice?: (invoiceId: string) => void;
   onDeleteSupplierPayable?: (payableId: string) => void;
@@ -164,6 +165,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
   onEditElectricityRecord,
   onDeleteElectricityRecord,
   onDeleteEmployee,
+  onUpdateEmployee,
   onDeleteExpense,
   onDeletePartyInvoice,
   onDeleteSupplierPayable,
@@ -561,6 +563,102 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
       customPassword: ''
     });
     setIsAddEmployeeOpen(false);
+  };
+
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeRecord | null>(null);
+  const [editEmpForm, setEditEmpForm] = useState({
+    name: '',
+    dob: '',
+    role: '',
+    department: 'Production' as EmployeeRecord['department'],
+    salaryType: 'monthly' as EmployeeRecord['salaryType'],
+    baseSalary: '0',
+    hourlyRate: '0',
+    hoursWorkedMonth: '160',
+    bonusOrOvertime: '0',
+    deductions: '0',
+    paymentStatus: 'pending' as EmployeeRecord['paymentStatus'],
+    paymentMethod: 'bank_transfer' as EmployeeRecord['paymentMethod'],
+    bankAccountOrUpi: '',
+    phone: '',
+    assignedMachineId: '',
+    webAccess: true,
+    mobileAccess: true,
+    financialAccess: false,
+    noAppAccess: false,
+    googleEmail: '',
+    loginPassword: ''
+  });
+  const [showEditPassword, setShowEditPassword] = useState(false);
+
+  const handleOpenEditEmployee = (emp: EmployeeRecord) => {
+    setEditingEmployee(emp);
+    setEditEmpForm({
+      name: emp.name || '',
+      dob: emp.dob || '',
+      role: emp.role || '',
+      department: emp.department || 'Production',
+      salaryType: emp.salaryType || 'monthly',
+      baseSalary: String(emp.baseSalary || 0),
+      hourlyRate: String(emp.hourlyRate || 0),
+      hoursWorkedMonth: String(emp.hoursWorkedThisMonth || 160),
+      bonusOrOvertime: String(emp.bonusOrOvertime || 0),
+      deductions: String(emp.deductions || 0),
+      paymentStatus: emp.paymentStatus || 'pending',
+      paymentMethod: emp.paymentMethod || 'bank_transfer',
+      bankAccountOrUpi: emp.bankAccountOrUpi || '',
+      phone: emp.phone || '',
+      assignedMachineId: emp.assignedMachineId || '',
+      webAccess: emp.webAccess !== false,
+      mobileAccess: emp.mobileAccess !== false,
+      financialAccess: !!emp.financialAccess,
+      noAppAccess: !!emp.noAppAccess,
+      googleEmail: emp.googleEmail || '',
+      loginPassword: emp.loginPassword || ''
+    });
+    setShowEditPassword(false);
+  };
+
+  const handleEditEmployeeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEmployee || !editEmpForm.name.trim() || !editEmpForm.role.trim()) return;
+
+    const base = parseFloat(editEmpForm.baseSalary) || 0;
+    const bonus = parseFloat(editEmpForm.bonusOrOvertime) || 0;
+    const ded = parseFloat(editEmpForm.deductions) || 0;
+    const net = base + bonus - ded;
+    const computedPass = computeEmployeePassword(editEmpForm.name, editEmpForm.dob);
+    const finalPass = editEmpForm.loginPassword.trim() || computedPass;
+
+    const updated: EmployeeRecord = {
+      ...editingEmployee,
+      name: editEmpForm.name.trim(),
+      dob: editEmpForm.dob || undefined,
+      loginPassword: finalPass,
+      googleEmail: editEmpForm.googleEmail.trim() || undefined,
+      role: editEmpForm.role.trim(),
+      department: editEmpForm.department,
+      salaryType: editEmpForm.salaryType,
+      baseSalary: base,
+      hourlyRate: parseFloat(editEmpForm.hourlyRate) || undefined,
+      hoursWorkedThisMonth: parseFloat(editEmpForm.hoursWorkedMonth) || undefined,
+      bonusOrOvertime: bonus,
+      deductions: ded,
+      netPayable: net,
+      webAccess: editEmpForm.noAppAccess ? false : !!editEmpForm.webAccess,
+      mobileAccess: editEmpForm.noAppAccess ? false : !!editEmpForm.mobileAccess,
+      financialAccess: !!editEmpForm.financialAccess,
+      noAppAccess: !!editEmpForm.noAppAccess,
+      phone: editEmpForm.phone.trim() || undefined,
+      bankAccountOrUpi: editEmpForm.bankAccountOrUpi.trim() || undefined,
+      paymentMethod: editEmpForm.paymentMethod,
+      assignedMachineId: editEmpForm.assignedMachineId || undefined
+    };
+
+    if (onUpdateEmployee) {
+      onUpdateEmployee(updated);
+    }
+    setEditingEmployee(null);
   };
 
   const handleOpenAddEmployee = () => {
@@ -1581,6 +1679,15 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                                   <span>Paid</span>
                                 </span>
                               )}
+                            {onUpdateEmployee && (
+                              <button
+                                onClick={() => handleOpenEditEmployee(emp)}
+                                className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg border border-slate-200 transition-colors"
+                                title="Edit Employee Profile & Clearances"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             {onDeleteEmployee && (
                               <button
                                 onClick={() => onDeleteEmployee(emp.id)}
@@ -3272,6 +3379,372 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
                 >
                   Save Employee &amp; Credentials
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5B: EDIT EMPLOYEE PROFILE & CLEARANCES */}
+      {editingEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+              <div className="flex items-center space-x-2">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                  <Edit2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-base font-bold text-slate-900">Edit Employee Profile &amp; Clearances</h3>
+                    <span className="font-mono text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md font-black">
+                      {editingEmployee.employeeId}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">Update staff role, clearances, Google OAuth account, and password</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setEditingEmployee(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditEmployeeSubmit} className="space-y-3.5 text-xs max-h-[80vh] overflow-y-auto pr-1">
+              
+              {/* Row 1: Employee ID badge & Date of Birth */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Employee ID</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={editingEmployee.employeeId}
+                    className="w-full px-3 py-2 bg-slate-200/70 border border-slate-300 rounded-lg text-slate-700 font-mono font-bold uppercase cursor-not-allowed"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">Official unique company ID</span>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-slate-700">Date of Birth (DOB) *</label>
+                    <span className="text-[9px] text-indigo-600 font-semibold">For Password</span>
+                  </div>
+                  <input
+                    type="date"
+                    required
+                    value={editEmpForm.dob}
+                    onChange={(e) => setEditEmpForm({ ...editEmpForm, dob: e.target.value })}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">Generates DDMM password part</span>
+                </div>
+              </div>
+
+              {/* Row 2: Full Name & Role */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editEmpForm.name}
+                    onChange={(e) => setEditEmpForm({ ...editEmpForm, name: e.target.value })}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Role / Designation *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editEmpForm.role}
+                    onChange={(e) => setEditEmpForm({ ...editEmpForm, role: e.target.value })}
+                    placeholder="e.g. Lead Braiding Operator"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Department & Salary Structure */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Department</label>
+                  <select
+                    value={editEmpForm.department}
+                    onChange={(e) => setEditEmpForm({ ...editEmpForm, department: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  >
+                    <option value="Production">Production &amp; Machines</option>
+                    <option value="Maintenance">Maintenance &amp; Electrical</option>
+                    <option value="Warehouse">Warehouse &amp; Logistics</option>
+                    <option value="Quality">Quality &amp; Inspection</option>
+                    <option value="Administration">Administration &amp; Accounts</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Wage / Salary Mode</label>
+                  <select
+                    value={editEmpForm.salaryType}
+                    onChange={(e) => setEditEmpForm({ ...editEmpForm, salaryType: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  >
+                    <option value="monthly">Monthly Fixed Salary</option>
+                    <option value="hourly">Hourly Industrial Rate</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 4: Financial Compensation */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Base Pay (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editEmpForm.baseSalary}
+                      onChange={(e) => setEditEmpForm({ ...editEmpForm, baseSalary: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Bonus / OT (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editEmpForm.bonusOrOvertime}
+                      onChange={(e) => setEditEmpForm({ ...editEmpForm, bonusOrOvertime: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Deductions (₹)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editEmpForm.deductions}
+                      onChange={(e) => setEditEmpForm({ ...editEmpForm, deductions: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Estimated Net Monthly Disbursement:</span>
+                  <span className="font-mono font-black text-slate-900 text-sm">
+                    {formatINR((parseFloat(editEmpForm.baseSalary) || 0) + (parseFloat(editEmpForm.bonusOrOvertime) || 0) - (parseFloat(editEmpForm.deductions) || 0))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Row 5: Contact & Bank Info */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    value={editEmpForm.phone}
+                    onChange={(e) => setEditEmpForm({ ...editEmpForm, phone: e.target.value })}
+                    placeholder="+91 98765 43210"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Bank Account / UPI ID</label>
+                  <input
+                    type="text"
+                    value={editEmpForm.bankAccountOrUpi}
+                    onChange={(e) => setEditEmpForm({ ...editEmpForm, bankAccountOrUpi: e.target.value })}
+                    placeholder="e.g. 9876543210@upi"
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Row 6: PLATFORM ACCESS & APP CLEARANCES */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="h-4 w-4 text-slate-700" />
+                    <span className="font-bold text-slate-900 text-xs">Platform Access &amp; App Clearances</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditEmpForm({
+                        ...editEmpForm,
+                        noAppAccess: !editEmpForm.noAppAccess,
+                        webAccess: false,
+                        mobileAccess: false,
+                        financialAccess: false
+                      })}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${
+                        editEmpForm.noAppAccess
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-slate-200/80 text-slate-600 hover:bg-slate-300'
+                      }`}
+                    >
+                      {editEmpForm.noAppAccess ? '✓ No App Access (Janitor/Laborer)' : 'Set No App Access'}
+                    </button>
+                  </div>
+                </div>
+
+                {!editEmpForm.noAppAccess ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                    {/* Web ERP Access */}
+                    <label className={`flex items-start space-x-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      editEmpForm.webAccess ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={editEmpForm.webAccess}
+                        onChange={(e) => setEditEmpForm({ ...editEmpForm, webAccess: e.target.checked })}
+                        className="rounded mt-0.5 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="flex items-center space-x-1">
+                          <Globe className="h-3 w-3 text-blue-600" />
+                          <span className="font-bold text-slate-900 text-[11px]">Web ERP</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">Desktop portal</span>
+                      </div>
+                    </label>
+
+                    {/* Mobile App Access */}
+                    <label className={`flex items-start space-x-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      editEmpForm.mobileAccess ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={editEmpForm.mobileAccess}
+                        onChange={(e) => setEditEmpForm({ ...editEmpForm, mobileAccess: e.target.checked })}
+                        className="rounded mt-0.5 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="flex items-center space-x-1">
+                          <Smartphone className="h-3 w-3 text-indigo-600" />
+                          <span className="font-bold text-slate-900 text-[11px]">Mobile App</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">Floor phone app</span>
+                      </div>
+                    </label>
+
+                    {/* Financial Access */}
+                    <label className={`flex items-start space-x-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      editEmpForm.financialAccess ? 'bg-emerald-50 border-emerald-300' : 'bg-white border-slate-200'
+                    }`}>
+                      <input
+                        type="checkbox"
+                        checked={editEmpForm.financialAccess}
+                        onChange={(e) => setEditEmpForm({ ...editEmpForm, financialAccess: e.target.checked })}
+                        className="rounded mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div>
+                        <div className="flex items-center space-x-1">
+                          <ShieldAlert className="h-3 w-3 text-emerald-600" />
+                          <span className="font-bold text-slate-900 text-[11px]">Finance &amp; P&amp;L</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">Salaries &amp; books</span>
+                      </div>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-amber-800 text-[11px]">
+                    <p className="font-semibold">⚠️ Janitor / Daily Wage Laborer (Payroll Only)</p>
+                    <p className="text-[10px] text-amber-700 mt-0.5">This staff member exists solely on wage sheets &amp; attendance ledgers. App logins are blocked.</p>
+                  </div>
+                )}
+
+                {/* Google Account Linking */}
+                <div className="pt-2 border-t border-slate-200/60">
+                  <label className="block font-bold text-slate-700 mb-1 text-[11px]">
+                    Linked Google Account Email (For 1-Tap Google Sign-In)
+                  </label>
+                  <input
+                    type="email"
+                    value={editEmpForm.googleEmail}
+                    onChange={(e) => setEditEmpForm({ ...editEmpForm, googleEmail: e.target.value })}
+                    placeholder="e.g. employee@gmail.com"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Link this employee's Google Account so they can click "Sign in with Google" to access the factory immediately.
+                  </p>
+                </div>
+              </div>
+
+              {/* Password & Credentials Management */}
+              {!editEmpForm.noAppAccess && (
+                <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <KeyRound className="h-4 w-4 text-blue-600" />
+                      <span className="font-bold text-slate-900 text-xs">Credentials &amp; Security Password</span>
+                    </div>
+                    <span className="text-[10px] text-blue-700 font-semibold bg-blue-100/80 px-2 py-0.5 rounded-full">
+                      Formula: firstname@DDMM
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-2.5">
+                    <div className="bg-white p-2 rounded-lg border border-blue-100">
+                      <span className="text-[10px] text-slate-400 block font-semibold">Employee ID</span>
+                      <span className="font-mono font-black text-blue-700 text-sm">
+                        {editingEmployee.employeeId}
+                      </span>
+                    </div>
+
+                    <div className="bg-white p-2 rounded-lg border border-blue-100">
+                      <span className="text-[10px] text-slate-400 block font-semibold">Default Formula Password</span>
+                      <span className="font-mono font-black text-slate-900 text-sm">
+                        {computeEmployeePassword(editEmpForm.name, editEmpForm.dob) || 'name@DDMM'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1 text-[11px]">
+                      Custom Password Override (Optional)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showEditPassword ? 'text' : 'password'}
+                        value={editEmpForm.loginPassword}
+                        onChange={(e) => setEditEmpForm({ ...editEmpForm, loginPassword: e.target.value })}
+                        placeholder={computeEmployeePassword(editEmpForm.name, editEmpForm.dob) || 'Leave blank to use formula password'}
+                        className="w-full px-3 py-1.5 pr-9 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEditPassword(!showEditPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showEditPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      Leave empty to use the auto-generated password based on their Date of Birth.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingEmployee(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
+                >
+                  Save Changes &amp; Update Directory
                 </button>
               </div>
             </form>
