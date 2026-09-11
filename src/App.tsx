@@ -99,6 +99,7 @@ import {
   memoryDispatchesMap,
   memoryFinanceMap,
   memoryMachinesMap,
+  normalizeEmployeeRecord,
   DEFAULT_FACTORY_CODE
 } from './services/cloudDbService';
 import { FactorySwitcherModal } from './components/FactorySwitcherModal';
@@ -214,8 +215,9 @@ export default function App() {
 
   // Finance State with Persistence
   const [employees, setEmployees] = useState<EmployeeRecord[]>(() => {
-    const saved = localStorage.getItem('factory_employees');
-    return saved ? JSON.parse(saved) : INITIAL_EMPLOYEES;
+    const saved = localStorage.getItem(`factory_employees_${activeWorkspace.code}`) || localStorage.getItem('factory_employees');
+    const parsed = saved ? JSON.parse(saved) : (activeWorkspace.code === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
+    return Array.isArray(parsed) ? parsed.map(normalizeEmployeeRecord) : [];
   });
 
   const [electricityRecords, setElectricityRecords] = useState<ElectricityUsageRecord[]>(() => {
@@ -348,7 +350,7 @@ export default function App() {
     setMachines(memoryMachinesMap[currentCode] || (isHQ ? INITIAL_MACHINES : []));
 
     const fin = memoryFinanceMap[currentCode];
-    setEmployees(fin?.employees || (isHQ ? INITIAL_EMPLOYEES : []));
+    setEmployees((fin?.employees || (isHQ ? INITIAL_EMPLOYEES : [])).map(normalizeEmployeeRecord));
     setElectricityRecords(fin?.electricityRecords || []);
     setExpenses(fin?.expenses || []);
     setPartyInvoices(fin?.partyInvoices || []);
@@ -425,7 +427,8 @@ export default function App() {
 
     const unsubscribeFinance = subscribeToCloudFinance((cloudFin) => {
       if (Array.isArray(cloudFin.employees)) {
-        const emps = cloudFin.employees.length > 0 ? cloudFin.employees : (currentCode === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
+        const rawEmps = cloudFin.employees.length > 0 ? cloudFin.employees : (currentCode === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
+        const emps = rawEmps.map(normalizeEmployeeRecord);
         setEmployees(emps);
         localStorage.setItem(`factory_employees_${currentCode}`, JSON.stringify(emps));
         if (cloudFin.employees.length === 0 && currentCode === 'TRISHARTH-HQ') {
@@ -1848,20 +1851,21 @@ export default function App() {
       lastPaidDate: today
     } : e);
     setEmployees(updatedEmployees);
-    localStorage.setItem('factory_employees', JSON.stringify(updatedEmployees));
+    localStorage.setItem(`factory_employees_${activeWorkspace.code}`, JSON.stringify(updatedEmployees));
 
+    const effectivePay = emp.netPayable || emp.baseSalary || 0;
     // Also auto-log as operational expense
     const salaryExpense: OperationalExpense = {
       id: `exp-sal-${Date.now()}`,
-      expenseCode: `EXP-SAL-${emp.employeeCode}`,
+      expenseCode: `EXP-SAL-${emp.employeeCode || emp.employeeId}`,
       date: today,
       category: 'payroll',
       title: `Monthly Wage Disbursement: ${emp.name} (${emp.role})`,
-      amount: emp.netPayable,
+      amount: effectivePay,
       vendorOrPayee: emp.name,
       paymentMethod: emp.paymentMethod || 'bank_transfer',
       paymentStatus: 'paid',
-      receiptInvoiceNo: `PAYROLL-${emp.employeeCode}-${today.slice(0, 7)}`,
+      receiptInvoiceNo: `PAYROLL-${emp.employeeCode || emp.employeeId}-${today.slice(0, 7)}`,
       notes: `Disbursed to ${emp.bankAccountOrUpi || 'account on file'}`,
       recordedBy: currentUser?.name || 'Admin'
     };
@@ -1872,7 +1876,7 @@ export default function App() {
     saveCloudFinance({ employees: updatedEmployees, expenses: updatedExpenses }, activeWorkspace.code).catch(e => console.warn('Cloud save error:', e));
 
     confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
-    setLastAutoEntryNotice(`Disbursed salary of ₹${emp.netPayable.toLocaleString()} to ${emp.name}`);
+    setLastAutoEntryNotice(`Disbursed salary of ₹${effectivePay.toLocaleString()} to ${emp.name}`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
 
     syncFullStateToGoogleSheets({
@@ -1882,19 +1886,30 @@ export default function App() {
   };
 
   const handleAddEmployee = (newEmpData: Omit<EmployeeRecord, 'id' | 'netPayable'>) => {
-    const net = (newEmpData.baseSalary || 0) + (newEmpData.bonusOrOvertime || 0) - (newEmpData.deductions || 0);
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid fees.`);
+      return;
+    }
+    const base = Number(newEmpData.baseSalary || 0);
+    const bonus = Number(newEmpData.bonusOrOvertime || 0);
+    const ded = Number(newEmpData.deductions || 0);
+    const net = base + bonus - ded;
     const assignedId = newEmpData.employeeId || `TR-${String(employees.length + 1).padStart(3, '0')}`;
-    const newRecord: EmployeeRecord = {
+    const newRecord: EmployeeRecord = normalizeEmployeeRecord({
       ...newEmpData,
       id: `emp-${Date.now()}`,
       employeeId: assignedId,
       employeeCode: assignedId,
-      netPayable: net
-    };
+      baseSalary: base,
+      netPayable: net,
+      salaryType: newEmpData.salaryType || 'monthly',
+      paymentStatus: newEmpData.paymentStatus || 'paid',
+      paymentMethod: newEmpData.paymentMethod || 'bank_transfer'
+    });
 
     const updatedEmployees = [...employees, newRecord];
     setEmployees(updatedEmployees);
-    localStorage.setItem('factory_employees', JSON.stringify(updatedEmployees));
+    localStorage.setItem(`factory_employees_${activeWorkspace.code}`, JSON.stringify(updatedEmployees));
     saveCloudFinance({ employees: updatedEmployees }, activeWorkspace.code).catch(e => console.warn('Cloud employee add error:', e));
 
     setLastAutoEntryNotice(`Added staff member ${newRecord.name} (${assignedId})`);
@@ -1904,9 +1919,14 @@ export default function App() {
   };
 
   const handleUpdateEmployee = (updatedEmp: EmployeeRecord) => {
-    const updatedEmployees = employees.map(e => e.id === updatedEmp.id ? updatedEmp : e);
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid fees.`);
+      return;
+    }
+    const normalized = normalizeEmployeeRecord(updatedEmp);
+    const updatedEmployees = employees.map(e => e.id === updatedEmp.id ? normalized : e);
     setEmployees(updatedEmployees);
-    localStorage.setItem('factory_employees', JSON.stringify(updatedEmployees));
+    localStorage.setItem(`factory_employees_${activeWorkspace.code}`, JSON.stringify(updatedEmployees));
     saveCloudFinance({ employees: updatedEmployees }, activeWorkspace.code).catch(e => console.warn('Cloud employee update error:', e));
 
     setLastAutoEntryNotice(`Updated staff member ${updatedEmp.name} (${updatedEmp.employeeId})`);
@@ -2255,7 +2275,7 @@ export default function App() {
     const target = employees.find(e => e.id === employeeId);
     const updated = employees.filter(e => e.id !== employeeId);
     setEmployees(updated);
-    localStorage.setItem('factory_employees', JSON.stringify(updated));
+    localStorage.setItem(`factory_employees_${activeWorkspace.code}`, JSON.stringify(updated));
     saveCloudFinance({ employees: updated }, activeWorkspace.code).catch(e => console.warn('Cloud employee delete error:', e));
 
     if (target) {

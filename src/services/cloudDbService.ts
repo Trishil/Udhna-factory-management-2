@@ -100,6 +100,23 @@ export function subscribeToCloudFactories(callback: (factories: CompanyWorkspace
   };
 }
 
+export function normalizeEmployeeRecord(emp: any): EmployeeRecord {
+  const baseSalary = Number(emp.baseSalary ?? emp.salary ?? 0);
+  const netPayable = Number(emp.netPayable ?? baseSalary);
+  return {
+    ...emp,
+    baseSalary: isNaN(baseSalary) ? 0 : baseSalary,
+    netPayable: isNaN(netPayable) ? 0 : netPayable,
+    salaryType: emp.salaryType || 'monthly',
+    paymentStatus: emp.paymentStatus || 'paid',
+    paymentMethod: emp.paymentMethod || 'bank_transfer',
+    role: emp.role || 'Staff',
+    department: emp.department || 'Production',
+    employeeId: emp.employeeId || emp.employeeCode || emp.id || 'TR-001',
+    name: emp.name || 'Unnamed Employee'
+  };
+}
+
 export async function saveCloudFactory(newFactory: CompanyWorkspace): Promise<CompanyWorkspace[]> {
   await ensureAuthReady();
   const currentFactories = await fetchCloudFactories();
@@ -136,7 +153,11 @@ export async function saveCloudFactory(newFactory: CompanyWorkspace): Promise<Co
       department: 'Executive Management',
       googleEmail: newFactory.ownerEmail || '',
       loginPassword: newFactory.ownerPassword || 'admin@123',
-      salary: 0,
+      salaryType: 'monthly',
+      baseSalary: 0,
+      netPayable: 0,
+      paymentStatus: 'paid',
+      paymentMethod: 'bank_transfer',
       joiningDate: new Date().toISOString().split('T')[0],
       webAccess: true,
       mobileAccess: true,
@@ -224,21 +245,27 @@ export async function toggleFactoryPauseStatus(
   const currentFactories = await fetchCloudFactories();
   const updatedList = currentFactories.map(f => {
     if (f.code.toUpperCase() === cleanCode) {
-      return {
+      const updated: CompanyWorkspace = {
         ...f,
         dataEntryPaused: paused,
         planStatus: (paused ? 'suspended' : 'active') as 'suspended' | 'active',
-        suspensionReason: paused ? reason : undefined,
         updatedAt: new Date().toISOString()
       };
+      if (paused && reason) {
+        updated.suspensionReason = reason;
+      } else {
+        delete updated.suspensionReason;
+      }
+      return updated;
     }
     return f;
   });
 
   try {
     const docRef = doc(db, ORDER_SLIPS_COLLECTION, FACTORIES_REGISTRY_DOC_ID);
+    const sanitizedFactories = JSON.parse(JSON.stringify(updatedList));
     await setDoc(docRef, {
-      factories: updatedList,
+      factories: sanitizedFactories,
       updatedAt: new Date().toISOString()
     }, { merge: true });
   } catch (e) {
@@ -277,8 +304,9 @@ export async function deleteCloudFactory(factoryCode: string): Promise<CompanyWo
 
   try {
     const docRef = doc(db, ORDER_SLIPS_COLLECTION, FACTORIES_REGISTRY_DOC_ID);
+    const sanitizedFactories = JSON.parse(JSON.stringify(updatedList));
     await setDoc(docRef, {
-      factories: updatedList,
+      factories: sanitizedFactories,
       updatedAt: new Date().toISOString()
     }, { merge: true });
   } catch (e) {
@@ -905,7 +933,9 @@ export function subscribeToCloudFinance(
           const data = snapshot.data() as any;
           if (data) {
             const currentFin = memoryFinanceMap[fKey] || getInitialFinanceData();
-            if (Array.isArray(data.employees)) currentFin.employees = data.employees;
+            if (Array.isArray(data.employees)) {
+              currentFin.employees = data.employees.map(normalizeEmployeeRecord);
+            }
             if (Array.isArray(data.electricityRecords)) currentFin.electricityRecords = data.electricityRecords;
             if (Array.isArray(data.expenses)) currentFin.expenses = data.expenses;
             if (Array.isArray(data.partyInvoices)) currentFin.partyInvoices = data.partyInvoices;
@@ -914,7 +944,7 @@ export function subscribeToCloudFinance(
             memoryFinanceMap[fKey] = currentFin;
 
             onUpdate({
-              employees: Array.isArray(data.employees) ? data.employees : [],
+              employees: Array.isArray(data.employees) ? data.employees.map(normalizeEmployeeRecord) : [],
               electricityRecords: Array.isArray(data.electricityRecords) ? data.electricityRecords : [],
               expenses: Array.isArray(data.expenses) ? data.expenses : [],
               partyInvoices: Array.isArray(data.partyInvoices) ? data.partyInvoices : [],

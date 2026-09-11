@@ -447,9 +447,9 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
   const totalSupplierBalanceOwed = supplierPayables.reduce((sum, sp) => sum + sp.balanceOwed, 0);
 
   // 4. Payroll Total
-  const totalMonthlyPayroll = employees.reduce((sum, emp) => sum + emp.netPayable, 0);
-  const paidPayroll = employees.filter(e => e.paymentStatus === 'paid').reduce((sum, emp) => sum + emp.netPayable, 0);
-  const pendingPayroll = employees.filter(e => e.paymentStatus !== 'paid').reduce((sum, emp) => sum + emp.netPayable, 0);
+  const totalMonthlyPayroll = employees.reduce((sum, emp) => sum + (emp.netPayable || 0), 0);
+  const paidPayroll = employees.filter(e => e.paymentStatus === 'paid').reduce((sum, emp) => sum + (emp.netPayable || 0), 0);
+  const pendingPayroll = employees.filter(e => e.paymentStatus !== 'paid').reduce((sum, emp) => sum + (emp.netPayable || 0), 0);
 
   // 5. Electricity Live & Recorded Total
   const runningMachinesCount = machines.filter(m => m.status === 'running').length;
@@ -877,8 +877,10 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
   };
 
   // Helper formatter for Rupee amounts
-  const formatINR = (val: number) => {
-    return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatINR = (val: any) => {
+    const num = typeof val === 'number' ? val : parseFloat(val);
+    if (isNaN(num) || !isFinite(num)) return '₹0.00';
+    return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
@@ -1649,19 +1651,19 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                             )}
                           </td>
                           <td className="py-3 px-3 font-mono font-semibold text-slate-800">
-                            {formatINR(emp.baseSalary)}
-                            <span className="block text-[10px] text-slate-400 capitalize">{emp.salaryType}</span>
+                            {formatINR(emp.baseSalary ?? (emp as any).salary ?? 0)}
+                            <span className="block text-[10px] text-slate-400 capitalize">{emp.salaryType || 'monthly'}</span>
                           </td>
                           <td className="py-3 px-3 font-mono font-black text-slate-900 text-sm">
-                            {formatINR(emp.netPayable)}
+                            {formatINR(emp.netPayable ?? emp.baseSalary ?? (emp as any).salary ?? 0)}
                           </td>
                           <td className="py-3 px-3">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              emp.paymentStatus === 'paid'
+                              (emp.paymentStatus || 'paid') === 'paid'
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-amber-100 text-amber-800'
                             }`}>
-                              {emp.paymentStatus}
+                              {emp.paymentStatus || 'paid'}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right">
@@ -2258,7 +2260,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                     >
                       {materials.map(m => (
                         <option key={m.id} value={m.id}>
-                          {m.code ? `[${m.code}] ` : ''}{m.name} ({m.category || 'General'} - {m.size || 'Std'}) — {m.currentStock.toLocaleString()} {m.unit} in stock
+                          {m.code ? `[${m.code}] ` : ''}{m.name} ({m.category || 'General'} - {m.size || 'Std'}) — {(m.currentStock ?? 0).toLocaleString()} {m.unit} in stock
                         </option>
                       ))}
                     </select>
@@ -2280,7 +2282,7 @@ export const FinanceManager: React.FC<FinanceManagerProps> = ({
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[10px]">Current Stock:</span>
-                          <span className="font-mono font-bold text-emerald-600">{selMat.currentStock.toLocaleString()} {selMat.unit}</span>
+                          <span className="font-mono font-bold text-emerald-600">{(selMat.currentStock ?? 0).toLocaleString()} {selMat.unit}</span>
                         </div>
                         <div>
                           <span className="text-slate-400 block text-[10px]">Location:</span>
