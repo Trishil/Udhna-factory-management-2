@@ -89,6 +89,8 @@ import {
   subscribeToCloudFactories,
   saveCloudFactory,
   fetchCloudFactories,
+  toggleFactoryPauseStatus,
+  deleteCloudFactory,
   subscribeToCloudMachines,
   saveCloudMachines,
   memoryWorkflowMap,
@@ -259,6 +261,7 @@ export default function App() {
   });
   const [factories, setFactories] = useState<CompanyWorkspace[]>(() => getStoredWorkspaces());
   const [isFactorySwitcherOpen, setIsFactorySwitcherOpen] = useState<boolean>(false);
+  const isDataEntryPaused = Boolean(activeWorkspace.dataEntryPaused || activeWorkspace.planStatus === 'suspended');
 
   // UI state
   const [activeMainTab, setActiveMainTab] = useState<AppTab>('workflow');
@@ -591,6 +594,41 @@ export default function App() {
     localStorage.setItem('active_factory_workspace', JSON.stringify(newFactory));
     setLastAutoEntryNotice(`Created & Activated New Factory: ${newFactory.name} (${newFactory.code})`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
+  };
+
+  const handleTogglePauseFactory = async (factoryCode: string, paused: boolean, reason?: string) => {
+    try {
+      const updated = await toggleFactoryPauseStatus(factoryCode, paused, reason);
+      setFactories(updated);
+      const found = updated.find(f => f.code.toUpperCase() === factoryCode.toUpperCase());
+      if (activeWorkspace.code.toUpperCase() === factoryCode.toUpperCase() && found) {
+        setActiveWorkspace(found);
+        localStorage.setItem('active_factory_workspace', JSON.stringify(found));
+      }
+      setLastAutoEntryNotice(
+        paused 
+          ? `🔒 Data Entry Paused for ${factoryCode} (Unpaid Fees)` 
+          : `✅ Resumed Data Entry for ${factoryCode}`
+      );
+      setTimeout(() => setLastAutoEntryNotice(null), 4000);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update factory pause status.');
+    }
+  };
+
+  const handleDeleteFactory = async (factoryCode: string) => {
+    try {
+      const updated = await deleteCloudFactory(factoryCode);
+      setFactories(updated);
+      if (activeWorkspace.code.toUpperCase() === factoryCode.toUpperCase()) {
+        const hq = updated.find(f => f.code.toUpperCase() === 'TRISHARTH-HQ') || TRISHARTH_WORKSPACE;
+        handleSwitchWorkspace(hq);
+      }
+      setLastAutoEntryNotice(`🗑️ Permanently Deleted Factory ${factoryCode} & Wiped All Data`);
+      setTimeout(() => setLastAutoEntryNotice(null), 4500);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to delete factory.');
+    }
   };
 
   // Real-time Simulation Engine
@@ -973,6 +1011,10 @@ export default function App() {
 
   // Machine controls
   const handleToggleStatus = (machineId: string, newStatus: MachineStatus) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Machine operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid licensing fees.`);
+      return;
+    }
     const updatedMachs = machines.map(m => {
       if (m.id !== machineId) return m;
       return {
@@ -991,6 +1033,10 @@ export default function App() {
   };
 
   const handleAssignMaterial = (machineId: string, primaryMaterialId: string, secondaryMaterialId?: string) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Machine operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid licensing fees.`);
+      return;
+    }
     const updatedMachs = machines.map(m => {
       if (m.id !== machineId) return m;
       return {
@@ -1008,6 +1054,10 @@ export default function App() {
   };
 
   const handleAddMachine = (newMachineData: Omit<Machine, 'id'>) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Machine operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid licensing fees.`);
+      return;
+    }
     const newMachine: Machine = {
       ...newMachineData,
       id: `m-${Date.now()}`
@@ -1023,6 +1073,10 @@ export default function App() {
   };
 
   const handleUpdateMachine = (updated: Machine) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Machine operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid licensing fees.`);
+      return;
+    }
     const updatedList = machines.map(m => m.id === updated.id ? updated : m);
     setMachines(updatedList);
     saveCloudMachines(updatedList, activeWorkspace.code).catch(() => {});
@@ -1039,6 +1093,10 @@ export default function App() {
   };
 
   const handleExecuteDeleteMachine = (machineId: string) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Machine operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid licensing fees.`);
+      return;
+    }
     const m = machines.find(item => item.id === machineId);
     const updatedList = machines.filter(item => item.id !== machineId);
     setMachines(updatedList);
@@ -1057,6 +1115,10 @@ export default function App() {
     materialData: RawMaterial | Omit<RawMaterial, 'id'>,
     financialOption?: InitialBatchFinancialOption
   ) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid licensing fees.`);
+      return;
+    }
     let updatedList: RawMaterial[];
     let createdPayable: SupplierPayable | undefined;
     let createdExpense: OperationalExpense | undefined;
@@ -1168,6 +1230,10 @@ export default function App() {
   };
 
   const handleExecuteDeleteMaterial = (materialId: string) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid fees.`);
+      return;
+    }
     const mat = materials.find(m => m.id === materialId);
     const updatedList = materials.filter(m => m.id !== materialId);
     setMaterials(updatedList);
@@ -1208,6 +1274,10 @@ export default function App() {
     newStock: number,
     financialLink?: RestockFinancialLink
   ) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid fees.`);
+      return;
+    }
     let createdPayable: SupplierPayable | undefined;
     let createdExpense: OperationalExpense | undefined;
     let linkedPayableId: string | undefined;
@@ -2178,6 +2248,10 @@ export default function App() {
   };
 
   const handleDeleteEmployee = (employeeId: string) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid fees.`);
+      return;
+    }
     const target = employees.find(e => e.id === employeeId);
     const updated = employees.filter(e => e.id !== employeeId);
     setEmployees(updated);
@@ -2193,6 +2267,10 @@ export default function App() {
   };
 
   const handleDeleteExpense = (expenseId: string) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid fees.`);
+      return;
+    }
     const target = expenses.find(e => e.id === expenseId);
     const updated = expenses.filter(e => e.id !== expenseId);
     setExpenses(updated);
@@ -2219,6 +2297,10 @@ export default function App() {
   };
 
   const handleDeleteSupplierPayable = (payableId: string) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid fees.`);
+      return;
+    }
     const target = supplierPayables.find(p => p.id === payableId);
     const updated = supplierPayables.filter(p => p.id !== payableId);
     setSupplierPayables(updated);
@@ -2235,6 +2317,10 @@ export default function App() {
   const handleCreateDispatchOrder = (
     orderData: Omit<DispatchOrder, 'id' | 'createdAt' | 'updatedAt'>
   ) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Operations for ${activeWorkspace.name} (${activeWorkspace.code}) are temporarily locked due to unpaid fees.`);
+      return;
+    }
     const dispatchNumber = orderData.dispatchNumber || `DSP-${new Date().getFullYear()}-${String(100 + dispatchOrders.length + 1).slice(1)}`;
     const totalAmount = orderData.totalInvoiceAmount;
     const balanceDue = Math.max(0, totalAmount - orderData.amountPaid);
@@ -2342,6 +2428,10 @@ export default function App() {
   };
 
   const handleUpdateDispatchOrder = (order: DispatchOrder) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Modifying dispatch orders for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const updated = dispatchOrders.map(d => d.id === order.id ? { ...order, updatedAt: new Date().toISOString() } : d);
     setDispatchOrders(updated);
 
@@ -2387,6 +2477,10 @@ export default function App() {
       notes?: string;
     }
   ) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Marking dispatches for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const order = dispatchOrders.find(d => d.id === orderId);
     if (!order) return;
 
@@ -2425,6 +2519,10 @@ export default function App() {
     transactionRef: string,
     notes?: string
   ) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Recording payments for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const order = dispatchOrders.find(d => d.id === dispatchId);
     if (!order) return;
 
@@ -2494,6 +2592,10 @@ export default function App() {
   };
 
   const handleDeleteDispatchOrder = (orderId: string) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Deleting dispatch orders for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const target = dispatchOrders.find(d => d.id === orderId);
     const updated = dispatchOrders.filter(d => d.id !== orderId);
     setDispatchOrders(updated);
@@ -2521,6 +2623,10 @@ export default function App() {
   };
 
   const handleClearAllFinanceData = () => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Financial management for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     setEmployees([]);
     setElectricityRecords([]);
     setExpenses([]);
@@ -2593,6 +2699,10 @@ export default function App() {
     notes?: string, 
     qualityStatus?: 'good' | 'bad_return' | 'needs_alter' | 'passed'
   ) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Advancing workflow stages for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const stageDef = WORKFLOW_STAGES.find(s => s.id === newStage);
     const nowIso = new Date().toISOString();
 
@@ -2661,6 +2771,10 @@ export default function App() {
   };
 
   const handleCreateWorkflowItem = (newItem: WorkflowItem) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Creating workflow jobs for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const updated = [newItem, ...workflowItems];
     setWorkflowItems(updated);
     saveCloudWorkflowItem(newItem).catch(err => console.warn('Cloud Database create error:', err));
@@ -2674,6 +2788,10 @@ export default function App() {
   };
 
   const handleUpdateWorkflowItem = (updated: WorkflowItem) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Editing workflow jobs for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const updatedList = workflowItems.map(i => i.id === updated.id ? updated : i);
     setWorkflowItems(updatedList);
     saveCloudWorkflowItem(updated).catch(err => console.warn('Cloud Database update error:', err));
@@ -2682,6 +2800,10 @@ export default function App() {
   };
 
   const handleDeleteWorkflowItem = (itemId: string) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Deleting workflow jobs for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const target = workflowItems.find(i => i.id === itemId);
     const updatedList = workflowItems.filter(i => i.id !== itemId);
     setWorkflowItems(updatedList);
@@ -2693,6 +2815,10 @@ export default function App() {
   };
 
   const handleSaveOrderSlip = (slip: OrderSlip, generatedItems: WorkflowItem[]) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Creating or updating order slips for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const existingIdx = orderSlips.findIndex(s => s.id === slip.id);
     let updatedSlips: OrderSlip[];
     if (existingIdx >= 0) {
@@ -2740,6 +2866,10 @@ export default function App() {
   };
 
   const handleHandoverWorkflowToDispatch = (workflowItem: WorkflowItem) => {
+    if (isDataEntryPaused) {
+      alert(`Data Entry Paused: Handing over jobs to dispatch for ${activeWorkspace.name} (${activeWorkspace.code}) is locked due to unpaid licensing fees.`);
+      return;
+    }
     const now = new Date();
     const dspNumber = `DSP-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
     const unitPrice = 250;
@@ -2850,6 +2980,25 @@ export default function App() {
             onSwitchAccount={handleSwitchAccount}
           />
 
+          {isDataEntryPaused && (
+            <div className="bg-gradient-to-r from-rose-950 via-amber-950 to-rose-950 border-b border-rose-500/40 px-3 py-2 text-white text-xs flex items-center justify-between font-medium animate-in fade-in">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-4 w-4 text-rose-300 shrink-0" />
+                <span className="text-[11px] leading-tight">
+                  <strong>Data Entry Paused:</strong> Read-Only mode active due to pending fees.
+                </span>
+              </div>
+              {currentUser?.isSuperAdmin && (
+                <button
+                  onClick={() => handleTogglePauseFactory(activeWorkspace.code, false)}
+                  className="px-2 py-0.5 bg-emerald-500 text-slate-950 font-bold rounded text-[10px] shrink-0 ml-2"
+                >
+                  Resume
+                </button>
+              )}
+            </div>
+          )}
+
           <main className="flex-1 w-full px-3 py-3.5 space-y-4">
             {activeMainTab === 'workflow' && (
               <MobileWorkflowView
@@ -2932,6 +3081,34 @@ export default function App() {
           />
 
           <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+            {isDataEntryPaused && (
+              <div className="bg-gradient-to-r from-rose-950 via-amber-950 to-rose-950 border-b border-rose-500/40 px-4 py-2.5 text-white text-xs flex items-center justify-between font-medium sticky top-0 z-40 backdrop-blur-md shadow-md animate-in fade-in">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-1 rounded bg-rose-500/30 text-rose-300">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="font-black text-rose-200 tracking-wide">DATA ENTRY PAUSED (FEES DELINQUENT):</span>{' '}
+                    <span className="text-rose-100">
+                      Operations for <strong>{activeWorkspace.name}</strong> ({activeWorkspace.code}) are locked in <strong>Read-Only</strong> mode because subscription / licensing fees are pending.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 shrink-0 ml-4">
+                  <span className="text-[10px] uppercase font-bold text-rose-200 bg-rose-900/60 px-2 py-0.5 rounded border border-rose-500/40">
+                    Read-Only Mode
+                  </span>
+                  {currentUser?.isSuperAdmin && (
+                    <button
+                      onClick={() => handleTogglePauseFactory(activeWorkspace.code, false)}
+                      className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded text-[11px] transition-colors cursor-pointer shadow-xs"
+                    >
+                      Resume Entry
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             <Navbar
               machines={machines}
               materials={materials}
@@ -3415,6 +3592,8 @@ export default function App() {
           onSwitchWorkspace={handleSwitchWorkspace}
           factories={factories}
           onAddFactory={handleAddFactory}
+          onTogglePauseFactory={handleTogglePauseFactory}
+          onDeleteFactory={handleDeleteFactory}
           currentUser={currentUser}
         />
       )}

@@ -211,6 +211,101 @@ export async function saveCloudFactory(newFactory: CompanyWorkspace): Promise<Co
   return updatedList;
 }
 
+export async function toggleFactoryPauseStatus(
+  factoryCode: string, 
+  paused: boolean, 
+  reason: string = 'Pending subscription / licensing fees'
+): Promise<CompanyWorkspace[]> {
+  const cleanCode = factoryCode.trim().toUpperCase();
+  if (cleanCode === 'TRISHARTH-HQ' || cleanCode === 'TRISHARTH' || cleanCode === 'DEFAULT') {
+    throw new Error('Flagship primary factory cannot be suspended.');
+  }
+
+  const currentFactories = await fetchCloudFactories();
+  const updatedList = currentFactories.map(f => {
+    if (f.code.toUpperCase() === cleanCode) {
+      return {
+        ...f,
+        dataEntryPaused: paused,
+        planStatus: (paused ? 'suspended' : 'active') as 'suspended' | 'active',
+        suspensionReason: paused ? reason : undefined,
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return f;
+  });
+
+  try {
+    const docRef = doc(db, ORDER_SLIPS_COLLECTION, FACTORIES_REGISTRY_DOC_ID);
+    await setDoc(docRef, {
+      factories: updatedList,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (e) {
+    console.warn('Failed to update factory pause status in Firestore:', e);
+  }
+
+  return updatedList;
+}
+
+export async function deleteCloudFactory(factoryCode: string): Promise<CompanyWorkspace[]> {
+  const cleanCode = factoryCode.trim().toUpperCase();
+  if (cleanCode === 'TRISHARTH-HQ' || cleanCode === 'TRISHARTH' || cleanCode === 'DEFAULT') {
+    throw new Error('Flagship primary plant (Trisharth) cannot be deleted.');
+  }
+
+  // 1. Wipe all 6 dedicated Firestore documents for this client factory
+  const finDocId = getFactoryDocId(FINANCE_DOC_ID, cleanCode);
+  const pipeDocId = getFactoryDocId(WORKFLOW_DOC_ID, cleanCode);
+  const slipsDocId = getFactoryDocId(ORDER_SLIPS_DOC_ID, cleanCode);
+  const invDocId = getFactoryDocId(INVENTORY_DOC_ID, cleanCode);
+  const dspDocId = getFactoryDocId(DISPATCH_DOC_ID, cleanCode);
+  const machDocId = getFactoryDocId(MACHINES_DOC_ID, cleanCode);
+
+  await Promise.allSettled([
+    deleteDoc(doc(db, FINANCE_COLLECTION, finDocId)),
+    deleteDoc(doc(db, WORKFLOW_COLLECTION, pipeDocId)),
+    deleteDoc(doc(db, ORDER_SLIPS_COLLECTION, slipsDocId)),
+    deleteDoc(doc(db, INVENTORY_COLLECTION, invDocId)),
+    deleteDoc(doc(db, DISPATCH_COLLECTION, dspDocId)),
+    deleteDoc(doc(db, ORDER_SLIPS_COLLECTION, machDocId))
+  ]);
+
+  // 2. Remove factory from active_factories registry
+  const currentFactories = await fetchCloudFactories();
+  const updatedList = currentFactories.filter(f => f.code.toUpperCase() !== cleanCode);
+
+  try {
+    const docRef = doc(db, ORDER_SLIPS_COLLECTION, FACTORIES_REGISTRY_DOC_ID);
+    await setDoc(docRef, {
+      factories: updatedList,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (e) {
+    console.warn('Failed to remove factory from registry in Firestore:', e);
+  }
+
+  // 3. Wipe memory caches
+  delete memoryWorkflowMap[cleanCode];
+  delete memorySlipsMap[cleanCode];
+  delete memoryMaterialsMap[cleanCode];
+  delete memoryDispatchesMap[cleanCode];
+  delete memoryFinanceMap[cleanCode];
+  delete memoryMachinesMap[cleanCode];
+
+  // 4. Wipe localStorage keys
+  try {
+    localStorage.removeItem(`factory_materials_${cleanCode}`);
+    localStorage.removeItem(`factory_dispatch_orders_${cleanCode}`);
+    localStorage.removeItem(`factory_machines_${cleanCode}`);
+    localStorage.removeItem(`factory_employees_${cleanCode}`);
+    localStorage.removeItem(`factory_expenses_${cleanCode}`);
+    localStorage.removeItem(`factory_transactions_${cleanCode}`);
+  } catch (_) {}
+
+  return updatedList;
+}
+
 export interface CloudFinanceData {
   employees: EmployeeRecord[];
   electricityRecords: ElectricityUsageRecord[];

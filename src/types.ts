@@ -212,6 +212,8 @@ export interface CompanyWorkspace {
   description?: string;
   createdAt?: string;
   planStatus?: 'active' | 'trial' | 'suspended';
+  dataEntryPaused?: boolean;
+  suspensionReason?: string;
   maxUsers?: number;
 }
 

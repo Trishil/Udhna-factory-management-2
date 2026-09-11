@@ -11,7 +11,12 @@ import {
   Factory,
   Crown,
   ExternalLink,
-  Lock
+  Lock,
+  Pause,
+  Play,
+  Trash2,
+  AlertTriangle,
+  PauseCircle
 } from 'lucide-react';
 import { CompanyWorkspace, AuthUser } from '../types';
 import { DEFAULT_APPS_SCRIPT_URL, DEFAULT_SHEET_ID, isPlatformSuperAdmin } from '../services/googleAuth';
@@ -23,6 +28,8 @@ interface FactorySwitcherModalProps {
   onSwitchWorkspace: (workspace: CompanyWorkspace) => void;
   factories: CompanyWorkspace[];
   onAddFactory: (newFactory: CompanyWorkspace) => Promise<void>;
+  onTogglePauseFactory?: (factoryCode: string, paused: boolean, reason?: string) => Promise<void>;
+  onDeleteFactory?: (factoryCode: string) => Promise<void>;
   currentUser?: AuthUser | null;
 }
 
@@ -33,9 +40,15 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
   onSwitchWorkspace,
   factories,
   onAddFactory,
+  onTogglePauseFactory,
+  onDeleteFactory,
   currentUser
 }) => {
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [deletingFactory, setDeletingFactory] = useState<CompanyWorkspace | null>(null);
+  const [confirmDeleteInput, setConfirmDeleteInput] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [togglingPauseCode, setTogglingPauseCode] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [location, setLocation] = useState('');
@@ -116,6 +129,32 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
     }
   };
 
+  const handleTogglePause = async (factoryCode: string, paused: boolean) => {
+    if (!onTogglePauseFactory) return;
+    setTogglingPauseCode(factoryCode);
+    try {
+      await onTogglePauseFactory(factoryCode, paused, 'Pending subscription / licensing fees');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update factory status.');
+    } finally {
+      setTogglingPauseCode(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingFactory || !onDeleteFactory) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteFactory(deletingFactory.code);
+      setDeletingFactory(null);
+      setConfirmDeleteInput('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to delete factory.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
       <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
@@ -134,7 +173,7 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Provision new client factories and access tenant workspaces for customer support.
+                Provision new client factories, pause unpaid data entry, or wipe client tenants.
               </p>
             </div>
           </div>
@@ -172,6 +211,11 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
                     ) : (
                       <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-1.5 py-0.2 rounded">
                         Commercial Tenant
+                      </span>
+                    )}
+                    {(activeWorkspace.dataEntryPaused || activeWorkspace.planStatus === 'suspended') && (
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.2 rounded border border-rose-200">
+                        Data Entry Paused
                       </span>
                     )}
                   </div>
@@ -346,31 +390,45 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
 
             {factories.map((f) => {
               const isActive = f.code.toUpperCase() === activeWorkspace.code.toUpperCase();
+              const isPrimary = f.isPrimary || f.code.toUpperCase() === 'TRISHARTH-HQ';
+              const isPaused = Boolean(f.dataEntryPaused || f.planStatus === 'suspended');
+
               return (
                 <div
                   key={f.code || f.id}
                   className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
                     isActive
                       ? 'bg-blue-50/50 border-blue-300 shadow-2xs'
+                      : isPaused
+                      ? 'bg-rose-50/40 border-rose-200'
                       : 'bg-white hover:bg-slate-50 border-slate-200'
                   }`}
                 >
                   <div className="flex items-center space-x-3 truncate">
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
-                      isActive ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
+                      isActive 
+                        ? 'bg-blue-600 text-white' 
+                        : isPaused
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-slate-100 text-slate-700'
                     }`}>
                       {f.code.slice(0, 3)}
                     </div>
                     <div className="truncate">
                       <div className="flex items-center space-x-1.5">
                         <span className="font-bold text-slate-900 text-xs truncate">{f.name}</span>
-                        {f.isPrimary ? (
+                        {isPrimary ? (
                           <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded shrink-0">
                             Flagship
                           </span>
+                        ) : isPaused ? (
+                          <span className="text-[9px] font-bold bg-rose-100 text-rose-800 border border-rose-200 px-1.5 py-0.2 rounded shrink-0 flex items-center space-x-0.5">
+                            <PauseCircle className="h-2.5 w-2.5" />
+                            <span>Data Entry Paused</span>
+                          </span>
                         ) : (
                           <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded shrink-0">
-                            Client Tenant
+                            Active Tenant
                           </span>
                         )}
                       </div>
@@ -383,7 +441,46 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="shrink-0 ml-2">
+                  <div className="shrink-0 ml-2 flex items-center space-x-1.5">
+                    {/* Pause / Resume button for non-flagship factories */}
+                    {!isPrimary && (
+                      <button
+                        type="button"
+                        disabled={togglingPauseCode === f.code}
+                        onClick={() => handleTogglePause(f.code, !isPaused)}
+                        className={`p-1.5 rounded-lg border text-xs font-semibold flex items-center space-x-1 cursor-pointer transition-colors ${
+                          isPaused
+                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'
+                            : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300'
+                        }`}
+                        title={isPaused ? 'Resume write access & data entry' : 'Pause data entry if fees not paid'}
+                      >
+                        {isPaused ? (
+                          <>
+                            <Play className="h-3 w-3 fill-current" />
+                            <span className="text-[10px] font-bold hidden sm:inline">Resume</span>
+                          </>
+                        ) : (
+                          <>
+                            <Pause className="h-3 w-3 fill-current" />
+                            <span className="text-[10px] font-bold hidden sm:inline">Pause</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Delete Factory Button for non-flagship factories */}
+                    {!isPrimary && (
+                      <button
+                        type="button"
+                        onClick={() => setDeletingFactory(f)}
+                        className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-semibold flex items-center cursor-pointer transition-colors"
+                        title="Permanently delete factory and wipe its data"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
                     {isActive ? (
                       <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-xs font-bold flex items-center space-x-1">
                         <Check className="h-3 w-3" />
@@ -398,7 +495,7 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
                         className="px-2.5 py-1 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
                         title="Enter this client workspace for customer support"
                       >
-                        Enter Workspace
+                        Enter
                       </button>
                     )}
                   </div>
@@ -424,6 +521,73 @@ export const FactorySwitcherModal: React.FC<FactorySwitcherModalProps> = ({
         </div>
 
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deletingFactory && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-rose-200 space-y-4">
+            <div className="flex items-center space-x-3 text-rose-600">
+              <div className="p-2.5 bg-rose-100 rounded-xl">
+                <AlertTriangle className="h-6 w-6 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Delete Client Factory</h3>
+                <p className="text-xs text-rose-600 font-bold">Irreversible Destructive Action</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-200 text-xs text-slate-700 space-y-2">
+              <p>
+                You are about to permanently delete <strong>{deletingFactory.name}</strong> (<span className="font-mono font-bold text-rose-700">{deletingFactory.code}</span>) and completely wipe all corresponding Firestore cloud documents:
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-600 font-mono">
+                <li>10-Stage Workflow Pipeline Items</li>
+                <li>Master Order Slips & Job Records</li>
+                <li>Raw Material Inventory & Stock Records</li>
+                <li>Dispatch Shipments & Waybills</li>
+                <li>Finance, Expenses & Employee Profiles</li>
+                <li>Machine Configurations & Telemetry</li>
+              </ul>
+            </div>
+
+            <div className="space-y-1.5 text-xs">
+              <label className="block text-slate-700 font-medium">
+                Type <span className="font-mono font-bold text-rose-700">{deletingFactory.code}</span> to confirm:
+              </label>
+              <input
+                type="text"
+                value={confirmDeleteInput}
+                onChange={(e) => setConfirmDeleteInput(e.target.value.toUpperCase())}
+                placeholder={deletingFactory.code}
+                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900 uppercase"
+              />
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => {
+                  setDeletingFactory(null);
+                  setConfirmDeleteInput('');
+                }}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting || confirmDeleteInput.trim() !== deletingFactory.code.trim()}
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs shadow-xs disabled:opacity-40 cursor-pointer flex items-center space-x-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>{isDeleting ? 'Wiping Cloud Data...' : 'Permanently Delete & Wipe Data'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
