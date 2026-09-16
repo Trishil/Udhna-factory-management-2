@@ -560,16 +560,40 @@ export async function deleteCloudWorkflowItem(itemId: string, factoryCode: strin
   mirrorAtharvaDoc(WORKFLOW_COLLECTION, docId, payload);
 }
 
-export async function deleteCloudWorkflowItemsBySlipId(slipId: string, factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
-  if (!slipId) return;
+export async function deleteCloudWorkflowItemsBySlipId(
+  slipId: string, 
+  factoryCode: string = DEFAULT_FACTORY_CODE,
+  jobNo?: string
+): Promise<void> {
+  if (!slipId && !jobNo) return;
   await ensureAuthReady();
   const fKey = getFactoryKey(factoryCode);
   if (!memoryWorkflowMap[fKey]) memoryWorkflowMap[fKey] = [];
 
-  // 1. Update memory
-  memoryWorkflowMap[fKey] = memoryWorkflowMap[fKey].filter(i => i.orderSlipId !== slipId);
+  const cleanSlipId = (slipId || '').trim();
+  const cleanJobNo = (jobNo || '').trim().toLowerCase();
 
-  // 2. Atomically update authoritative pipeline document in a SINGLE write
+  // 1. Collect all lot numbers associated with this slip/job to cascade-delete split lots
+  const targetLotNumbers = new Set<string>();
+  memoryWorkflowMap[fKey].forEach(i => {
+    const itSlipId = (i.orderSlipId || '').trim();
+    const itJob = (i.jobNo || '').trim().toLowerCase();
+    if ((cleanSlipId && itSlipId === cleanSlipId) || (cleanJobNo && itJob === cleanJobNo)) {
+      if (i.lotNumber) targetLotNumbers.add(i.lotNumber);
+    }
+  });
+
+  // 2. Remove matching items and any child alteration lots split from them
+  memoryWorkflowMap[fKey] = memoryWorkflowMap[fKey].filter(i => {
+    const itSlipId = (i.orderSlipId || '').trim();
+    const itJob = (i.jobNo || '').trim().toLowerCase();
+    const isDirectMatch = (cleanSlipId && itSlipId === cleanSlipId) || (cleanJobNo && itJob === cleanJobNo);
+    const splitFrom = (i as any).splitFromLotNumber;
+    const isChildOfTarget = splitFrom && targetLotNumbers.has(splitFrom);
+    return !isDirectMatch && !isChildOfTarget;
+  });
+
+  // 3. Atomically update authoritative pipeline document in a SINGLE write
   const docId = getFactoryDocId(WORKFLOW_DOC_ID, factoryCode);
   const pipelineRef = doc(db, WORKFLOW_COLLECTION, docId);
   const payload = {

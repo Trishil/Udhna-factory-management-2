@@ -1860,7 +1860,7 @@ export default function App() {
       localStorage.setItem('factory_dispatch_orders', JSON.stringify([]));
 
       // Wipe from Cloud Database (Firestore)
-      await clearAllCloudProductionOrders().catch(err => console.warn('Cloud clear error:', err));
+      await clearAllCloudProductionOrders(activeWorkspace.code).catch(err => console.warn('Cloud clear error:', err));
 
       setLastAutoEntryNotice('All production orders cleared from Cloud Database! Floor is now completely blank.');
       setTimeout(() => setLastAutoEntryNotice(null), 4000);
@@ -1877,10 +1877,24 @@ export default function App() {
     setOrderSlips(updatedSlips);
     saveStoredOrderSlips(updatedSlips);
 
-    // 2. Remove all workflow items matching this slip from state
+    // Collect all lot numbers belonging to this slip to remove any child alteration lots
+    const deletedLotNumbers = new Set<string>();
+    workflowItems.forEach(item => {
+      const itSlipId = (item.orderSlipId || '').trim();
+      const itJob = (item.jobNo || '').trim().toLowerCase();
+      if ((slipId && itSlipId === slipId) || (slipJob && itJob === slipJob)) {
+        if (item.lotNumber) deletedLotNumbers.add(item.lotNumber);
+      }
+    });
+
+    // 2. Remove all workflow items matching this slip or split from its lots from state
     const updatedItems = workflowItems.filter(item => {
-      const itSlipId = item.orderSlipId;
-      return itSlipId ? itSlipId !== slipId : (jobNo ? item.jobNo !== jobNo : true);
+      const itSlipId = (item.orderSlipId || '').trim();
+      const itJob = (item.jobNo || '').trim().toLowerCase();
+      const isDirectMatch = (slipId && itSlipId === slipId) || (slipJob && itJob === slipJob);
+      const splitFrom = (item as any).splitFromLotNumber;
+      const isChildOfDeleted = splitFrom && deletedLotNumbers.has(splitFrom);
+      return !isDirectMatch && !isChildOfDeleted;
     });
 
     setWorkflowItems(updatedItems);
@@ -1889,7 +1903,7 @@ export default function App() {
     // 3. Delete Slip & associated lots from Cloud Database atomically in a single write
     await Promise.all([
       deleteCloudOrderSlip(slipId, activeWorkspace.code),
-      deleteCloudWorkflowItemsBySlipId(slipId, activeWorkspace.code)
+      deleteCloudWorkflowItemsBySlipId(slipId, activeWorkspace.code, slipJob)
     ]).catch(() => {});
 
     setLastAutoEntryNotice(`Deleted order slip (${slipJob}) & cleaned up component lots from Cloud`);
