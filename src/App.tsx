@@ -59,7 +59,7 @@ import {
   appendOrderSlipToGoogleSheet,
   appendDispatchOrderToGoogleSheet
 } from './services/googleSheetsApi';
-import { getStoredAuthUser, saveStoredAuthUser, getStoredSheetId, setStoredSheetId, getActiveWorkspace, isPlatformOwnerTrishil } from './services/googleAuth';
+import { getStoredAuthUser, saveStoredAuthUser, getStoredSheetId, setStoredSheetId, getActiveWorkspace, isPlatformOwnerTrishil, DEFAULT_APPS_SCRIPT_URL } from './services/googleAuth';
 import { 
   fetchActiveMasterWorkspace, 
   publishActiveWorkspaceToMaster, 
@@ -86,6 +86,7 @@ import {
   subscribeToCloudFinance,
   saveCloudFinance,
   clearAllCloudFinance,
+  clearAllCloudProductionOrders,
   subscribeToCloudFactories,
   saveCloudFactory,
   fetchCloudFactories,
@@ -166,7 +167,7 @@ import { FinishTaskModal, TaskCompletionSummary, TaskDiscardOptions } from './co
 import { AlertsDrawer } from './components/AlertsDrawer';
 import { calculatePredictiveInventory } from './utils/predictiveInventory';
 import { generateUniqueMaterialId, generateUniqueBatchId } from './utils/idGenerator';
-import { CheckCircle2, FileSpreadsheet, Sparkles, ExternalLink, Trash2, Layers, Wallet, Activity, Package, ArrowDownRight, ArrowUpRight, Clock, Building2 } from 'lucide-react';
+import { CheckCircle2, FileSpreadsheet, Sparkles, ExternalLink, Trash2, Layers, Wallet, Activity, Package, ArrowDownRight, ArrowUpRight, Clock, Building2, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   // Responsive layout state (Mobile / Desktop / Auto)
@@ -551,13 +552,14 @@ export default function App() {
     }).catch(() => {});
 
     if (user.companyCode) {
-      const userFactory = factories.find(f => f.code.toUpperCase() === user.companyCode.toUpperCase()) || {
+      const userFactory: CompanyWorkspace = factories.find(f => f.code.toUpperCase() === user.companyCode.toUpperCase()) || {
         id: user.companyId || `factory_${user.companyCode.toLowerCase()}`,
         name: user.companyName || user.companyCode,
         code: user.companyCode,
         sheetId,
         scriptUrl: DEFAULT_APPS_SCRIPT_URL,
-        isPrimary: user.companyCode.toUpperCase() === 'TRISHARTH-HQ'
+        isPrimary: user.companyCode.toUpperCase() === 'TRISHARTH-HQ',
+        ownerEmail: user.email || ''
       };
       setActiveWorkspace(userFactory);
       localStorage.setItem('active_factory_workspace', JSON.stringify(userFactory));

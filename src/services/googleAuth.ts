@@ -611,16 +611,28 @@ export async function lookupCompanyByCode(code: string): Promise<CompanyWorkspac
     return TRISHARTH_WORKSPACE;
   }
 
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  const targetNorm = norm(cleanCode);
+
+  const isMatch = (w: CompanyWorkspace) => {
+    const wCode = (w.code || '').trim().toUpperCase();
+    const wId = (w.id || '').trim().toUpperCase();
+    return wCode === cleanCode || 
+           wId === cleanCode || 
+           norm(wCode) === targetNorm || 
+           norm(wId) === targetNorm;
+  };
+
   // 2. Check local stored workspaces
   const localList = getStoredWorkspaces();
-  const localFound = localList.find(w => w.code.toUpperCase() === cleanCode || w.id.toUpperCase() === cleanCode);
+  const localFound = localList.find(isMatch);
   if (localFound) return localFound;
 
   // 3. Check Cloud Firestore Registry
   try {
     const { fetchCloudFactories } = await import('./cloudDbService');
     const cloudFactories = await fetchCloudFactories();
-    const cloudFound = cloudFactories.find(w => w.code.toUpperCase() === cleanCode || w.id.toUpperCase() === cleanCode);
+    const cloudFound = cloudFactories.find(isMatch);
     if (cloudFound) {
       saveCustomWorkspace(cloudFound);
       return cloudFound;
@@ -728,6 +740,7 @@ export async function registerNewCompany(
       id: `emp-owner-${code.toLowerCase()}`,
       name: ownerName.trim() || `${companyName.trim()} Owner`,
       role: 'Managing Director / Owner',
+      department: 'Administration' as const,
       employeeId: `${code}-OWNER`,
       phone: '',
       email: ownerEmail.trim(),
@@ -736,6 +749,10 @@ export async function registerNewCompany(
       joinedDate: new Date().toISOString().split('T')[0],
       status: 'active' as const,
       salaryType: 'monthly' as const,
+      baseSalary: 0,
+      netPayable: 0,
+      paymentStatus: 'paid' as const,
+      paymentMethod: 'bank_transfer' as const,
       monthlySalary: 0,
       dailyRate: 0,
       hourlyRate: 0,

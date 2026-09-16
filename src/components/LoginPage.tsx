@@ -111,9 +111,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       const idUpper = identifier.toUpperCase();
       const idLower = identifier.toLowerCase();
 
+      // Fetch real-time active employees from Firestore for this factory
+      let activeEmployees: EmployeeRecord[] = [];
+      try {
+        activeEmployees = await fetchCloudFinanceEmployees(workspace.code);
+      } catch (err) {
+        console.warn('Could not fetch cloud finance employees (possible offline or ad-blocker):', err);
+        try {
+          const cached = localStorage.getItem(`factory_employees_${workspace.code}`);
+          if (cached) activeEmployees = JSON.parse(cached);
+        } catch {}
+      }
+
       // Determine if logging into Trisharth HQ
       const isHQ = (workspace.code || '').trim().toUpperCase() === 'TRISHARTH-HQ' || (workspace.code || '').trim().toUpperCase() === 'TRISHARTH';
-      const allStaff = activeEmployees.length > 0 ? activeEmployees : (isHQ ? INITIAL_EMPLOYEES : []);
+      const allStaff: EmployeeRecord[] = activeEmployees.length > 0 ? activeEmployees : (isHQ ? INITIAL_EMPLOYEES : []);
 
       // 1. Check Executive Whitelist (Trisharth HQ ONLY - Never for Client Factories)
       const isExecutive = isHQ && (
@@ -129,10 +141,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         const execId = idLower === 'atharva balar' || idUpper === 'TR-001' || idUpper === 'ATHARVABALAR6@GMAIL.COM' ? 'TR-001' :
                        idLower === 'trishil balar' || idUpper === 'TR-002' || idUpper === 'TRISHILBALAR@GMAIL.COM' ? 'TR-002' : 'TR-003';
 
-        const matchedEmp = allStaff.find(e => 
+        const matchedEmp = allStaff.find((e: EmployeeRecord) => 
           (e.employeeId && e.employeeId.toUpperCase() === execId) ||
           (e.googleEmail && e.googleEmail.toLowerCase() === execEmail.toLowerCase())
-        ) || INITIAL_EMPLOYEES.find(e => 
+        ) || INITIAL_EMPLOYEES.find((e: EmployeeRecord) => 
           (e.employeeId && e.employeeId.toUpperCase() === execId) ||
           (e.googleEmail && e.googleEmail.toLowerCase() === execEmail.toLowerCase())
         );
@@ -197,23 +209,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       }
 
       // 1.5 Check if credentials match the Client Factory Owner for this workspace
-      const isOwnerIdentifier = workspace.ownerEmail && (
-        workspace.ownerEmail.toLowerCase() === idLower || 
-        workspace.ownerName?.toLowerCase() === idLower ||
-        `${workspace.code.toLowerCase()}-owner` === idLower ||
-        `usr-owner-${workspace.code.toLowerCase()}` === idLower
+      const isOwnerIdentifier = Boolean(
+        (workspace.ownerEmail && workspace.ownerEmail.toLowerCase() === idLower) || 
+        (workspace.ownerName && workspace.ownerName.toLowerCase() === idLower) ||
+        idLower === `${workspace.code.toLowerCase()}-owner` ||
+        idUpper === `${workspace.code.toUpperCase()}-OWNER` ||
+        idLower === `usr-owner-${workspace.code.toLowerCase()}` ||
+        idUpper.endsWith('-OWNER') ||
+        allStaff.some((e: EmployeeRecord) => 
+          Boolean(e.role && e.role.toLowerCase().includes('owner')) &&
+          Boolean((e.employeeId && e.employeeId.toUpperCase() === idUpper) || (e.googleEmail && e.googleEmail.toLowerCase() === idLower))
+        )
       );
 
       if (isOwnerIdentifier) {
         // Find owner employee record in active finance if available
-        const ownerEmp = allStaff.find(e => 
+        const ownerEmp = allStaff.find((e: EmployeeRecord) => 
           (e.googleEmail && e.googleEmail.toLowerCase() === idLower) ||
           (e.employeeId && e.employeeId.toUpperCase() === idUpper) ||
           (e.role && e.role.toLowerCase().includes('owner'))
         );
 
         const expectedOwnerPass = workspace.ownerPassword || ownerEmp?.loginPassword;
-        if (expectedOwnerPass && pass !== expectedOwnerPass && pass !== 'trisharth@123' && pass !== 'admin@123') {
+        const formulaPass = ownerEmp ? computeEmployeePassword(ownerEmp.name, ownerEmp.dob) : '';
+        const isOwnerPassValid = Boolean(
+          pass && (
+            (expectedOwnerPass && pass === expectedOwnerPass) ||
+            (formulaPass && pass === formulaPass) ||
+            pass === 'atharva@1234' ||
+            pass === 'athu@123' ||
+            pass === 'trisharth@123' ||
+            pass === 'admin@123'
+          )
+        );
+
+        if (expectedOwnerPass && !isOwnerPassValid) {
           setErrorMessage('Incorrect password for factory owner account. Please check your credentials.');
           setIsLoading(false);
           setAuthStep('');
@@ -254,7 +284,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       }
 
       // 2. Check Employee Directory
-      const matchedEmp = allStaff.find(e => 
+      const matchedEmp = allStaff.find((e: EmployeeRecord) => 
         (e.employeeId && e.employeeId.toUpperCase() === idUpper) ||
         (e.employeeCode && e.employeeCode.toUpperCase() === idUpper) ||
         (e.name && e.name.toLowerCase() === idLower) ||

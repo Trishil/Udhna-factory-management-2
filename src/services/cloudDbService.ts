@@ -150,7 +150,7 @@ export async function saveCloudFactory(newFactory: CompanyWorkspace): Promise<Co
       employeeId: `${fCode}-OWNER`,
       name: newFactory.ownerName || 'Factory Owner',
       role: 'Factory Owner / Director',
-      department: 'Executive Management',
+      department: 'Administration',
       googleEmail: newFactory.ownerEmail || '',
       loginPassword: newFactory.ownerPassword || 'admin@123',
       salaryType: 'monthly',
@@ -158,7 +158,6 @@ export async function saveCloudFactory(newFactory: CompanyWorkspace): Promise<Co
       netPayable: 0,
       paymentStatus: 'paid',
       paymentMethod: 'bank_transfer',
-      joiningDate: new Date().toISOString().split('T')[0],
       webAccess: true,
       mobileAccess: true,
       financialAccess: true,
@@ -166,10 +165,10 @@ export async function saveCloudFactory(newFactory: CompanyWorkspace): Promise<Co
     };
 
     const initialMachines: Machine[] = [
-      { id: `M-01-${fCode}`, name: 'Machine 01', model: 'Single Head 12-Needle', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
-      { id: `M-02-${fCode}`, name: 'Machine 02', model: 'Multi-Head 15-Needle', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
-      { id: `M-03-${fCode}`, name: 'Machine 03', model: 'High Speed Embroidery', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
-      { id: `M-04-${fCode}`, name: 'Machine 04', model: 'Standard Flatbed', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+      { id: `M-01-${fCode}`, name: 'Machine 01', model: 'Single Head 12-Needle', status: 'idle', rpm: 0, maxRpm: 1200, outputCount: 0, targetCount: 100, operator: 'Unassigned', temperatureCelsius: 25, uptimeHours: 0, efficiencyPercent: 100, feedLinesCount: 12, lastMaintenance: new Date().toISOString().split('T')[0] },
+      { id: `M-02-${fCode}`, name: 'Machine 02', model: 'Multi-Head 15-Needle', status: 'idle', rpm: 0, maxRpm: 1200, outputCount: 0, targetCount: 100, operator: 'Unassigned', temperatureCelsius: 25, uptimeHours: 0, efficiencyPercent: 100, feedLinesCount: 15, lastMaintenance: new Date().toISOString().split('T')[0] },
+      { id: `M-03-${fCode}`, name: 'Machine 03', model: 'High Speed Embroidery', status: 'idle', rpm: 0, maxRpm: 1200, outputCount: 0, targetCount: 100, operator: 'Unassigned', temperatureCelsius: 25, uptimeHours: 0, efficiencyPercent: 100, feedLinesCount: 20, lastMaintenance: new Date().toISOString().split('T')[0] },
+      { id: `M-04-${fCode}`, name: 'Machine 04', model: 'Standard Flatbed', status: 'idle', rpm: 0, maxRpm: 1200, outputCount: 0, targetCount: 100, operator: 'Unassigned', temperatureCelsius: 25, uptimeHours: 0, efficiencyPercent: 100, feedLinesCount: 10, lastMaintenance: new Date().toISOString().split('T')[0] },
     ];
 
     const finDocId = getFactoryDocId(FINANCE_DOC_ID, fCode);
@@ -1143,10 +1142,10 @@ export function subscribeToCloudMachines(
         const defaultMachs: Machine[] = fKey === 'TRISHARTH-HQ'
           ? INITIAL_MACHINES
           : [
-              { id: `M-01-${fKey}`, name: 'Machine 01', model: 'Single Head 12-Needle', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
-              { id: `M-02-${fKey}`, name: 'Machine 02', model: 'Multi-Head 15-Needle', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
-              { id: `M-03-${fKey}`, name: 'Machine 03', model: 'High Speed Embroidery', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
-              { id: `M-04-${fKey}`, name: 'Machine 04', model: 'Standard Flatbed', status: 'idle', totalStitches: 0, maxRpm: 1200, rpm: 0 },
+              { id: `M-01-${fKey}`, name: 'Machine 01', model: 'Single Head 12-Needle', status: 'idle', rpm: 0, maxRpm: 1200, outputCount: 0, targetCount: 100, operator: 'Unassigned', temperatureCelsius: 25, uptimeHours: 0, efficiencyPercent: 100, feedLinesCount: 12, lastMaintenance: new Date().toISOString().split('T')[0] },
+              { id: `M-02-${fKey}`, name: 'Machine 02', model: 'Multi-Head 15-Needle', status: 'idle', rpm: 0, maxRpm: 1200, outputCount: 0, targetCount: 100, operator: 'Unassigned', temperatureCelsius: 25, uptimeHours: 0, efficiencyPercent: 100, feedLinesCount: 15, lastMaintenance: new Date().toISOString().split('T')[0] },
+              { id: `M-03-${fKey}`, name: 'Machine 03', model: 'High Speed Embroidery', status: 'idle', rpm: 0, maxRpm: 1200, outputCount: 0, targetCount: 100, operator: 'Unassigned', temperatureCelsius: 25, uptimeHours: 0, efficiencyPercent: 100, feedLinesCount: 20, lastMaintenance: new Date().toISOString().split('T')[0] },
+              { id: `M-04-${fKey}`, name: 'Machine 04', model: 'Standard Flatbed', status: 'idle', rpm: 0, maxRpm: 1200, outputCount: 0, targetCount: 100, operator: 'Unassigned', temperatureCelsius: 25, uptimeHours: 0, efficiencyPercent: 100, feedLinesCount: 10, lastMaintenance: new Date().toISOString().split('T')[0] },
             ];
 
         setDoc(docRef, {

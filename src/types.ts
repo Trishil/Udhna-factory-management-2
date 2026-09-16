@@ -211,6 +211,7 @@ export interface CompanyWorkspace {
   membersCount?: number;
   description?: string;
   createdAt?: string;
+  updatedAt?: string;
   planStatus?: 'active' | 'trial' | 'suspended';
   dataEntryPaused?: boolean;
   suspensionReason?: string;
