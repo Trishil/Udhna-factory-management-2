@@ -14,7 +14,8 @@ import {
   Package,
   ArrowRightLeft,
   Building2,
-  Crown
+  Crown,
+  User
 } from 'lucide-react';
 import { AppTab, AuthUser, CompanyWorkspace } from '../types';
 import logoImg from '../assets/logo.png';
@@ -110,13 +111,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="h-[72px] flex items-center justify-between px-4 border-b border-slate-200/90">
           {!isCollapsed ? (
             <div className="flex items-center space-x-3 overflow-hidden">
-              <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center p-1 shadow-xs shrink-0 overflow-hidden">
-                <img src={logoImg} alt="Trisharth Textile" className="h-full w-full object-contain" />
+              <div 
+                className="h-10 w-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center font-bold text-xs text-white shadow-xs shrink-0 font-mono"
+                title={currentUser?.name || 'Profile'}
+              >
+                {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : <User className="h-5 w-5 text-white" />}
               </div>
               <div className="truncate">
                 <div className="flex items-center space-x-1.5">
                   <span className="text-xs font-black tracking-tight text-slate-900 font-mono truncate">
-                    Trisharth
+                    {activeWorkspace?.name || currentUser?.companyName || 'Trisharth'}
                   </span>
                   <span className="text-[9px] text-blue-700 font-mono font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
                     ERP
@@ -129,8 +133,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <div className="mx-auto">
-              <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center p-1 shadow-xs overflow-hidden">
-                <img src={logoImg} alt="Trisharth Textile" className="h-full w-full object-contain" />
+              <div 
+                className="h-10 w-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center font-bold text-xs text-white shadow-xs shrink-0 font-mono"
+                title={currentUser?.name || 'Profile'}
+              >
+                {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : <User className="h-5 w-5 text-white" />}
               </div>
             </div>
           )}

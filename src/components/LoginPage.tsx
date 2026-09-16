@@ -48,7 +48,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [signupType, setSignupType] = useState<'register_company' | 'join_company'>('register_company');
 
   // Login form state
-  const [companyCode, setCompanyCode] = useState(() => getRememberedCompanyCode() || 'TRISHARTH-HQ');
+  const [companyCode, setCompanyCode] = useState(() => getRememberedCompanyCode() || '');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -63,7 +63,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [regSheetId, setRegSheetId] = useState('');
 
   // Join company form state
-  const [joinCompanyCode, setJoinCompanyCode] = useState(() => getRememberedCompanyCode() || 'TRISHARTH-HQ');
+  const [joinCompanyCode, setJoinCompanyCode] = useState(() => getRememberedCompanyCode() || '');
   const [joinEmployeeName, setJoinEmployeeName] = useState('');
   const [joinEmployeeEmail, setJoinEmployeeEmail] = useState('');
   const [joinJobRole, setJoinJobRole] = useState('Floor Lead');
@@ -665,8 +665,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <header className="relative z-10 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center p-1 shadow-xs shrink-0 overflow-hidden">
-              <img src={logoImg} alt="Trisharth Textile" className="h-full w-full object-contain" />
+            <div className="h-10 w-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center p-1 shadow-xs shrink-0 text-white">
+              <Building2 className="h-5 w-5 text-white" />
             </div>
             <div>
               <span className="text-lg font-black tracking-tight text-slate-900 font-mono">
@@ -785,7 +785,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       required
                       value={companyCode}
                       onChange={(e) => setCompanyCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. TRISHARTH-HQ"
+                      placeholder="Enter Company Code (e.g. ATH-01)"
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-mono font-bold uppercase text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 tracking-wide"
                     />
                   </div>
@@ -806,7 +806,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       required
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
-                      placeholder="e.g. TR-001 or ramesh@gmail.com"
+                      placeholder="e.g. EMP-001 or Employee ID"
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium"
                     />
                   </div>

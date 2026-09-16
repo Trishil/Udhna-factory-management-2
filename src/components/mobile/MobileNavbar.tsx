@@ -70,13 +70,16 @@ export const MobileNavbar: React.FC<MobileNavbarProps> = ({
         
         {/* Brand & Cloud Status */}
         <div className="flex items-center space-x-2 min-w-0">
-          <div className="h-8 w-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center p-0.5 shadow-xs shrink-0 overflow-hidden">
-            <img src={logoImg} alt="Trisharth Textile" className="h-full w-full object-contain" />
+          <div 
+            className="h-8 w-8 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center shadow-xs shrink-0 font-mono font-bold text-xs text-white"
+            title={currentUser?.name || 'Profile'}
+          >
+            {currentUser?.name ? currentUser.name.slice(0, 2).toUpperCase() : <User className="h-4 w-4 text-white" />}
           </div>
           <div className="min-w-0">
             <div className="flex items-center space-x-1.5">
               <span className="font-mono font-black text-xs text-slate-900 tracking-tight truncate">
-                Trisharth ERP
+                {currentUser?.companyName || 'Textile ERP'}
               </span>
             </div>
             <p className="text-[10px] text-slate-500 truncate font-semibold">

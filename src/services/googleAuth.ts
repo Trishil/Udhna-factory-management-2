@@ -619,9 +619,9 @@ export const REMEMBERED_COMPANY_KEY = 'texflow_remembered_company_code';
 
 export function getRememberedCompanyCode(): string {
   try {
-    return localStorage.getItem(REMEMBERED_COMPANY_KEY) || 'TRISHARTH-HQ';
+    return localStorage.getItem(REMEMBERED_COMPANY_KEY) || '';
   } catch {
-    return 'TRISHARTH-HQ';
+    return '';
   }
 }
 
