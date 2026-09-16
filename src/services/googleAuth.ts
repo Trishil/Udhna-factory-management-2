@@ -59,8 +59,15 @@ export function getStoredWorkspaces(): CompanyWorkspace[] {
     const raw = localStorage.getItem(ALL_WORKSPACES_KEY);
     if (!raw) return PRESET_WORKSPACES;
     const parsed: CompanyWorkspace[] = JSON.parse(raw);
-    const hasTrisharth = parsed.some(w => w.id === 'trisharth');
-    return hasTrisharth ? parsed : [TRISHARTH_WORKSPACE, ...parsed];
+    const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    const cleaned = parsed.map(w => {
+      if (norm(w.code) === 'ATH1' || w.code === 'ATH-001' || w.code === 'ATH001' || (w.name && w.name.toLowerCase().includes('athu'))) {
+        return { ...w, code: 'ATH-01', name: 'Atharva Textiles' };
+      }
+      return w;
+    });
+    const hasTrisharth = cleaned.some(w => w.id === 'trisharth');
+    return hasTrisharth ? cleaned : [TRISHARTH_WORKSPACE, ...cleaned];
   } catch {
     return PRESET_WORKSPACES;
   }
@@ -83,16 +90,26 @@ export function getActiveWorkspace(): CompanyWorkspace {
   try {
     const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
     if (!raw) return TRISHARTH_WORKSPACE;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    if (norm(parsed.code) === 'ATH1' || parsed.code === 'ATH-001' || parsed.code === 'ATH001' || (parsed.name && parsed.name.toLowerCase().includes('athu'))) {
+      parsed.code = 'ATH-01';
+      parsed.name = 'Atharva Textiles';
+    }
+    return parsed;
   } catch {
     return TRISHARTH_WORKSPACE;
   }
 }
 
 export function setActiveWorkspace(workspace: CompanyWorkspace) {
-  localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspace));
-  if (workspace.sheetId) {
-    setStoredSheetId(workspace.sheetId);
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  const targetWs = (norm(workspace.code) === 'ATH1' || workspace.code === 'ATH-001' || workspace.code === 'ATH001' || (workspace.name && workspace.name.toLowerCase().includes('athu')))
+    ? { ...workspace, code: 'ATH-01', name: 'Atharva Textiles' }
+    : workspace;
+  localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(targetWs));
+  if (targetWs.sheetId) {
+    setStoredSheetId(targetWs.sheetId);
   }
 }
 
@@ -109,17 +126,29 @@ export function getStoredAuthUser(): AuthUser | null {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed: AuthUser = JSON.parse(raw);
+    const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    if (parsed.companyCode && (norm(parsed.companyCode) === 'ATH1' || parsed.companyCode === 'ATH-001' || parsed.companyCode === 'ATH001' || (parsed.companyName && parsed.companyName.toLowerCase().includes('athu')))) {
+      parsed.companyCode = 'ATH-01';
+      parsed.companyName = 'Atharva Textiles';
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
 export function saveStoredAuthUser(user: AuthUser | null) {
-  if (user) {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-  } else {
+  if (!user) {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+  } else {
+    const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    const cleanUser = { ...user };
+    if (cleanUser.companyCode && (norm(cleanUser.companyCode) === 'ATH1' || cleanUser.companyCode === 'ATH-001' || cleanUser.companyCode === 'ATH001' || (cleanUser.companyName && cleanUser.companyName.toLowerCase().includes('athu')))) {
+      cleanUser.companyCode = 'ATH-01';
+      cleanUser.companyName = 'Atharva Textiles';
+    }
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(cleanUser));
   }
 }
 
@@ -629,6 +658,15 @@ export async function lookupCompanyByCode(code: string): Promise<CompanyWorkspac
     const cloudFactories = await fetchCloudFactories();
     const cloudFound = cloudFactories.find(isMatch);
     if (cloudFound) {
+      if (targetNorm === 'ATH1' || cleanCode === 'ATH-001' || cleanCode === 'ATH-01' || cleanCode === 'ATH001' || (cloudFound.name && cloudFound.name.toLowerCase().includes('athu'))) {
+        const canonical: CompanyWorkspace = {
+          ...cloudFound,
+          code: 'ATH-01',
+          name: 'Atharva Textiles'
+        };
+        saveCustomWorkspace(canonical);
+        return canonical;
+      }
       saveCustomWorkspace(cloudFound);
       return cloudFound;
     }
@@ -637,7 +675,18 @@ export async function lookupCompanyByCode(code: string): Promise<CompanyWorkspac
   // 3. Check local stored workspaces (offline fallback)
   const localList = getStoredWorkspaces();
   const localFound = localList.find(isMatch);
-  if (localFound) return localFound;
+  if (localFound) {
+    if (targetNorm === 'ATH1' || cleanCode === 'ATH-001' || cleanCode === 'ATH-01' || cleanCode === 'ATH001' || (localFound.name && localFound.name.toLowerCase().includes('athu'))) {
+      const canonical: CompanyWorkspace = {
+        ...localFound,
+        code: 'ATH-01',
+        name: 'Atharva Textiles'
+      };
+      saveCustomWorkspace(canonical);
+      return canonical;
+    }
+    return localFound;
+  }
 
   // 4. Query Master Registry Google Sheet via Apps Script Backend
   try {

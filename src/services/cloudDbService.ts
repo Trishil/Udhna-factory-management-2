@@ -59,6 +59,16 @@ export function getFactoryDocId(baseKey: string, factoryCode?: string): string {
   return `factory_${safeCode}_${baseKey}`;
 }
 
+export function mirrorAtharvaDoc(col: string, docId: string, data: any) {
+  if (docId.includes('ath_01_') || docId.includes('ath_001_')) {
+    const mirrorId = docId.includes('ath_01_')
+      ? docId.replace('ath_01_', 'ath_001_')
+      : docId.replace('ath_001_', 'ath_01_');
+    const mirrorRef = doc(db, col, mirrorId);
+    setDoc(mirrorRef, data, { merge: true }).catch(() => {});
+  }
+}
+
 export async function fetchCloudFactories(): Promise<CompanyWorkspace[]> {
   try {
     await ensureAuthReady();
@@ -466,17 +476,20 @@ export function subscribeToCloudWorkflow(
 }
 
 export async function saveCloudWorkflowItem(item: WorkflowItem, factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
-  if (!item || !item.id) return;
+  if (!item || (!item.id && !item.designNumber)) return;
   await ensureAuthReady();
   const fKey = getFactoryKey(factoryCode);
   if (!memoryWorkflowMap[fKey]) memoryWorkflowMap[fKey] = [];
 
+  const id = item.id || `wf-${Date.now()}`;
+  const itemWithId = { ...item, id };
+
   // 1. Update memory
-  const idx = memoryWorkflowMap[fKey].findIndex(i => i.id === item.id);
+  const idx = memoryWorkflowMap[fKey].findIndex(i => i.id === id);
   if (idx >= 0) {
-    memoryWorkflowMap[fKey][idx] = item;
+    memoryWorkflowMap[fKey][idx] = itemWithId;
   } else {
-    memoryWorkflowMap[fKey].unshift(item);
+    memoryWorkflowMap[fKey].unshift(itemWithId);
   }
 
   // 2. Save individual document
@@ -488,10 +501,12 @@ export async function saveCloudWorkflowItem(item: WorkflowItem, factoryCode: str
   // 3. Atomically update authoritative real-time pipeline document
   const docId = getFactoryDocId(WORKFLOW_DOC_ID, factoryCode);
   const pipelineRef = doc(db, WORKFLOW_COLLECTION, docId);
-  await setDoc(pipelineRef, {
+  const payload = {
     items: JSON.parse(JSON.stringify(memoryWorkflowMap[fKey])),
     updatedAt: new Date().toISOString()
-  }, { merge: true });
+  };
+  await setDoc(pipelineRef, payload, { merge: true });
+  mirrorAtharvaDoc(WORKFLOW_COLLECTION, docId, payload);
 }
 
 export async function saveCloudWorkflowItems(items: WorkflowItem[], factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -513,10 +528,12 @@ export async function saveCloudWorkflowItems(items: WorkflowItem[], factoryCode:
   // 2. Atomically update authoritative real-time pipeline document in a SINGLE write
   const docId = getFactoryDocId(WORKFLOW_DOC_ID, factoryCode);
   const pipelineRef = doc(db, WORKFLOW_COLLECTION, docId);
-  await setDoc(pipelineRef, {
+  const payload = {
     items: JSON.parse(JSON.stringify(memoryWorkflowMap[fKey])),
     updatedAt: new Date().toISOString()
-  }, { merge: true });
+  };
+  await setDoc(pipelineRef, payload, { merge: true });
+  mirrorAtharvaDoc(WORKFLOW_COLLECTION, docId, payload);
 }
 
 export async function deleteCloudWorkflowItem(itemId: string, factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -525,7 +542,7 @@ export async function deleteCloudWorkflowItem(itemId: string, factoryCode: strin
   const fKey = getFactoryKey(factoryCode);
   if (!memoryWorkflowMap[fKey]) memoryWorkflowMap[fKey] = [];
 
-  // 1. Update memory
+  // 1. Remove from memory
   memoryWorkflowMap[fKey] = memoryWorkflowMap[fKey].filter(i => i.id !== itemId);
 
   // 2. Delete individual document
@@ -535,10 +552,12 @@ export async function deleteCloudWorkflowItem(itemId: string, factoryCode: strin
   // 3. Atomically update authoritative pipeline document
   const docId = getFactoryDocId(WORKFLOW_DOC_ID, factoryCode);
   const pipelineRef = doc(db, WORKFLOW_COLLECTION, docId);
-  await setDoc(pipelineRef, {
+  const payload = {
     items: JSON.parse(JSON.stringify(memoryWorkflowMap[fKey])),
     updatedAt: new Date().toISOString()
-  });
+  };
+  await setDoc(pipelineRef, payload, { merge: true });
+  mirrorAtharvaDoc(WORKFLOW_COLLECTION, docId, payload);
 }
 
 export async function deleteCloudWorkflowItemsBySlipId(slipId: string, factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -553,10 +572,12 @@ export async function deleteCloudWorkflowItemsBySlipId(slipId: string, factoryCo
   // 2. Atomically update authoritative pipeline document in a SINGLE write
   const docId = getFactoryDocId(WORKFLOW_DOC_ID, factoryCode);
   const pipelineRef = doc(db, WORKFLOW_COLLECTION, docId);
-  await setDoc(pipelineRef, {
+  const payload = {
     items: JSON.parse(JSON.stringify(memoryWorkflowMap[fKey])),
     updatedAt: new Date().toISOString()
-  });
+  };
+  await setDoc(pipelineRef, payload);
+  mirrorAtharvaDoc(WORKFLOW_COLLECTION, docId, payload);
 }
 
 export async function replaceCloudWorkflowItemsForSlip(slipId: string, newItems: WorkflowItem[], factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -579,10 +600,12 @@ export async function replaceCloudWorkflowItemsForSlip(slipId: string, newItems:
   // 3. Atomically update authoritative pipeline document in a SINGLE write
   const docId = getFactoryDocId(WORKFLOW_DOC_ID, factoryCode);
   const pipelineRef = doc(db, WORKFLOW_COLLECTION, docId);
-  await setDoc(pipelineRef, {
+  const payload = {
     items: JSON.parse(JSON.stringify(memoryWorkflowMap[fKey])),
     updatedAt: new Date().toISOString()
-  });
+  };
+  await setDoc(pipelineRef, payload);
+  mirrorAtharvaDoc(WORKFLOW_COLLECTION, docId, payload);
 }
 
 // ================= 2. MASTER ORDER SLIPS =================
@@ -669,10 +692,12 @@ export async function saveCloudOrderSlip(slip: OrderSlip, factoryCode: string = 
   // 3. Atomically update authoritative slips document
   const docId = getFactoryDocId(ORDER_SLIPS_DOC_ID, factoryCode);
   const slipsRef = doc(db, ORDER_SLIPS_COLLECTION, docId);
-  await setDoc(slipsRef, {
+  const payload = {
     slips: JSON.parse(JSON.stringify(memorySlipsMap[fKey])),
     updatedAt: new Date().toISOString()
-  }, { merge: true });
+  };
+  await setDoc(slipsRef, payload, { merge: true });
+  mirrorAtharvaDoc(ORDER_SLIPS_COLLECTION, docId, payload);
 }
 
 export async function deleteCloudOrderSlip(slipId: string, factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -691,10 +716,12 @@ export async function deleteCloudOrderSlip(slipId: string, factoryCode: string =
   // 3. Atomically update authoritative slips document
   const docId = getFactoryDocId(ORDER_SLIPS_DOC_ID, factoryCode);
   const slipsRef = doc(db, ORDER_SLIPS_COLLECTION, docId);
-  await setDoc(slipsRef, {
+  const payload = {
     slips: JSON.parse(JSON.stringify(memorySlipsMap[fKey])),
     updatedAt: new Date().toISOString()
-  });
+  };
+  await setDoc(slipsRef, payload);
+  mirrorAtharvaDoc(ORDER_SLIPS_COLLECTION, docId, payload);
 }
 
 // ================= 3. INVENTORY & MATERIALS =================
@@ -775,10 +802,12 @@ export async function saveCloudMaterial(material: RawMaterial, factoryCode: stri
 
   const docId = getFactoryDocId(INVENTORY_DOC_ID, factoryCode);
   const invRef = doc(db, INVENTORY_COLLECTION, docId);
-  await setDoc(invRef, {
+  const payload = {
     materials: JSON.parse(JSON.stringify(memoryMaterialsMap[fKey])),
     updatedAt: new Date().toISOString()
-  }, { merge: true });
+  };
+  await setDoc(invRef, payload, { merge: true });
+  mirrorAtharvaDoc(INVENTORY_COLLECTION, docId, payload);
 }
 
 export async function deleteCloudMaterial(materialId: string, factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -793,10 +822,12 @@ export async function deleteCloudMaterial(materialId: string, factoryCode: strin
 
   const docId = getFactoryDocId(INVENTORY_DOC_ID, factoryCode);
   const invRef = doc(db, INVENTORY_COLLECTION, docId);
-  await setDoc(invRef, {
+  const payload = {
     materials: JSON.parse(JSON.stringify(memoryMaterialsMap[fKey])),
     updatedAt: new Date().toISOString()
-  });
+  };
+  await setDoc(invRef, payload);
+  mirrorAtharvaDoc(INVENTORY_COLLECTION, docId, payload);
 }
 
 export async function saveCloudMaterials(materials: RawMaterial[], factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -806,10 +837,12 @@ export async function saveCloudMaterials(materials: RawMaterial[], factoryCode: 
   memoryMaterialsMap[fKey] = materials;
   const docId = getFactoryDocId(INVENTORY_DOC_ID, factoryCode);
   const invRef = doc(db, INVENTORY_COLLECTION, docId);
-  await setDoc(invRef, {
+  const payload = {
     materials: JSON.parse(JSON.stringify(materials)),
     updatedAt: new Date().toISOString()
-  }, { merge: true });
+  };
+  await setDoc(invRef, payload, { merge: true });
+  mirrorAtharvaDoc(INVENTORY_COLLECTION, docId, payload);
 }
 
 // ================= 4. DISPATCH ORDERS =================
@@ -878,10 +911,12 @@ export async function saveCloudDispatchOrder(order: DispatchOrder, factoryCode: 
 
   const docId = getFactoryDocId(DISPATCH_DOC_ID, factoryCode);
   const dspRef = doc(db, DISPATCH_COLLECTION, docId);
-  await setDoc(dspRef, {
+  const payload = {
     orders: JSON.parse(JSON.stringify(memoryDispatchesMap[fKey])),
     updatedAt: new Date().toISOString()
-  }, { merge: true });
+  };
+  await setDoc(dspRef, payload, { merge: true });
+  mirrorAtharvaDoc(DISPATCH_COLLECTION, docId, payload);
 }
 
 export async function deleteCloudDispatchOrder(orderId: string, factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -896,10 +931,12 @@ export async function deleteCloudDispatchOrder(orderId: string, factoryCode: str
 
   const docId = getFactoryDocId(DISPATCH_DOC_ID, factoryCode);
   const dspRef = doc(db, DISPATCH_COLLECTION, docId);
-  await setDoc(dspRef, {
+  const payload = {
     orders: JSON.parse(JSON.stringify(memoryDispatchesMap[fKey])),
     updatedAt: new Date().toISOString()
-  });
+  };
+  await setDoc(dspRef, payload);
+  mirrorAtharvaDoc(DISPATCH_COLLECTION, docId, payload);
 }
 
 export async function saveCloudDispatchOrders(orders: DispatchOrder[], factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
@@ -909,10 +946,12 @@ export async function saveCloudDispatchOrders(orders: DispatchOrder[], factoryCo
   memoryDispatchesMap[fKey] = orders;
   const docId = getFactoryDocId(DISPATCH_DOC_ID, factoryCode);
   const dspRef = doc(db, DISPATCH_COLLECTION, docId);
-  await setDoc(dspRef, {
+  const payload = {
     orders: JSON.parse(JSON.stringify(orders)),
     updatedAt: new Date().toISOString()
-  }, { merge: true });
+  };
+  await setDoc(dspRef, payload, { merge: true });
+  mirrorAtharvaDoc(DISPATCH_COLLECTION, docId, payload);
 }
 
 // ================= 5. FINANCE & ACCOUNTS =================
@@ -924,8 +963,10 @@ export function subscribeToCloudFinance(
 ) {
   let unsubListener: (() => void) | null = null;
   let isCancelled = false;
-  const fKey = getFactoryKey(factoryCode);
-  const docId = getFactoryDocId(FINANCE_DOC_ID, factoryCode);
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  const targetCode = (norm(factoryCode) === 'ATH1' || factoryCode === 'ATH-001' || factoryCode === 'ATH001') ? 'ATH-01' : factoryCode;
+  const fKey = getFactoryKey(targetCode);
+  const docId = getFactoryDocId(FINANCE_DOC_ID, targetCode);
 
   if (!memoryFinanceMap[fKey]) {
     memoryFinanceMap[fKey] = getInitialFinanceData();
@@ -941,9 +982,25 @@ export function subscribeToCloudFinance(
         if (snapshot.exists()) {
           const data = snapshot.data() as any;
           if (data) {
+            let emps = Array.isArray(data.employees) ? data.employees.map(normalizeEmployeeRecord) : [];
+            // If Atharva has 0 employees in this document, check mirror before accepting 0
+            if (emps.length === 0 && (docId.includes('ath_01_') || docId.includes('ath_001_'))) {
+              const mirrorId = docId.includes('ath_01_') ? docId.replace('ath_01_', 'ath_001_') : docId.replace('ath_001_', 'ath_01_');
+              getDoc(doc(db, FINANCE_COLLECTION, mirrorId)).then(mSnap => {
+                if (mSnap.exists()) {
+                  const mData = mSnap.data();
+                  if (Array.isArray(mData?.employees) && mData.employees.length > 0) {
+                    const recoveredEmps = mData.employees.map(normalizeEmployeeRecord);
+                    onUpdate({ employees: recoveredEmps });
+                    setDoc(docRef, { employees: recoveredEmps, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+                  }
+                }
+              }).catch(() => {});
+            }
+
             const currentFin = memoryFinanceMap[fKey] || getInitialFinanceData();
-            if (Array.isArray(data.employees)) {
-              currentFin.employees = data.employees.map(normalizeEmployeeRecord);
+            if (Array.isArray(data.employees) && emps.length > 0) {
+              currentFin.employees = emps;
             }
             if (Array.isArray(data.electricityRecords)) currentFin.electricityRecords = data.electricityRecords;
             if (Array.isArray(data.expenses)) currentFin.expenses = data.expenses;
@@ -953,7 +1010,7 @@ export function subscribeToCloudFinance(
             memoryFinanceMap[fKey] = currentFin;
 
             onUpdate({
-              employees: Array.isArray(data.employees) ? data.employees.map(normalizeEmployeeRecord) : [],
+              employees: emps,
               electricityRecords: Array.isArray(data.electricityRecords) ? data.electricityRecords : [],
               expenses: Array.isArray(data.expenses) ? data.expenses : [],
               partyInvoices: Array.isArray(data.partyInvoices) ? data.partyInvoices : [],
@@ -962,7 +1019,33 @@ export function subscribeToCloudFinance(
             });
           }
         } else {
-          // If active_finance is not yet in Firestore, seed it and notify with empty state
+          // If active_finance is not yet in Firestore, check mirror doc first
+          if (docId.includes('ath_01_') || docId.includes('ath_001_')) {
+            const mirrorId = docId.includes('ath_01_') ? docId.replace('ath_01_', 'ath_001_') : docId.replace('ath_001_', 'ath_01_');
+            getDoc(doc(db, FINANCE_COLLECTION, mirrorId)).then(mSnap => {
+              if (mSnap.exists()) {
+                const mData = mSnap.data() as any;
+                if (mData && Array.isArray(mData.employees) && mData.employees.length > 0) {
+                  setDoc(docRef, { ...mData, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+                  onUpdate(mData);
+                  return;
+                }
+              }
+              const emptyFin: CloudFinanceData = {
+                employees: [],
+                electricityRecords: [],
+                expenses: [],
+                partyInvoices: [],
+                supplierPayables: [],
+                transactions: [],
+              };
+              setDoc(docRef, { ...emptyFin, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+              memoryFinanceMap[fKey] = emptyFin;
+              onUpdate(emptyFin);
+            }).catch(() => {});
+            return;
+          }
+
           const emptyFin: CloudFinanceData = {
             employees: [],
             electricityRecords: [],
@@ -995,14 +1078,16 @@ export function subscribeToCloudFinance(
 
 export async function saveCloudFinance(data: Partial<CloudFinanceData>, factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
   await ensureAuthReady();
-  const fKey = getFactoryKey(factoryCode);
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  const targetCode = (norm(factoryCode) === 'ATH1' || factoryCode === 'ATH-001' || factoryCode === 'ATH001') ? 'ATH-01' : factoryCode;
+  const fKey = getFactoryKey(targetCode);
   if (!memoryFinanceMap[fKey]) memoryFinanceMap[fKey] = getInitialFinanceData();
 
   memoryFinanceMap[fKey] = {
     ...memoryFinanceMap[fKey],
     ...data
   };
-  const docId = getFactoryDocId(FINANCE_DOC_ID, factoryCode);
+  const docId = getFactoryDocId(FINANCE_DOC_ID, targetCode);
   const finRef = doc(db, FINANCE_COLLECTION, docId);
   const cleanData: any = {
     updatedAt: new Date().toISOString()
@@ -1015,49 +1100,65 @@ export async function saveCloudFinance(data: Partial<CloudFinanceData>, factoryC
   if (data.transactions !== undefined) cleanData.transactions = JSON.parse(JSON.stringify(data.transactions));
 
   await setDoc(finRef, cleanData, { merge: true });
+  mirrorAtharvaDoc(FINANCE_COLLECTION, docId, cleanData);
 }
 
 export async function clearAllCloudFinance(factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
   await ensureAuthReady();
-  const fKey = getFactoryKey(factoryCode);
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  const targetCode = (norm(factoryCode) === 'ATH1' || factoryCode === 'ATH-001' || factoryCode === 'ATH001') ? 'ATH-01' : factoryCode;
+  const fKey = getFactoryKey(targetCode);
   memoryFinanceMap[fKey] = getInitialFinanceData();
-  const docId = getFactoryDocId(FINANCE_DOC_ID, factoryCode);
+  const docId = getFactoryDocId(FINANCE_DOC_ID, targetCode);
   const finRef = doc(db, FINANCE_COLLECTION, docId);
-  await setDoc(finRef, {
+  const payload = {
     ...memoryFinanceMap[fKey],
     updatedAt: new Date().toISOString()
-  });
+  };
+  await setDoc(finRef, payload);
+  mirrorAtharvaDoc(FINANCE_COLLECTION, docId, payload);
 }
 
 // ================= 6. RESET / CLEAR ORDERS =================
 
 export async function clearAllCloudProductionOrders(factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
   await ensureAuthReady();
-  const fKey = getFactoryKey(factoryCode);
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  const targetCode = (norm(factoryCode) === 'ATH1' || factoryCode === 'ATH-001' || factoryCode === 'ATH001') ? 'ATH-01' : factoryCode;
+  const fKey = getFactoryKey(targetCode);
 
   memoryWorkflowMap[fKey] = [];
   memorySlipsMap[fKey] = [];
   memoryDispatchesMap[fKey] = [];
 
-  const wfDocId = getFactoryDocId(WORKFLOW_DOC_ID, factoryCode);
-  const slipsDocId = getFactoryDocId(ORDER_SLIPS_DOC_ID, factoryCode);
-  const dspDocId = getFactoryDocId(DISPATCH_DOC_ID, factoryCode);
+  const wfDocId = getFactoryDocId(WORKFLOW_DOC_ID, targetCode);
+  const slipsDocId = getFactoryDocId(ORDER_SLIPS_DOC_ID, targetCode);
+  const dspDocId = getFactoryDocId(DISPATCH_DOC_ID, targetCode);
 
   const wfRef = doc(db, WORKFLOW_COLLECTION, wfDocId);
   const slipsRef = doc(db, ORDER_SLIPS_COLLECTION, slipsDocId);
   const dspRef = doc(db, DISPATCH_COLLECTION, dspDocId);
 
+  const wfPayload = { items: [], updatedAt: new Date().toISOString() };
+  const slipsPayload = { slips: [], updatedAt: new Date().toISOString() };
+  const dspPayload = { orders: [], updatedAt: new Date().toISOString() };
+
   await Promise.all([
-    setDoc(wfRef, { items: [], updatedAt: new Date().toISOString() }),
-    setDoc(slipsRef, { slips: [], updatedAt: new Date().toISOString() }),
-    setDoc(dspRef, { orders: [], updatedAt: new Date().toISOString() })
+    setDoc(wfRef, wfPayload),
+    setDoc(slipsRef, slipsPayload),
+    setDoc(dspRef, dspPayload)
   ]);
+  mirrorAtharvaDoc(WORKFLOW_COLLECTION, wfDocId, wfPayload);
+  mirrorAtharvaDoc(ORDER_SLIPS_COLLECTION, slipsDocId, slipsPayload);
+  mirrorAtharvaDoc(DISPATCH_COLLECTION, dspDocId, dspPayload);
 }
 
 export async function fetchCloudFinanceEmployees(factoryCode: string = DEFAULT_FACTORY_CODE): Promise<EmployeeRecord[]> {
   try {
     await ensureAuthReady();
-    const docId = getFactoryDocId(FINANCE_DOC_ID, factoryCode);
+    const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    const targetCode = (norm(factoryCode) === 'ATH1' || factoryCode === 'ATH-001' || factoryCode === 'ATH001') ? 'ATH-01' : factoryCode;
+    const docId = getFactoryDocId(FINANCE_DOC_ID, targetCode);
     const finRef = doc(db, FINANCE_COLLECTION, docId);
     const snap = await getDoc(finRef);
     if (snap.exists()) {
@@ -1066,11 +1167,25 @@ export async function fetchCloudFinanceEmployees(factoryCode: string = DEFAULT_F
         return data.employees;
       }
     }
+    // Check mirror document for Atharva
+    if (docId.includes('ath_01_') || docId.includes('ath_001_')) {
+      const mirrorId = docId.includes('ath_01_') ? docId.replace('ath_01_', 'ath_001_') : docId.replace('ath_001_', 'ath_01_');
+      const mSnap = await getDoc(doc(db, FINANCE_COLLECTION, mirrorId));
+      if (mSnap.exists()) {
+        const mData = mSnap.data();
+        if (Array.isArray(mData?.employees) && mData.employees.length > 0) {
+          return mData.employees;
+        }
+      }
+    }
   } catch (e) {
     console.warn(`Failed to fetch finance employees for ${factoryCode} from Firestore:`, e);
   }
   try {
-    const saved = localStorage.getItem('factory_employees');
+    const fKey = getFactoryKey(factoryCode);
+    const saved = localStorage.getItem(`factory_employees_${fKey}`) || 
+                  (fKey === 'ATH-01' ? localStorage.getItem('factory_employees_ATH-001') : null) ||
+                  (fKey === 'TRISHARTH-HQ' ? localStorage.getItem('factory_employees') : null);
     if (saved) return JSON.parse(saved);
   } catch {}
   return [];
@@ -1182,13 +1297,17 @@ export function subscribeToCloudMachines(
 export async function saveCloudMachines(machines: Machine[], factoryCode: string = DEFAULT_FACTORY_CODE): Promise<void> {
   if (!Array.isArray(machines)) return;
   await ensureAuthReady();
-  const fKey = getFactoryKey(factoryCode);
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  const targetCode = (norm(factoryCode) === 'ATH1' || factoryCode === 'ATH-001' || factoryCode === 'ATH001') ? 'ATH-01' : factoryCode;
+  const fKey = getFactoryKey(targetCode);
   memoryMachinesMap[fKey] = machines;
-  const docId = getFactoryDocId(MACHINES_DOC_ID, factoryCode);
+  const docId = getFactoryDocId(MACHINES_DOC_ID, targetCode);
   const docRef = doc(db, ORDER_SLIPS_COLLECTION, docId);
-  await setDoc(docRef, {
+  const payload = {
     machines: JSON.parse(JSON.stringify(machines)),
     updatedAt: new Date().toISOString()
-  }, { merge: true });
+  };
+  await setDoc(docRef, payload, { merge: true });
+  mirrorAtharvaDoc(ORDER_SLIPS_COLLECTION, docId, payload);
 }
 

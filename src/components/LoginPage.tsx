@@ -250,18 +250,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           return;
         }
 
+        const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+        const isAtharva = (norm(workspace.code) === 'ATH1' || workspace.code === 'ATH-001' || workspace.code === 'ATH-01' || (workspace.name && workspace.name.toLowerCase().includes('athu')));
+        const cCode = isAtharva ? 'ATH-01' : workspace.code;
+        const cName = isAtharva ? 'Atharva Textiles' : workspace.name;
+
         const clientOwnerUser: AuthUser = {
-          id: `usr-owner-${workspace.code}`,
-          employeeId: `${workspace.code}-OWNER`,
+          id: `usr-owner-${cCode}`,
+          employeeId: `${cCode}-OWNER`,
           email: workspace.ownerEmail,
-          name: workspace.ownerName || `${workspace.name} Owner`,
+          name: workspace.ownerName || `${cName} Owner`,
           role: 'owner',
           isSuperAdmin: false,
           companyId: workspace.id,
-          companyName: workspace.name,
-          companyCode: workspace.code,
+          companyName: cName,
+          companyCode: cCode,
           sheetAccessGranted: true,
-          sheetTitle: `${workspace.name} Operations Sheet`,
+          sheetTitle: `${cName} Operations Sheet`,
           authMethod: 'credentials',
           loginTimestamp: new Date().toISOString(),
           webAccess: true,
@@ -273,7 +278,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           email: clientOwnerUser.email,
           name: clientOwnerUser.name,
           role: 'Client Factory Owner',
-          companyCode: workspace.code
+          companyCode: cCode
         }).catch(() => {});
 
         setAuthStep(`Verified Factory Owner (${clientOwnerUser.name})! Launching workspace...`);
@@ -323,19 +328,24 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         return;
       }
 
+      const normStr = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+      const isAtharvaEmp = (normStr(workspace.code) === 'ATH1' || workspace.code === 'ATH-001' || workspace.code === 'ATH-01' || (workspace.name && workspace.name.toLowerCase().includes('athu')));
+      const empCode = isAtharvaEmp ? 'ATH-01' : workspace.code;
+      const empCompName = isAtharvaEmp ? 'Atharva Textiles' : workspace.name;
+
       // Create Authenticated Session
       const authUser: AuthUser = {
         id: matchedEmp.id,
         employeeId: matchedEmp.employeeId,
-        email: matchedEmp.googleEmail || `${matchedEmp.name.toLowerCase().replace(/\s+/g, '.')}@${workspace.code.toLowerCase()}.internal`,
+        email: matchedEmp.googleEmail || `${matchedEmp.name.toLowerCase().replace(/\s+/g, '.')}@${empCode.toLowerCase()}.internal`,
         name: matchedEmp.name,
         role: (matchedEmp.role && (matchedEmp.role.toLowerCase().includes('director') || matchedEmp.role.toLowerCase().includes('owner'))) ? 'owner' : 'editor',
         isSuperAdmin: false,
         companyId: workspace.id,
-        companyName: workspace.name,
-        companyCode: workspace.code,
+        companyName: empCompName,
+        companyCode: empCode,
         sheetAccessGranted: true,
-        sheetTitle: `${workspace.name} Operations Sheet`,
+        sheetTitle: `${empCompName} Operations Sheet`,
         authMethod: 'credentials',
         loginTimestamp: new Date().toISOString(),
         webAccess: true,

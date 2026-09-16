@@ -184,16 +184,26 @@ export default function App() {
       if (saved) {
         const parsed: CompanyWorkspace = JSON.parse(saved);
         const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
-        if (norm(parsed.code) === 'ATH1' || parsed.code === 'ATH-001' || parsed.code === 'ATH001') {
+        if (norm(parsed.code) === 'ATH1' || parsed.code === 'ATH-001' || parsed.code === 'ATH001' || (parsed.name && parsed.name.toLowerCase().includes('athu'))) {
           parsed.code = 'ATH-01';
-          if (parsed.name?.toLowerCase().includes('athu')) parsed.name = 'Atharva Textiles';
+          parsed.name = 'Atharva Textiles';
+          localStorage.setItem('active_factory_workspace', JSON.stringify(parsed));
         }
         return parsed;
       }
     } catch {}
     return TRISHARTH_WORKSPACE;
   });
-  const [factories, setFactories] = useState<CompanyWorkspace[]>(() => getStoredWorkspaces());
+  const [factories, setFactories] = useState<CompanyWorkspace[]>(() => {
+    const list = getStoredWorkspaces();
+    const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    return list.map(f => {
+      if (norm(f.code) === 'ATH1' || f.code === 'ATH-001' || f.code === 'ATH001' || (f.name && f.name.toLowerCase().includes('athu'))) {
+        return { ...f, code: 'ATH-01', name: 'Atharva Textiles' };
+      }
+      return f;
+    });
+  });
   const [isFactorySwitcherOpen, setIsFactorySwitcherOpen] = useState<boolean>(false);
   const isDataEntryPaused = Boolean(activeWorkspace?.dataEntryPaused || activeWorkspace?.planStatus === 'suspended');
 
@@ -239,8 +249,12 @@ export default function App() {
 
   // Finance State with Persistence
   const [employees, setEmployees] = useState<EmployeeRecord[]>(() => {
-    const wsCode = activeWorkspace?.code || 'TRISHARTH-HQ';
-    const saved = localStorage.getItem(`factory_employees_${wsCode}`) || localStorage.getItem('factory_employees');
+    const rawWs = activeWorkspace?.code || 'TRISHARTH-HQ';
+    const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    const wsCode = (norm(rawWs) === 'ATH1' || rawWs === 'ATH-001' || rawWs === 'ATH001') ? 'ATH-01' : rawWs;
+    const saved = localStorage.getItem(`factory_employees_${wsCode}`) || 
+                  (wsCode === 'ATH-01' ? localStorage.getItem('factory_employees_ATH-001') : null) || 
+                  (wsCode === 'TRISHARTH-HQ' ? localStorage.getItem('factory_employees') : null);
     const parsed = saved ? JSON.parse(saved) : (wsCode === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
     return Array.isArray(parsed) ? parsed.map(normalizeEmployeeRecord) : [];
   });
@@ -365,7 +379,12 @@ export default function App() {
     setMachines(memoryMachinesMap[currentCode] || (isHQ ? INITIAL_MACHINES : []));
 
     const fin = memoryFinanceMap[currentCode];
-    setEmployees((fin?.employees || (isHQ ? INITIAL_EMPLOYEES : [])).map(normalizeEmployeeRecord));
+    const initialFinEmps = (fin?.employees && fin.employees.length > 0)
+      ? fin.employees
+      : (currentCode === 'ATH-01' ? (memoryFinanceMap['ATH-001']?.employees || []) : []);
+    if (initialFinEmps.length > 0 || isHQ) {
+      setEmployees((initialFinEmps.length > 0 ? initialFinEmps : INITIAL_EMPLOYEES).map(normalizeEmployeeRecord));
+    }
     setElectricityRecords(fin?.electricityRecords || []);
     setExpenses(fin?.expenses || []);
     setPartyInvoices(fin?.partyInvoices || []);
@@ -455,11 +474,16 @@ export default function App() {
     const unsubscribeFinance = subscribeToCloudFinance((cloudFin) => {
       if (Array.isArray(cloudFin.employees)) {
         const rawEmps = cloudFin.employees.length > 0 ? cloudFin.employees : (currentCode === 'TRISHARTH-HQ' ? INITIAL_EMPLOYEES : []);
-        const emps = rawEmps.map(normalizeEmployeeRecord);
-        setEmployees(emps);
-        localStorage.setItem(`factory_employees_${currentCode}`, JSON.stringify(emps));
-        if (cloudFin.employees.length === 0 && currentCode === 'TRISHARTH-HQ') {
-          saveCloudFinance({ employees: INITIAL_EMPLOYEES }, currentCode).catch(() => {});
+        if (rawEmps.length > 0 || cloudFin.employees.length > 0) {
+          const emps = rawEmps.map(normalizeEmployeeRecord);
+          setEmployees(emps);
+          localStorage.setItem(`factory_employees_${currentCode}`, JSON.stringify(emps));
+          if (currentCode === 'ATH-01') {
+            localStorage.setItem('factory_employees_ATH-001', JSON.stringify(emps));
+          }
+          if (cloudFin.employees.length === 0 && currentCode === 'TRISHARTH-HQ') {
+            saveCloudFinance({ employees: INITIAL_EMPLOYEES }, currentCode).catch(() => {});
+          }
         }
       }
       if (Array.isArray(cloudFin.electricityRecords)) {
@@ -576,17 +600,26 @@ export default function App() {
     if (user.companyCode) {
       const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
       const uNorm = norm(user.companyCode);
-      const userFactory: CompanyWorkspace = factories.find(f => 
-        f.code.toUpperCase() === user.companyCode.toUpperCase() ||
+      const isAth = uNorm === 'ATH1' || user.companyCode === 'ATH-001' || user.companyCode === 'ATH001' || user.companyCode === 'ATH-01';
+      const canonicalCode = isAth ? 'ATH-01' : user.companyCode;
+      const canonicalName = isAth ? 'Atharva Textiles' : (user.companyName || user.companyCode);
+
+      const foundFactory = factories.find(f => 
+        f.code.toUpperCase() === canonicalCode.toUpperCase() ||
         norm(f.code) === uNorm ||
         norm(f.id) === uNorm
-      ) || {
-        id: user.companyId || `factory_${user.companyCode.toLowerCase()}`,
-        name: (uNorm === 'ATH1' ? 'Atharva Textiles' : (user.companyName || user.companyCode)),
-        code: (uNorm === 'ATH1' ? 'ATH-01' : user.companyCode),
+      );
+      const userFactory: CompanyWorkspace = foundFactory ? {
+        ...foundFactory,
+        code: isAth ? 'ATH-01' : foundFactory.code,
+        name: isAth ? 'Atharva Textiles' : foundFactory.name
+      } : {
+        id: user.companyId || `factory_${canonicalCode.toLowerCase()}`,
+        name: canonicalName,
+        code: canonicalCode,
         sheetId,
         scriptUrl: DEFAULT_APPS_SCRIPT_URL,
-        isPrimary: user.companyCode.toUpperCase() === 'TRISHARTH-HQ',
+        isPrimary: canonicalCode.toUpperCase() === 'TRISHARTH-HQ',
         ownerEmail: user.email || ''
       };
       setActiveWorkspace(userFactory);
@@ -618,9 +651,17 @@ export default function App() {
   };
 
   const handleSwitchWorkspace = (ws: CompanyWorkspace) => {
-    setActiveWorkspace(ws);
-    localStorage.setItem('active_factory_workspace', JSON.stringify(ws));
-    setLastAutoEntryNotice(`Switched to Factory: ${ws.name} (${ws.code})`);
+    const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    const uNorm = norm(ws.code);
+    const isAth = uNorm === 'ATH1' || ws.code === 'ATH-001' || ws.code === 'ATH001' || ws.code === 'ATH-01';
+    const targetWs: CompanyWorkspace = isAth ? {
+      ...ws,
+      code: 'ATH-01',
+      name: 'Atharva Textiles'
+    } : ws;
+    setActiveWorkspace(targetWs);
+    localStorage.setItem('active_factory_workspace', JSON.stringify(targetWs));
+    setLastAutoEntryNotice(`Switched to Factory: ${targetWs.name} (${targetWs.code})`);
     setTimeout(() => setLastAutoEntryNotice(null), 4000);
   };
 
@@ -1956,6 +1997,10 @@ export default function App() {
     const updatedEmployees = [...employees, newRecord];
     setEmployees(updatedEmployees);
     localStorage.setItem(`factory_employees_${activeWorkspace.code}`, JSON.stringify(updatedEmployees));
+    if (activeWorkspace.code === 'ATH-01' || activeWorkspace.code === 'ATH-001') {
+      localStorage.setItem('factory_employees_ATH-01', JSON.stringify(updatedEmployees));
+      localStorage.setItem('factory_employees_ATH-001', JSON.stringify(updatedEmployees));
+    }
     saveCloudFinance({ employees: updatedEmployees }, activeWorkspace.code).catch(e => console.warn('Cloud employee add error:', e));
 
     setLastAutoEntryNotice(`Added staff member ${newRecord.name} (${assignedId})`);
@@ -1973,6 +2018,10 @@ export default function App() {
     const updatedEmployees = employees.map(e => e.id === updatedEmp.id ? normalized : e);
     setEmployees(updatedEmployees);
     localStorage.setItem(`factory_employees_${activeWorkspace.code}`, JSON.stringify(updatedEmployees));
+    if (activeWorkspace.code === 'ATH-01' || activeWorkspace.code === 'ATH-001') {
+      localStorage.setItem('factory_employees_ATH-01', JSON.stringify(updatedEmployees));
+      localStorage.setItem('factory_employees_ATH-001', JSON.stringify(updatedEmployees));
+    }
     saveCloudFinance({ employees: updatedEmployees }, activeWorkspace.code).catch(e => console.warn('Cloud employee update error:', e));
 
     setLastAutoEntryNotice(`Updated staff member ${updatedEmp.name} (${updatedEmp.employeeId})`);
@@ -2322,6 +2371,10 @@ export default function App() {
     const updated = employees.filter(e => e.id !== employeeId);
     setEmployees(updated);
     localStorage.setItem(`factory_employees_${activeWorkspace.code}`, JSON.stringify(updated));
+    if (activeWorkspace.code === 'ATH-01' || activeWorkspace.code === 'ATH-001') {
+      localStorage.setItem('factory_employees_ATH-01', JSON.stringify(updated));
+      localStorage.setItem('factory_employees_ATH-001', JSON.stringify(updated));
+    }
     saveCloudFinance({ employees: updated }, activeWorkspace.code).catch(e => console.warn('Cloud employee delete error:', e));
 
     if (target) {
