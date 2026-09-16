@@ -623,12 +623,7 @@ export async function lookupCompanyByCode(code: string): Promise<CompanyWorkspac
            norm(wId) === targetNorm;
   };
 
-  // 2. Check local stored workspaces
-  const localList = getStoredWorkspaces();
-  const localFound = localList.find(isMatch);
-  if (localFound) return localFound;
-
-  // 3. Check Cloud Firestore Registry
+  // 2. Check Cloud Firestore Registry FIRST (authoritative cloud source)
   try {
     const { fetchCloudFactories } = await import('./cloudDbService');
     const cloudFactories = await fetchCloudFactories();
@@ -638,6 +633,11 @@ export async function lookupCompanyByCode(code: string): Promise<CompanyWorkspac
       return cloudFound;
     }
   } catch {}
+
+  // 3. Check local stored workspaces (offline fallback)
+  const localList = getStoredWorkspaces();
+  const localFound = localList.find(isMatch);
+  if (localFound) return localFound;
 
   // 4. Query Master Registry Google Sheet via Apps Script Backend
   try {

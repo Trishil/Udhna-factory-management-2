@@ -181,7 +181,15 @@ export default function App() {
   const [activeWorkspace, setActiveWorkspace] = useState<CompanyWorkspace>(() => {
     try {
       const saved = localStorage.getItem('active_factory_workspace');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: CompanyWorkspace = JSON.parse(saved);
+        const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+        if (norm(parsed.code) === 'ATH1' || parsed.code === 'ATH-001' || parsed.code === 'ATH001') {
+          parsed.code = 'ATH-01';
+          if (parsed.name?.toLowerCase().includes('athu')) parsed.name = 'Atharva Textiles';
+        }
+        return parsed;
+      }
     } catch {}
     return TRISHARTH_WORKSPACE;
   });
@@ -289,6 +297,7 @@ export default function App() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [lowStockFilterActive, setLowStockFilterActive] = useState(false);
   const [lastAutoEntryNotice, setLastAutoEntryNotice] = useState<string | null>(null);
+  const [isAdblockerBlocked, setIsAdblockerBlocked] = useState(false);
 
   // Modals state
   const [isAddMachineOpen, setIsAddMachineOpen] = useState(false);
@@ -343,7 +352,8 @@ export default function App() {
 
     // 1. Pure Real-Time Cloud Database Synchronizers (Firebase Firestore)
     // Instant sub-second reflection across all computers & devices with factory isolation
-    const currentCode = activeWorkspace.code;
+    const normCode = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+    const currentCode = (normCode(activeWorkspace.code) === 'ATH1' || activeWorkspace.code === 'ATH-001' || activeWorkspace.code === 'ATH001') ? 'ATH-01' : activeWorkspace.code;
     const isHQ = currentCode.toUpperCase() === 'TRISHARTH-HQ';
 
     // 0. Instantly clear & reset local state to this factory's memory cache or clean empty state
@@ -368,9 +378,17 @@ export default function App() {
       }
     });
 
+    const handleSyncError = (err: any) => {
+      const errStr = String(err?.message || err?.code || err || '').toLowerCase();
+      if (errStr.includes('blocked') || errStr.includes('client') || errStr.includes('unavailable') || errStr.includes('offline') || errStr.includes('permission-denied')) {
+        setIsAdblockerBlocked(true);
+      }
+    };
+
     let isEnrichingPhotos = false;
     const unsubscribeDesigns = subscribeToCloudWorkflow((cloudItems) => {
       if (Array.isArray(cloudItems)) {
+        setIsAdblockerBlocked(false);
         setWorkflowItems(cloudItems);
         saveStoredWorkflowItems(cloudItems);
 
@@ -400,35 +418,39 @@ export default function App() {
             });
         }
       }
-    }, undefined, currentCode);
+    }, handleSyncError, currentCode);
 
     const unsubscribeSlips = subscribeToCloudOrderSlips((cloudSlips) => {
       if (Array.isArray(cloudSlips)) {
+        setIsAdblockerBlocked(false);
         setOrderSlips(cloudSlips);
         saveStoredOrderSlips(cloudSlips);
       }
-    }, undefined, currentCode);
+    }, handleSyncError, currentCode);
 
     const unsubscribeMaterials = subscribeToCloudInventory((cloudMats) => {
       if (Array.isArray(cloudMats)) {
+        setIsAdblockerBlocked(false);
         setMaterials(cloudMats);
         localStorage.setItem(`factory_materials_${currentCode}`, JSON.stringify(cloudMats));
       }
-    }, undefined, currentCode);
+    }, handleSyncError, currentCode);
 
     const unsubscribeDispatches = subscribeToCloudDispatch((cloudDispatches) => {
       if (Array.isArray(cloudDispatches)) {
+        setIsAdblockerBlocked(false);
         setDispatchOrders(cloudDispatches);
         localStorage.setItem(`factory_dispatch_orders_${currentCode}`, JSON.stringify(cloudDispatches));
       }
-    }, undefined, currentCode);
+    }, handleSyncError, currentCode);
 
     const unsubscribeMachines = subscribeToCloudMachines((cloudMachs) => {
       if (Array.isArray(cloudMachs)) {
+        setIsAdblockerBlocked(false);
         setMachines(cloudMachs);
         localStorage.setItem(`factory_machines_${currentCode}`, JSON.stringify(cloudMachs));
       }
-    }, undefined, currentCode);
+    }, handleSyncError, currentCode);
 
     const unsubscribeFinance = subscribeToCloudFinance((cloudFin) => {
       if (Array.isArray(cloudFin.employees)) {
@@ -552,10 +574,16 @@ export default function App() {
     }).catch(() => {});
 
     if (user.companyCode) {
-      const userFactory: CompanyWorkspace = factories.find(f => f.code.toUpperCase() === user.companyCode.toUpperCase()) || {
+      const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+      const uNorm = norm(user.companyCode);
+      const userFactory: CompanyWorkspace = factories.find(f => 
+        f.code.toUpperCase() === user.companyCode.toUpperCase() ||
+        norm(f.code) === uNorm ||
+        norm(f.id) === uNorm
+      ) || {
         id: user.companyId || `factory_${user.companyCode.toLowerCase()}`,
-        name: user.companyName || user.companyCode,
-        code: user.companyCode,
+        name: (uNorm === 'ATH1' ? 'Atharva Textiles' : (user.companyName || user.companyCode)),
+        code: (uNorm === 'ATH1' ? 'ATH-01' : user.companyCode),
         sheetId,
         scriptUrl: DEFAULT_APPS_SCRIPT_URL,
         isPrimary: user.companyCode.toUpperCase() === 'TRISHARTH-HQ',
@@ -3038,6 +3066,14 @@ export default function App() {
           )}
 
           <main className="flex-1 w-full px-3 py-3.5 space-y-4">
+            {isAdblockerBlocked && (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-start space-x-2 text-xs">
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="flex-1 text-[11px] text-amber-800">
+                  <strong>Sync Paused:</strong> Browser shield is blocking Firestore. Allow <code className="font-mono">firestore.googleapis.com</code> to see live data.
+                </div>
+              </div>
+            )}
             {activeMainTab === 'workflow' && (
               <MobileWorkflowView
                 items={workflowItems}
@@ -3184,6 +3220,23 @@ export default function App() {
 
         {/* Main Content Area */}
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        {isAdblockerBlocked && (
+          <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex items-start space-x-3 shadow-xs animate-in fade-in">
+            <div className="p-1.5 bg-amber-100 rounded-lg text-amber-700 shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="flex-1 text-xs">
+              <h4 className="font-bold text-amber-900 text-sm">Real-Time Database Sync Paused by Browser Shield</h4>
+              <p className="text-amber-800 mt-1">
+                Your browser or an ad-blocker extension (e.g. Brave Shields, uBlock Origin) is blocking network requests to <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[11px] text-amber-900">firestore.googleapis.com</code>.
+              </p>
+              <p className="text-amber-700 mt-1 font-medium">
+                To sync live orders and lot data across devices, please click your browser shield/ad-blocker icon and select <strong>"Disable Shields on this site"</strong> or allow Google Firestore.
+              </p>
+            </div>
+          </div>
+        )}
 
         {activeMainTab === 'workflow' && (
           /* 10-Stage Fabric Design Workflow Pipeline */

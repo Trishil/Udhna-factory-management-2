@@ -46,9 +46,14 @@ export const FACTORIES_REGISTRY_DOC_ID = 'active_factories';
 export const DEFAULT_FACTORY_CODE = 'TRISHARTH-HQ';
 
 export function getFactoryDocId(baseKey: string, factoryCode?: string): string {
-  const clean = (factoryCode || '').trim().toUpperCase();
+  let clean = (factoryCode || '').trim().toUpperCase();
   if (!clean || clean === 'TRISHARTH-HQ' || clean === 'TRISHARTH' || clean === 'DEFAULT') {
     return baseKey;
+  }
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  const targetNorm = norm(clean);
+  if (targetNorm === 'ATH1' || clean === 'ATH-001' || clean === 'ATH001' || clean === 'ATH-01' || clean === 'ATH01') {
+    clean = 'ATH-01';
   }
   const safeCode = clean.toLowerCase().replace(/[^a-z0-9]/g, '_');
   return `factory_${safeCode}_${baseKey}`;
@@ -351,7 +356,12 @@ export const memoryFinanceMap: Record<string, CloudFinanceData> = {};
 export const memoryMachinesMap: Record<string, Machine[]> = {};
 
 function getFactoryKey(code?: string): string {
-  return (code || DEFAULT_FACTORY_CODE).trim().toUpperCase();
+  let clean = (code || DEFAULT_FACTORY_CODE).trim().toUpperCase();
+  const norm = (c: string) => (c || '').replace(/[^A-Z0-9]/g, '').replace(/0+([0-9]+)/, '$1');
+  if (norm(clean) === 'ATH1' || clean === 'ATH-001' || clean === 'ATH001' || clean === 'ATH-01') {
+    return 'ATH-01';
+  }
+  return clean;
 }
 
 function getInitialFinanceData(): CloudFinanceData {
